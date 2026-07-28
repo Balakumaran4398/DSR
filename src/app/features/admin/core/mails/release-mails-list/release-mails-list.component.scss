@@ -1,0 +1,9 @@
+
+.bg-active { background-color: var(--text-active) !important; }
+.text-active { color: var(--text-active) !important; }
+.border-active { border-color: var(--text-active) !important; }
+
+.focus\:outline-none:focus {
+    outline: 0px solid transparent;
+    outline-offset: 2px;
+}

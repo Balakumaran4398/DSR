@@ -1,0 +1,55 @@
+.settings-panel {
+    padding: 1.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    color: var(--text-main);
+
+}
+
+.theme-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    /* 3 columns */
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.theme-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px;
+    border: 2px solid transparent;
+    background: var(--bg-active);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.theme-btn.active {
+    border-color: var(--brand-color);
+    background: rgba(var(--brand-color), 0.1);
+}
+
+.color-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.toggle-switch {
+    /* Simple CSS toggle styling needed here */
+    width: 44px;
+    height: 24px;
+    background: #ccc;
+    border-radius: 12px;
+    position: relative;
+    border: none;
+}
+
+.toggle-switch.active {
+    background: var(--brand-color);
+}

@@ -1,0 +1,59 @@
+.custom-scrollbar::-webkit-scrollbar {
+    height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.release-date-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.12rem 0.42rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.05);
+}
+
+.release-date-badge i {
+    font-size: 20px;
+    color: red;
+}
+
+// .release-date-badge--overdue {
+//     color: #ffffff;
+//     border-color: #dc2626;
+//     background: #dc2626;
+//     box-shadow: 0 4px 12px rgba(220, 38, 38, 0.18);
+// }
+
+.release-type-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: white;
+   
+    &:hover {
+      border-color: #cbd5e1;
+      background-color: #f8fafc;
+    }
+   
+    &:focus {
+      border-color: var(--text-active);
+      box-shadow: 0 0 0 3px rgba(79, 46, 229, 0.1);
+    }
+}

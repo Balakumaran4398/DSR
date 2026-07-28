@@ -1,0 +1,61 @@
+<div class="w-full animate-fade-in mx-auto bg-gray-50 min-h-screen p-4">
+
+  <div class="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex items-center gap-3">
+      <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
+          flex items-center justify-center text-white shadow-sm shrink-0">
+        <i class="ri-calendar-check-line text-xl"></i>
+      </div>
+      <div>
+        <h1 class="text-lg sm:text-xl font-bold text-slate-900">
+          Attendance
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-500">
+          Manage Employee Attendance Records
+        </p>
+      </div>
+
+    </div>
+    <button class="inline-flex items-center justify-center w-full sm:w-auto px-4 py-1 text-sm font-medium rounded-lg shadow-sm text-white
+      bg-[var(--text-active)] hover:opacity-90 hover:shadow-md active:scale-95 transition-all" (click)="addDoc()">
+      <i class="ri-add-line mr-2 text-lg"></i> Load Attendance
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-6">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between flex-wrap">
+      <!-- Employee Search -->
+      <div class="w-full sm:w-72">
+        <mat-form-field appearance="outline" class="w-full">
+          <input type="text" matInput placeholder="Select employee" [formControl]="employeeControl"
+            [matAutocomplete]="auto">
+          <button *ngIf="employeeControl.value" mat-icon-button matSuffix type="button" (click)="clearEmployee()">
+            <mat-icon>close</mat-icon>
+          </button>
+          <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayEmployee">
+            <mat-option (onSelectionChange)="onEmployeeSelect($event, emp)" *ngFor="let emp of filteredOptions | async"
+              [value]="emp">{{ emp.employee_name }}
+            </mat-option>
+          </mat-autocomplete>
+        </mat-form-field>
+      </div>
+      <div class="flex justify-center gap-3">
+        <app-date-range-filter (rangeChange)="onRangeChange($event)">
+        </app-date-range-filter>
+        <!-- <button title="PDF Download" class="cursor-pointer transition-all duration-200 rounded" >
+          <i class="ri-file-pdf-2-fill !text-2xl"></i></button> -->
+        <button title="PDF Download" class="p-2 rounded-lg transition-all duration-200"
+          (click)="generateAttendancePdf()">
+          <i class="ri-file-pdf-2-fill text-2xl text-red-600"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="overflow-auto">
+      <div #tableDiv></div>
+    </div>
+  </div>
+
+</div>

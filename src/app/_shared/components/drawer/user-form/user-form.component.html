@@ -1,0 +1,380 @@
+<div class="min-h-screen bg-slate-50  px-2 sm:px-3 lg:px-4">
+    <!-- Changed max-width to 600px -->
+    <div class="mx-auto">
+
+        <mat-card class=" overflow-hidden">
+            <!-- Changed layout to flex-col (stacked) for narrower width -->
+            <div class="flex flex-col">
+
+                <!-- Header Section (Top) -->
+                <div class="w-full bg-slate-50/80 p-8 border-b border-slate-200">
+                    <div class="mb-6">
+                        <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+                            <mat-icon class="!w-8 !h-8 !text-3xl">account_circle</mat-icon>
+                            <span class="text-sm font-bold uppercase tracking-wider">{{ isEditMode ? "Update" : 'New' }}
+                                Profile</span>
+                        </div>
+                        <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">
+                            {{ isEditMode ? "Update" : 'Create' }} Employee
+                            Account</h1>
+                        <p class="mt-4 text-slate-500 leading-relaxed text-sm">
+                            Complete the form to register a {{ isEditMode ? "update" : 'new' }} user. Fields marked with
+                            <span class="text-red-500">*</span> are mandatory.
+                        </p>
+                    </div>
+
+                    <!-- Profile Upload Centered -->
+                    <div class="flex flex-col items-center sm:items-start">
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Profile
+                            Photo</label>
+
+                        <div class="relative group cursor-pointer">
+                            <div
+                                class="w-40 h-40 rounded-full overflow-hidden bg-white elevation-z2 ring-1 ring-slate-200 group-hover:ring-indigo-500 transition-all duration-300 relative shadow-md">
+                                <img *ngIf="previewUrl" [src]="previewUrl" class="w-full h-full object-cover">
+                                <div *ngIf="!previewUrl"
+                                    class="w-full h-full flex flex-col items-center justify-center bg-white text-slate-300">
+                                    <mat-icon
+                                        class="!w-10 !h-10 !text-4xl !leading-none text-slate-200">cloud_upload</mat-icon>
+                                    <span class="text-[10px] font-medium text-slate-400 mt-1">Upload</span>
+                                </div>
+                            </div>
+
+                            <!-- Edit FAB -->
+                            <button mat-mini-fab color="primary"
+                                class="!absolute -bottom-1 -right-1 !z-10 group-hover:scale-110 transition-transform">
+                                <mat-icon>edit</mat-icon>
+                            </button>
+
+                            <input type="file" (change)="onFileChange($event)" accept="image/*"
+                                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
+                        </div>
+                    </div>
+                </div>
+                <!-- Main Form Section -->
+                <div class="w-full bg-white">
+                    <form [formGroup]="userForm" (ngSubmit)="onSubmit()" class="p-8 flex flex-col gap-8">
+                        <!-- Section 1: Personal Details -->
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                                <mat-icon class="text-indigo-500">person_outline</mat-icon> Personal Details
+                            </h2>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">First Name <span
+                                            class="text-red-500">*</span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <input matInput formControlName="firstname" placeholder="Ex. John">
+                                        <mat-error *ngIf="isFieldInvalid('firstname')">Required</mat-error>
+                                    </mat-form-field>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Last Name <span
+                                            class="text-red-500">*</span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <input matInput formControlName="lastname" placeholder="Ex. Doe">
+                                        <mat-error *ngIf="isFieldInvalid('lastname')">Required</mat-error>
+                                    </mat-form-field>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Gender</label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <mat-select formControlName="gender" placeholder="Select">
+                                            <mat-option value="Male">Male</mat-option>
+                                            <mat-option value="Female">Female</mat-option>
+                                            <mat-option value="Other">Other</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Date of Birth <span
+                                            class="text-red-500">*</span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <input matInput [matDatepicker]="picker" formControlName="date_of_birth"
+                                            placeholder="MM/DD/YYYY">
+                                        <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+                                        <mat-datepicker #picker></mat-datepicker>
+                                    </mat-form-field>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Blood Group</label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <mat-select formControlName="blood_group" placeholder="Select">
+                                            <mat-option *ngFor="let bg of bloodGroups" [value]="bg">{{bg}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Marital
+                                        Status</label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <mat-select formControlName="marital_status" placeholder="Select">
+                                            <mat-option value="Single">Single</mat-option>
+                                            <mat-option value="Married">Married</mat-option>
+                                            <mat-option value="Divorced">Divorced</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                </div>
+                            </div>
+                        </div>
+
+                        <mat-divider></mat-divider>
+
+                        <!-- Section 2: Contact & Login -->
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                                <mat-icon class="text-indigo-500">contact_mail</mat-icon> Contact & Login
+                            </h2>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                                <div class="sm:col-span-2">
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Official Email <span
+                                            class="text-red-500">*</span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <input matInput type="email" formControlName="email"
+                                            placeholder="user@company.com">
+                                        <mat-icon matSuffix>email</mat-icon>
+                                        <mat-error *ngIf="rf.email?.errors?.['required']">Required</mat-error>
+                                        <mat-error *ngIf="rf.email?.errors?.['email']">Invalid email</mat-error>
+                                    </mat-form-field>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Password <span
+                                            class="text-red-500">*</span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <input matInput [type]="hidePassword ? 'password' : 'text'"
+                                            formControlName="password" placeholder="••••••">
+                                        <button type="button" mat-icon-button matSuffix
+                                            (click)="hidePassword = !hidePassword" [attr.aria-label]="'Hide password'"
+                                            [attr.aria-pressed]="hidePassword">
+                                            <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
+                                        </button>
+                                        <mat-error *ngIf="isFieldInvalid('password')">Min 6 chars</mat-error>
+                                    </mat-form-field>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Mobile Number <span
+                                            class="text-red-500">*</span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <input matInput type="tel" formControlName="mobile" placeholder="555-0123"
+                                            maxlength="10">
+                                        <mat-icon matSuffix>phone</mat-icon>
+                                        <mat-error *ngIf="isFieldInvalid('mobile')">Required</mat-error>
+                                    </mat-form-field>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Alternate
+                                        Email</label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <input matInput type="email" formControlName="alternate_email"
+                                            placeholder="alt@example.com">
+                                    </mat-form-field>
+                                </div>
+                            </div>
+                        </div>
+
+                        <mat-divider></mat-divider>
+
+                        <!-- Section 3: Employment Details -->
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                                <mat-icon class="text-indigo-500">work_outline</mat-icon> Employment Details
+                            </h2>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                                <div *ngIf="canManageSystemRole">
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">System Role <span
+                                            class="text-red-500">*</span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <mat-select formControlName="role" placeholder="Select Role">
+                                            <mat-option *ngFor="let role of roles"
+                                                [value]="role.value">{{role.name}}</mat-option>
+                                        </mat-select>
+                                        <mat-error *ngIf="isFieldInvalid('role')">Required</mat-error>
+                                    </mat-form-field>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Department <span
+                                            class="text-red-500">*</span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <mat-select formControlName="deptid" placeholder="Select Department"
+                                            (selectionChange)="getDesignationByDepartment($event)">
+                                            <mat-option *ngFor="let dept of departments"
+                                                [value]="dept.id">{{dept.department_name}}</mat-option>
+                                        </mat-select>
+                                        <mat-error *ngIf="isFieldInvalid('deptid')">Required</mat-error>
+                                    </mat-form-field>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Position <span
+                                            class="text-red-500">*</span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <mat-select formControlName="positionid" placeholder="Select Position">
+                                            <mat-option *ngFor="let pos of positions"
+                                                [value]="pos.id">{{pos.position}}</mat-option>
+                                        </mat-select>
+                                        <mat-error *ngIf="isFieldInvalid('positionid')">Required</mat-error>
+                                    </mat-form-field>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Shift <span
+                                            class="text-red-500">*</span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <mat-select formControlName="shiftid" placeholder="Select Shift">
+                                            <mat-option *ngFor="let shift of shifts"
+                                                [value]="shift.id">{{shift.shift_type}}</mat-option>
+                                        </mat-select>
+                                        <mat-error *ngIf="isFieldInvalid('shiftid')">Required</mat-error>
+                                    </mat-form-field>
+                                </div>
+
+
+
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Biometric ID <span
+                                            class="text-red-500">*</span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <input matInput formControlName="attendanceid" placeholder="ID Number">
+                                        <mat-icon matSuffix>fingerprint</mat-icon>
+                                        <mat-error *ngIf="isFieldInvalid('attendanceid')">Required</mat-error>
+                                    </mat-form-field>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Joining Date <span
+                                            class="text-red-500">*</span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <input matInput [matDatepicker]="joiningPicker" formControlName="joining_date"
+                                            placeholder="MM/DD/YYYY">
+                                        <mat-datepicker-toggle matIconSuffix
+                                            [for]="joiningPicker"></mat-datepicker-toggle>
+                                        <mat-datepicker #joiningPicker></mat-datepicker>
+                                        <mat-error *ngIf="isFieldInvalid('joining_date')">Required</mat-error>
+                                    </mat-form-field>
+                                </div>
+                                <!-- <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Reference ID <span
+                                            class="text-red-500"></span></label>
+                                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                        <input matInput formControlName="reference_no"
+                                            placeholder="Reference ID Number">
+                                        <mat-icon matSuffix>confirmation_number</mat-icon>
+                                        <mat-error *ngIf="isFieldInvalid('reference_no')">Required</mat-error>
+                                    </mat-form-field>
+                                </div> -->
+                            </div>
+                        </div>
+
+                        <mat-divider *ngIf="isEditMode"></mat-divider>
+
+                        <!-- Section 4: Read-only Skills -->
+                        <div *ngIf="isEditMode">
+                            <div
+                                class="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-cyan-50/60 p-5 shadow-sm">
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <h2 class="mt-1 text-xl font-black tracking-tight text-slate-900">
+                                            Skills & Experience
+                                        </h2>
+                                    </div>
+
+                                </div>
+
+                                <ng-container *ngIf="skillDetails.length; else noReadonlySkills">
+                                    <div class="mt-5 grid grid-cols-1 gap-3">
+                                        <article *ngFor="let skill of skillDetails; trackBy: trackBySkill"
+                                            class="group overflow-hidden rounded-2xl border border-white bg-white/90 p-4 shadow-[0_14px_34px_rgba(15,23,42,0.08)] ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.12)]">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="flex min-w-0 items-start gap-3">
+                                                    <div
+                                                        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--text-active)] text-white shadow-lg shadow-cyan-900/10">
+                                                        <i class="text-xl" [ngClass]="skill.icon"></i>
+                                                    </div>
+                                                    <div class="min-w-0">
+                                                        <h3 class="truncate text-base font-extrabold text-slate-900">
+                                                            {{ skill.name }}
+                                                        </h3>
+                                                        <p
+                                                            class="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                                                            {{ skill.category }}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <span
+                                                    class="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-extrabold text-slate-700">
+                                                    {{ skill.experience }}
+                                                </span>
+                                            </div>
+
+                                            <!-- <div class="mt-4">
+                                                <div class="mb-2 flex items-center justify-between text-xs font-bold text-slate-500">
+                                                    <span>Skill strength</span>
+                                                    <span>{{ skill.level }}%</span>
+                                                </div>
+                                                <div class="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                                                    <span class="block h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-600"
+                                                        [style.width.%]="clampSkillLevel(skill.level)"></span>
+                                                </div>
+                                            </div> -->
+                                        </article>
+                                    </div>
+                                </ng-container>
+
+                                <ng-template #noReadonlySkills>
+                                    <div
+                                        class="mt-5 rounded-2xl border border-dashed border-slate-300 bg-white/70 px-5 py-7 text-center">
+                                        <div
+                                            class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                                            <i class="ri-lightbulb-flash-line text-2xl"></i>
+                                        </div>
+                                        <h3 class="mt-3 text-base font-extrabold text-slate-900">No skills added yet
+                                        </h3>
+                                        <p class="mt-1 text-sm text-slate-500">
+                                            Skill details will appear here after they are added to this member.
+                                        </p>
+                                    </div>
+                                </ng-template>
+                            </div>
+                        </div>
+
+                        <!-- Section 4: Settings -->
+                        <div class="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                            <h4 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Account
+                                Privileges</h4>
+                            <div class="flex flex-col sm:flex-row gap-8">
+                                <mat-checkbox formControlName="wfh" color="primary">Enable Remote Work
+                                    (WFH)</mat-checkbox>
+                                <mat-checkbox formControlName="isactive" color="primary">Active Account</mat-checkbox>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-3 pt-4">
+                            <!-- Reset Button -->
+                            <button type="button" (click)="resetForm()"
+                                class="h-8 px-4 text-sm font-medium text-red-600 bg-red-50 rounded hover:bg-red-100 transition">
+                                Reset
+                            </button>
+
+                            <!-- Save Button -->
+                            <button type="submit" [disabled]="userForm.invalid"
+                                class="h-8 px-6 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition">
+                                Save
+                            </button>
+                        </div>
+
+
+
+
+                    </form>
+                </div>
+            </div>
+        </mat-card>
+    </div>
+</div>

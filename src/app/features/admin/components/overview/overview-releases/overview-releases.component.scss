@@ -1,0 +1,123 @@
+:host {
+    display: block;
+}
+
+.overview-release-page {
+    height: 100%;
+}
+.release_table{
+    height: 40pc;
+    overflow: scroll
+}
+
+// .overview-kanban-column {
+//     min-height: 520px;
+// }
+
+@media (max-width: 639px) {
+    .example-form {
+        width: 100%;
+    }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.pdf-enabled {
+    background-color: #fff;
+    border-color: #e2e8f0;
+    color: var(--text-active);
+    cursor: pointer;
+}
+
+.pdf-disabled {
+    background-color: #fff;
+    border-color: #e2e8f0;
+    color: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.excel-enabled {
+    background-color: #fff;
+    border-color: #e2e8f0;
+    color: #15803d;
+    cursor: pointer;
+}
+
+.release-date-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.12rem 0.42rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.05);
+}
+
+.release-date-badge i {
+    font-size: 20px;
+    color: red;
+}
+
+.release-date-pill {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.375rem;
+    border: 1px solid transparent;
+    font-family: monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1rem;
+}
+
+.release-date-pill--danger {
+    color: var(--danger);
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.release-date-pill--warning {
+    color: var(--warning);
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.release-date-pill--high-warning {
+    color: #ea580c;
+    background: #fff7ed;
+    border-color: #fed7aa;
+}
+
+.release-date-pill--info {
+    color: var(--info);
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+// .release-date-badge--overdue {
+//     color: #ffffff;
+//     border-color: #dc2626;
+//     background: #dc2626;
+//     box-shadow: 0 4px 12px rgba(220, 38, 38, 0.18);
+// }

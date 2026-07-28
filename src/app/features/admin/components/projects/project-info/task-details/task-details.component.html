@@ -1,0 +1,415 @@
+<div class="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900"
+    style="font-family: 'Inter', sans-serif;">
+
+    <!-- Mobile Overlay -->
+    <div *ngIf="isSidebarOpen" class="fixed inset-0 bg-black/30 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+        (click)="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside
+        class="fixed lg:relative z-50 w-96 top-0 h-full bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 ease-in-out shadow-xl lg:shadow-none"
+        [class.translate-x-0]="isSidebarOpen" [class.-translate-x-full]="!isSidebarOpen && !isDesktop()"
+        [class.lg:translate-x-0]="true">
+        <!-- Sidebar Header -->
+        <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+            <h2 class="font-bold text-xl text-slate-800 tracking-tight">Tasks</h2>
+            <button class="lg:hidden p-2 text-slate-500 hover:text-slate-800" (click)="toggleSidebar()">
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="p-4 bg-slate-50/50 border-b border-slate-100 shrink-0 relative z-20">
+            <app-date-range-filter
+                [initialStartDate]="fromdate"
+                [initialEndDate]="todate"
+                navigationStep="week"
+                (rangeChange)="onRangeChange($event)"></app-date-range-filter>
+            <label class="block text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Phase Filter</label>
+            <div class="relative">
+                <mat-form-field appearance="outline" class="w-full no-floating-label" subscriptSizing="dynamic">
+                    <mat-select placeholder="Select Phase" (openedChange)="onPhaseSelectOpened($event)">
+                        <div class="sticky top-0 z-10 bg-white px-2 py-2 border-b border-slate-100">
+                            <input type="text"
+                                class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:border-[var(--text-active)]"
+                                placeholder="Search..." (keyup)="filterPhases($event)"
+                                (keydown)="$event.stopPropagation()">
+                        </div>
+                        <mat-option (onSelectionChange)="getTasksByProjectIdNdEmployeeId(0)" value="0">All
+                            Phases</mat-option>
+                        <mat-option (onSelectionChange)="getTasksByProjectIdNdEmployeeId(phase.id)"
+                            *ngFor="let phase of filteredPhasesList" [value]="phase.id">{{ phase.phase_title
+                            }}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+        </div>
+
+        <!-- Task List -->
+        <div class="overflow-y-auto flex-1 p-3 space-y-3 focus:outline-none" tabindex="0"
+            (keydown)="onListKeydown($event)">
+            <div *ngFor="let task of taskList; let i = index" #taskItem tabindex="-1"
+                class="group relative bg-white border rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-md focus:outline-none scroll-m-4"
+                [class.border-active]="selectedTask?.id === task.id" [class.ring-1]="selectedTask?.id === task.id"
+                [class.ring-active]="selectedTask?.id === task.id"
+                [class.border-slate-200]="selectedTask?.id !== task.id" (click)="selectTask(task)">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-sm font-mono text-slate-500 font-medium">{{ task.taskcode }}</span>
+                    <span
+                        class="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide border whitespace-nowrap"
+                        [ngClass]="getStatusColor(task.status)">
+                        {{ task.status }}
+                    </span>
+                </div>
+
+                <h4 class="font-semibold text-slate-800 text-base mb-1 leading-snug transition-colors line-clamp-2"
+                    [class.text-active]="selectedTask?.id === task.id">
+                    {{ task.task }}
+                </h4>
+                <p class="text-slate-600 text-m line-clamp-2 mb-3 leading-relaxed" *ngIf="task.description">{{
+                    task.description }}</p>
+
+                <div class="flex items-center justify-between text-sm text-slate-500 pt-3 border-t border-slate-50">
+                    <span class="flex items-center gap-1 font-medium">
+                        <span class="w-2 h-2 rounded-full" [ngClass]="getPriorityColor(task.priority)"></span>
+                        {{ task.priority }} Priority
+                    </span>
+                    <span class="flex items-center gap-1 font-medium">
+                        <mat-icon class="text-base !h-4 w-4 leading-4">person</mat-icon>
+                        {{ task.assigned_to_name }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col min-w-0 bg-white relative">
+
+        <!-- Navbar -->
+        <header
+            class="h-16 border-b border-slate-200 bg-white flex items-center px-4 justify-between shrink-0 sticky top-0 z-30">
+            <div class="flex items-center gap-4">
+                <button class="p-2 rounded-md hover:bg-slate-100 text-slate-600 transition-colors lg:hidden"
+                    (click)="toggleSidebar()">
+                    <mat-icon>menu</mat-icon>
+                </button>
+                <div class="flex flex-col">
+                    <!-- <span class="text-sm text-slate-500 font-semibold uppercase tracking-wider">Project</span> -->
+                    <h3 class="font-bold text-slate-800 truncate max-w-[200px] sm:max-w-md text-lg">{{
+                        selectedTask?.project_title }}</h3>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <!-- <button mat-stroked-button color="primary" class="hidden sm:flex items-center">
+                    <mat-icon class="mr-1">add</mat-icon>
+                    Create Task
+                </button> -->
+                <!-- <div
+                    class="h-9 w-9 rounded-full bg-active text-white flex items-center justify-center font-bold text-base shadow-md ring-2 ring-white ml-2">
+                    {{ getInitials(selectedTask?.assigned_to_name || 'User') }}
+                </div> -->
+            </div>
+        </header>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto bg-slate-50/30">
+            <div class=" mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+                <!-- Detail Card (Header Summary) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-6 sm:p-8">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+                            <div class="space-y-3 flex-1">
+                                <div class="flex items-center gap-3 text-base text-slate-600 font-medium flex-wrap">
+                                    <span
+                                      class="flex items-center gap-1.5 bg-slate-100 px-3 h-8 rounded text-slate-700 border border-slate-200 text-[14px] font-semibold">
+                                      <mat-icon class="text-base !h-4 w-4 leading-4">event</mat-icon>
+                                      End: {{ selectedTask?.end_date }}</span>
+                                    <span
+                                      [ngClass]="getStatusColor(selectedTask?.status || '')"
+                                      class="flex items-center px-3 h-8 rounded font-bold text-xs uppercase tracking-wide border">
+                                      {{ selectedTask?.status }}</span>
+                                    <span
+                                      class="flex items-center px-3 h-8 bg-slate-100 rounded text-xs font-bold uppercase tracking-wide border border-slate-200 text-slate-600 text-[14px]">
+                                      {{ selectedTask?.task_type?.replace('_', ' ') }}</span>
+                                  </div>
+                                <h1 class="text-lg sm:text-3xl md:text-[21px] font-bold text-slate-900 leading-tight tracking-tight"
+                                    spellcheck="false">
+                                    {{ selectedTask?.task }}
+                                </h1>
+                                <div class="flex items-center gap-4 text-base text-slate-600 pt-1 font-medium">
+                                    <span
+                                        class="flex items-center gap-1.5 hover:text-active cursor-pointer transition-colors text-[14px] font-semibold">
+                                        <mat-icon class="text-base !h-4 w-4 leading-4">person</mat-icon>
+                                        {{ selectedTask?.assigned_to_name }}
+                                    </span>
+                                   
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-2 self-start">
+                                <button
+                                    class="p-2 text-slate-400 hover:bg-slate-50 hover:text-active rounded-lg transition-colors">
+                                    <mat-icon>share</mat-icon>
+                                </button>
+                                <button
+                                    class="p-2 text-slate-400 hover:bg-slate-50 hover:text-red-500 rounded-lg transition-colors">
+                                    <mat-icon>delete</mat-icon>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Custom Accordion (Replacing Material Expansion) -->
+                        <div class="space-y-4">
+                            <!-- Description Panel -->
+                            <div class="border border-slate-200 rounded-xl overflow-hidden"
+                                *ngIf="selectedTask?.description">
+                                <button
+                                    class="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors text-left focus:outline-none group"
+                                    (click)="togglePanel('description')">
+                                    <span
+                                        class="font-bold text-slate-800 text-base uppercase tracking-wide group-hover:text-active transition-colors">Description</span>
+                                    <mat-icon
+                                        class="text-slate-500 transition-transform duration-200 group-hover:text-active"
+                                        [class.rotate-180]="panels.description">expand_more</mat-icon>
+                                </button>
+                                <div *ngIf="panels.description"
+                                    class="p-5 bg-white border-t border-slate-200 animate-slide-down text-base text-slate-700 leading-relaxed font-normal whitespace-pre-wrap">
+                                    {{ selectedTask?.description }}
+                                </div>
+                            </div>
+
+                            <!-- Task Info Panel (Form inside) -->
+                            <div class="border border-slate-200 rounded-xl overflow-hidden">
+                                <div
+                                    class="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors border-b border-slate-100">
+                                    <button class="flex-1 flex items-center text-left focus:outline-none group"
+                                        (click)="togglePanel('info')">
+                                        <span
+                                            class="font-bold text-slate-800 text-base uppercase tracking-wide group-hover:text-active transition-colors">Task
+                                            Information</span>
+                                        <mat-icon
+                                            class="text-slate-500 transition-transform duration-200 group-hover:text-active ml-auto"
+                                            [class.rotate-180]="panels.info">expand_more</mat-icon>
+                                    </button>
+                                    <!-- Edit Toggle -->
+                                    <button *ngIf="panels.info && !isEditing" (click)="startEditing()" mat-icon-button
+                                        title="Edit Task">
+                                        <mat-icon class="text-slate-400 hover:text-active">edit</mat-icon>
+                                    </button>
+                                </div>
+
+                                <div *ngIf="panels.info" class="bg-white animate-slide-down">
+
+                                    <!-- UNIFIED REACTIVE FORM -->
+                                    <form [formGroup]="taskForm" (ngSubmit)="saveEdit()" class="p-6 bg-slate-50/30">
+
+                                        <div
+                                            class="mb-6 pb-4 border-b border-slate-200 flex items-center justify-between">
+                                            <h4 class="text-xl font-medium text-slate-800 font-semibold">Task Code : <span
+                                                    class="text-active font-bold">{{ taskForm.get('taskcode')?.value
+                                                    }}</span></h4>
+                                            <span *ngIf="!isEditing"
+                                                [ngClass]="getStatusColor(taskForm.get('status')?.value)"
+                                                class="px-3 py-1 rounded-full text-xs font-bold border inline-block uppercase tracking-wide">
+                                                {{ taskForm.get('status')?.value }}
+                                            </span>
+                                        </div>
+
+                                        <div class="space-y-6">
+                                            <!-- Context Row -->
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Project</label>
+                                                    <mat-form-field appearance="outline"
+                                                        class="w-full no-floating-label" subscriptSizing="dynamic">
+                                                        <input matInput formControlName="project_title" readonly />
+                                                    </mat-form-field>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Phase</label>
+                                                    <mat-form-field appearance="outline"
+                                                        class="w-full no-floating-label" subscriptSizing="dynamic">
+                                                        <input matInput formControlName="phase_title" readonly />
+                                                    </mat-form-field>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Version</label>
+                                                    <mat-form-field appearance="outline"
+                                                        class="w-full no-floating-label" subscriptSizing="dynamic">
+                                                        <input matInput formControlName="version" />
+                                                    </mat-form-field>
+                                                </div>
+                                            </div>
+
+                                            <div class="border-t border-slate-200"></div>
+
+                                            <!-- Main Info -->
+                                            <div>
+                                                <label
+                                                    class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Task
+                                                    Title <span *ngIf="isEditing" class="text-red-500">*</span></label>
+                                                <mat-form-field appearance="outline" class="w-full no-floating-label"
+                                                    subscriptSizing="dynamic">
+                                                    <input matInput formControlName="task" />
+                                                    <mat-error *ngIf="taskForm.get('task')?.hasError('required')">Title
+                                                        is required</mat-error>
+                                                </mat-form-field>
+                                            </div>
+
+                                            <div>
+                                                <label
+                                                    class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Description</label>
+                                                <mat-form-field appearance="outline" class="w-full no-floating-label"
+                                                    subscriptSizing="dynamic">
+                                                    <textarea matInput formControlName="description"
+                                                        rows="4"></textarea>
+                                                </mat-form-field>
+                                            </div>
+
+                                            <!-- Details Grid -->
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Type</label>
+                                                    <mat-form-field appearance="outline"
+                                                        class="w-full no-floating-label" subscriptSizing="dynamic">
+                                                        <mat-select formControlName="task_type">
+                                                            <mat-option value="requirement">Requirement</mat-option>
+                                                            <mat-option value="change_request">Change
+                                                                Request</mat-option>
+                                                            <mat-option value="bug">Bug</mat-option>
+                                                        </mat-select>
+                                                    </mat-form-field>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Priority</label>
+                                                    <mat-form-field appearance="outline"
+                                                        class="w-full no-floating-label" subscriptSizing="dynamic">
+                                                        <mat-select formControlName="priority">
+                                                            <mat-option value="High">High</mat-option>
+                                                            <mat-option value="Medium">Medium</mat-option>
+                                                            <mat-option value="Low">Low</mat-option>
+                                                        </mat-select>
+                                                    </mat-form-field>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Status</label>
+                                                    <mat-form-field appearance="outline"
+                                                        class="w-full no-floating-label" subscriptSizing="dynamic">
+                                                        <mat-select formControlName="status">
+                                                            <mat-option *ngFor="let st of statusList"
+                                                                [value]="st">{{st}}</mat-option>
+                                                        </mat-select>
+                                                    </mat-form-field>
+                                                </div>
+                                            </div>
+
+                                            <!-- Scheduling -->
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Assignee</label>
+                                                    <mat-form-field appearance="outline"
+                                                        class="w-full no-floating-label" subscriptSizing="dynamic">
+                                                        <mat-select formControlName="assigned_to">
+                                                            <mat-option *ngFor="let emp of employeeList"
+                                                                [value]="emp.id">{{emp.employee_name}}</mat-option>
+                                                        </mat-select>
+                                                    </mat-form-field>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Start
+                                                        Date</label>
+                                                    <mat-form-field appearance="outline"
+                                                        class="w-full no-floating-label" subscriptSizing="dynamic">
+                                                        <input matInput [matDatepicker]="picker1"
+                                                            formControlName="start_date" />
+                                                        <mat-datepicker-toggle matIconSuffix [for]="picker1"
+                                                            [disabled]="!isEditing"></mat-datepicker-toggle>
+                                                        <mat-datepicker #picker1></mat-datepicker>
+                                                    </mat-form-field>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Due
+                                                        Date</label>
+                                                    <mat-form-field appearance="outline"
+                                                        class="w-full no-floating-label" subscriptSizing="dynamic">
+                                                        <input matInput [matDatepicker]="picker2"
+                                                            formControlName="end_date" />
+                                                        <mat-datepicker-toggle matIconSuffix [for]="picker2"
+                                                            [disabled]="!isEditing"></mat-datepicker-toggle>
+                                                        <mat-datepicker #picker2></mat-datepicker>
+                                                    </mat-form-field>
+                                                </div>
+                                            </div>
+
+                                            <!-- Metrics -->
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Est.
+                                                        Hours</label>
+                                                    <mat-form-field appearance="outline"
+                                                        class="w-full no-floating-label" subscriptSizing="dynamic">
+                                                        <input matInput formControlName="estimated_hours" readonly />
+                                                    </mat-form-field>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Completion
+                                                        ({{taskForm.get('completion_percentage')?.value}}%)</label>
+                                                    <mat-form-field appearance="outline"
+                                                        class="w-full no-floating-label" subscriptSizing="dynamic">
+                                                        <input matInput type="number" readonly
+                                                            formControlName="completion_percentage" min="0" max="100" />
+                                                    </mat-form-field>
+                                                </div>
+
+                                            </div>
+
+                                            <div class="col-span-full border-t border-slate-200 my-1"></div>
+                                            <!-- Remark -->
+                                            <div>
+                                                <label
+                                                    class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Remark</label>
+                                                <mat-form-field appearance="outline" class="w-full no-floating-label"
+                                                    subscriptSizing="dynamic">
+                                                    <textarea matInput formControlName="remark" rows="2"></textarea>
+                                                </mat-form-field>
+                                            </div>
+
+                                            <!-- Action Buttons (Only visible in Edit Mode) -->
+                                            <div *ngIf="isEditing"
+                                                class="flex items-center justify-end gap-3 mt-8 pt-4 border-t border-slate-200">
+                                                <button mat-button type="button" (click)="cancelEdit()">Cancel</button>
+                                                <button mat-flat-button color="warn" type="submit"
+                                                    [disabled]="taskForm.invalid || taskForm.pristine">Save
+                                                    Changes</button>
+                                            </div>
+                                        </div>
+
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div> <!-- End Task Info Card -->
+
+                <!-- Tab Content Area -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
+                    <app-task-content-access [selectedTask]="selectedTask"></app-task-content-access>
+                </div>
+
+            </div>
+        </div>
+    </main>
+</div>

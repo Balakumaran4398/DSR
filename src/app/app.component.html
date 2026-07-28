@@ -1,0 +1,29 @@
+<router-outlet></router-outlet>
+<app-loader></app-loader>
+<app-drawer></app-drawer>
+
+<section *ngIf="showChatbot" class="chatbot-widget" [class.chatbot-widget--open]="isChatOpen" aria-label="Chatbot">
+  <div class="chatbot-panel" *ngIf="isChatOpen">
+    <div class="chatbot-header">
+      <span>Assistant</span>
+      <button type="button" class="chatbot-close" aria-label="Close chatbot" (click)="closeChat()">
+        <i class="ri-close-line" aria-hidden="true"></i>
+      </button>
+    </div>
+    <iframe
+      [src]="chatUrl"
+      title="Chatbot"
+      loading="lazy"
+      referrerpolicy="no-referrer">
+    </iframe>
+  </div>
+
+  <button
+    type="button"
+    class="chatbot-launcher"
+    [attr.aria-expanded]="isChatOpen"
+    aria-label="Open chatbot"
+    (click)="toggleChat()">
+    <i class="ri-message-3-line" aria-hidden="true"></i>
+  </button>
+</section>

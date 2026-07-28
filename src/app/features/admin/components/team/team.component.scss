@@ -1,0 +1,44 @@
+:host ::ng-deep .team-member-cell {
+  min-height: 40px;
+}
+
+:host ::ng-deep .member-skills-view-btn {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dbe3f0;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+  color: var(--text-active);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  gap: 6px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  opacity: 0;
+  padding: 8px 11px;
+  pointer-events: none;
+  text-transform: uppercase;
+  transform: translateX(8px) scale(0.96);
+  transition: opacity 0.18s ease, transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .member-skills-view-btn i {
+  font-size: 14px;
+}
+
+:host ::ng-deep .team-member-cell:hover .member-skills-view-btn,
+:host ::ng-deep .member-skills-view-btn:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0) scale(1);
+}
+
+:host ::ng-deep .member-skills-view-btn:hover,
+:host ::ng-deep .member-skills-view-btn:focus-visible {
+  border-color: color-mix(in srgb, var(--text-active) 40%, #dbe3f0);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+  outline: none;
+}

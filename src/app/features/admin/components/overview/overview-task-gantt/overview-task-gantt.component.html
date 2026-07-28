@@ -1,0 +1,51 @@
+<header
+    class="flex items-center justify-between h-[64px] px-6 bg-white border-b border-slate-200 shrink-0 z-30 shadow-sm">
+    <div class="flex items-center gap-3">
+        <div class="flex items-center justify-center w-10 h-10 text-white bg-[var(--text-active)] rounded-xl shadow-lg">
+            <i class="ri-focus-3-line text-xl"></i>
+        </div>
+        <div>
+            <h1 class="text-lg font-black tracking-tight text-[var(--text-active)] uppercase leading-none">Mission
+                Reports</h1>
+        </div>
+    </div>
+
+    <div class="flex items-center gap-4">
+        <div class="flex bg-slate-100 p-1 rounded-lg gap-1">
+            <button *ngFor="let mode of ['Day', 'Week', 'Month']" (click)="changeViewMode(mode)"
+                [class.bg-white]="currentViewMode === mode" [class.text-active]="currentViewMode === mode"
+                [class.shadow-sm]="currentViewMode === mode"
+                class="px-4 py-1.5 text-xs font-black rounded-md transition-all text-slate-500 hover:text-[var(--text-active)] uppercase tracking-tight">
+                {{ mode }}
+            </button>
+        </div>
+    </div>
+</header>
+
+<main class="gantt-main-content">
+    <aside class="gantt-sidebar">
+        <div class="gantt-employee-list">
+            <div *ngFor="let emp of employees" class="gantt-employee-item" [attr.id]="'emp-' + emp.id"
+                [class.gantt-active]="currentFilter === emp.id" (click)="filterByEmployee(emp.id)">
+                <div class="gantt-avatar">{{ emp.avatar }}</div>
+                <div class="gantt-employee-info">
+                    <span class="gantt-employee-name">{{ emp.name }}</span>
+                    <span class="gantt-employee-role">{{ emp.role }}</span>
+                </div>
+                <div class="float-right">
+                    <div class="gantt-avatar">{{getMemberTaskCount(emp.id)}}</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <div class="gantt-chart-card w-full custom-scrollbar">
+        <div class="gantt-empty-state" [class.gantt-visible]="allTasks.length === 0">
+            <p>No active directives found.</p>
+        </div>
+
+        <div class="gantt-wrapper ">
+            <svg #ganttSvg id="gantt"></svg>
+        </div>
+    </div>
+</main>

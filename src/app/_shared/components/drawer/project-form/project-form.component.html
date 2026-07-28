@@ -1,0 +1,253 @@
+<div class="min-h-screen bg-slate-50  text-slate-800">
+  <div class="max-w-5xl mx-auto">
+
+    <mat-card class="!rounded-2xl !shadow-xl overflow-hidden">
+
+      <!-- Header -->
+      <div class="px-8 py-6 ">
+        <h1 class="text-2xl font-bold  tracking-tight flex items-center gap-2">
+          <mat-icon>assignment</mat-icon>{{!isEditMode?'New':'Update'}} Project
+        </h1>
+        <p class="text-sm mt-1 opacity-90">Define project parameters and assign resources.</p>
+      </div>
+
+
+
+      <form [formGroup]="projectForm" (ngSubmit)="onSubmit()" class="p-8">
+
+        <!-- SECTION 1: Project Essentials -->
+        <section class="mb-8">
+          <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+            <mat-icon>assignment</mat-icon>
+            <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+              Project Details
+            </h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+
+            <!-- Title -->
+            <div class="md:col-span-2">
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Project Title <span
+                  class="text-red-500">*</span></label>
+              <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                <input matInput formControlName="project_title" placeholder="e.g. R-SPACE3 Employee Management">
+                <mat-error *ngIf="rf.project_title?.invalid">Title is required</mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Client -->
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Client Name <span
+                  class="text-red-500">*</span></label>
+              <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                <input matInput formControlName="client" placeholder="e.g. Ridsys">
+                <mat-icon matSuffix>business</mat-icon>
+                <mat-error *ngIf="rf.client?.invalid">Client is required</mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Project Owner -->
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Assigned Manager <span
+                  class="text-red-500">*</span></label>
+              <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                <mat-select formControlName="assigned_manager" placeholder="Select Manager"
+                  (openedChange)="onManagerOpenedChange($event)" panelClass="project-form-select-panel">
+                  <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100">
+                    <div class="relative">
+                      <mat-icon class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm !w-4 !h-4"
+                        style="font-size: 16px;">search</mat-icon>
+                      <input [formControl]="managerFilterControl"
+                        class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                        placeholder="Search members..." (keydown)="$event.stopPropagation()">
+                    </div>
+                  </div>
+                  <mat-option *ngFor="let m of filteredManagerList" [value]="m.id">{{ m.employee_name }}</mat-option>
+                  <mat-option *ngIf="!filteredManagerList.length" disabled class="select-empty-option">
+                    No managers found
+                  </mat-option>
+                </mat-select>
+                <mat-error *ngIf="rf.assigned_manager?.invalid">Manager is required</mat-error>
+              </mat-form-field>
+            </div>
+            <!-- Project Owner -->
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Project Owner <span
+                  class="text-red-500">*</span></label>
+              <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                <mat-select formControlName="project_owner" placeholder="Select Owner"
+                  (openedChange)="onOwnerOpenedChange($event)" panelClass="project-form-select-panel">
+
+                  <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100">
+                    <div class="relative">
+                      <mat-icon class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm !w-4 !h-4"
+                        style="font-size: 16px;">search</mat-icon>
+                      <input [formControl]="ownerFilterControl"
+                        class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                        placeholder="Search members..." (keydown)="$event.stopPropagation()">
+                    </div>
+                  </div>
+                  <mat-option *ngFor="let m of filteredOwnerList" [value]="m.id">{{ m.employee_name }}</mat-option>
+                  <mat-option *ngIf="!filteredOwnerList.length" disabled class="select-empty-option">
+                    No owners found
+                  </mat-option>
+                </mat-select>
+                <mat-error *ngIf="rf.project_owner?.invalid">Owner is required</mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Start Date -->
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Start Date <span
+                  class="text-red-500">*</span></label>
+              <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                <input matInput [matDatepicker]="startPicker" formControlName="start_date" placeholder="MM/DD/YYYY">
+                <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+                <mat-datepicker #startPicker></mat-datepicker>
+                <mat-error *ngIf="rf.start_date?.invalid">Start date is required</mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- End Date -->
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">End Date <span
+                  class="text-red-500">*</span></label>
+              <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                <input matInput [matDatepicker]="endPicker" formControlName="end_date" placeholder="MM/DD/YYYY">
+                <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+                <mat-datepicker #endPicker></mat-datepicker>
+                <mat-error *ngIf="rf.end_date?.invalid">End date is required</mat-error>
+              </mat-form-field>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- Toggle Row -->
+        <div class="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+          <div class="flex flex-col">
+            <span class="font-semibold text-slate-700">Public Project</span>
+            <span class="text-xs text-slate-500">Visible to all employees in the organization</span>
+          </div>
+          <mat-slide-toggle formControlName="ispublic" color="primary"></mat-slide-toggle>
+        </div>
+
+        <mat-divider class="!mb-8"></mat-divider>
+
+        <!-- SECTION 2: Assignments -->
+        <section class="mb-8 transition-opacity duration-300" [class.opacity-50]="isPublic"
+          [class.pointer-events-none]="isPublic">
+          <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+            <mat-icon>description</mat-icon>
+            <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+              Resource Assignment
+            </h2>
+          </div>
+          <div class="grid grid-cols-1 gap-y-5">
+
+            <!-- Department -->
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Department <span class="text-red-500"
+                  *ngIf="!isPublic">*</span></label>
+              <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                <mat-select formControlName="deptid" placeholder="Select Department">
+                  <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100">
+                    <div class="relative">
+                      <mat-icon class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm !w-4 !h-4"
+                        style="font-size: 16px;">search</mat-icon>
+                      <input [formControl]="departmentFilterControl"
+                        class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                        placeholder="Search members..." (keydown)="$event.stopPropagation()">
+                    </div>
+                  </div>
+                  <mat-option *ngFor="let d of filteredDepartmentList" [value]="d.id">{{ d.department_name }}</mat-option>
+                </mat-select>
+                <mat-error *ngIf="rf.deptid?.invalid">Department is required</mat-error>
+              </mat-form-field>
+            </div>
+
+
+
+            <!-- Team Members (Autocomplete + Chips) -->
+            <div class="md:col-span-2">
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Team Members <span class="text-red-500"
+                  *ngIf="!isPublic">*</span></label>
+              <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+
+                <mat-chip-grid #chipGrid aria-label="Employee selection">
+                  <mat-chip-row *ngFor="let empId of selectedEmployeeIds" (removed)="toggleEmployee(empId)">
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="text-[10px] w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                        {{ getInitials(getEmployeeName(empId)) }}
+                      </span>
+                      {{ getEmployeeName(empId) }}
+                    </div>
+                    <button matChipRemove [attr.aria-label]="'remove ' + getEmployeeName(empId)">
+                      <mat-icon>cancel</mat-icon>
+                    </button>
+                  </mat-chip-row>
+                </mat-chip-grid>
+
+                <input placeholder="Add member..." (cdkObserveContent)="filteredEmployees" #employeeInput
+                  [formControl]="searchControl" [matChipInputFor]="chipGrid" [matAutocomplete]="auto"
+                  [readonly]="isPublic">
+
+                <mat-autocomplete #auto="matAutocomplete" (optionSelected)="selected($event)">
+                  <mat-option *ngFor="let emp of filteredEmployees | async" [value]="emp">
+                    <div class="flex items-center gap-3">
+                      <div
+                        class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm"
+                        [style.background-color]="getAvatarColor(emp.id)">
+                        {{ getInitials(emp.employee_name) }}
+                      </div>
+                      <div class="flex flex-col leading-tight">
+                        <span class="font-medium">{{ emp.employee_name }}</span>
+                        <span class="text-xs text-slate-500">{{ emp.role }}</span>
+                      </div>
+                    </div>
+                  </mat-option>
+                </mat-autocomplete>
+                <mat-error *ngIf="rf.employee_list?.invalid">At least one member is required</mat-error>
+              </mat-form-field>
+            </div>
+
+          </div>
+        </section>
+
+        <mat-divider class="!mb-8"></mat-divider>
+
+        <!-- SECTION 3: Settings -->
+        <section>
+          <h2 class="text-lg font-bold text-slate-700 mb-6 border-b pb-2">Additional Details</h2>
+          <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+            <mat-icon>description</mat-icon>
+            <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+              Additional Details
+            </h2>
+          </div>
+          <div class="grid grid-cols-1 gap-5">
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Description</label>
+              <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                <textarea matInput formControlName="description" rows="4"
+                  placeholder="Describe the project goals..."></textarea>
+              </mat-form-field>
+            </div>
+
+
+          </div>
+        </section>
+
+        <!-- Submit Button -->
+        <div class="mt-8 flex justify-end gap-3">
+          <button mat-button type="button" color="warn" (click)="closeProjectForm()">Cancel</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="projectForm.invalid" class="!px-8">
+            Save
+          </button>
+        </div>
+
+      </form>
+    </mat-card>
+  </div>
+</div>

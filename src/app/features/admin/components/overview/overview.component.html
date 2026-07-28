@@ -1,0 +1,65 @@
+<div class="w-full animate-fade-in  mx-auto bg-gray-50 min-h-screen ">
+    <div class="flex flex-col gap-4 mb-4
+           sm:flex-row sm:items-center sm:justify-between">
+
+        <!-- Title Section -->
+        <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
+               flex items-center justify-center text-white shadow-sm shrink-0">
+                <i class="ri-node-tree text-xl"></i>
+            </div>
+
+            <div>
+                <h1 class="text-lg sm:text-xl font-bold text-slate-900">
+                    Overview
+                </h1>
+                <p class="text-xs sm:text-sm text-slate-500">
+                    Manage your organization
+                </p>
+            </div>
+        </div>
+
+        <!-- Actions Section -->
+        <div class="flex flex-col gap-3 w-full
+             sm:flex-row sm:items-center sm:w-auto">
+
+            <div class="flex flex-col gap-3 w-full sm:flex-row sm:items-center sm:w-auto" role="tablist">
+                <button *ngFor="let tab of mainTabs" (click)="setActiveTab(tab.id)"
+                    [attr.aria-selected]="activeTabId === tab.id"
+                    class="inline-flex items-center justify-center w-full sm:w-auto px-6 py-2 text-m font-semibold rounded-lg shadow-sm transition-all active:scale-95"
+                    [class]="activeTabId === tab.id 
+             ? 'bg-[var(--text-active)] text-white ring-2 ring-blue-100' 
+             : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'">
+                    <ng-container *ngIf="tab.id === 'releases'; else timeIcon">
+                        <i class="ri-install-line pr-2"></i>
+                    </ng-container>
+                    <ng-template #timeIcon>
+                        <i class="ri-calendar-2-line pr-2"></i>
+                    </ng-template>
+                    {{ tab.label }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="bg-white overflow-hidden">
+        <ng-container [ngSwitch]="activeTabId">
+            <div *ngSwitchCase="'timelogs'">
+                <div class="h-full text-slate-400">
+                    <app-overview-task></app-overview-task>
+                </div>
+            </div>
+
+            <div *ngSwitchCase="'releases'">
+                <div class="h-full text-slate-400">
+                    <app-overview-releases></app-overview-releases>
+                </div>
+            </div>
+
+
+        </ng-container>
+    </div>
+
+</div>
+

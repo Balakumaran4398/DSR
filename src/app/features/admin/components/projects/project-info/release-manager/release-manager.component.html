@@ -1,0 +1,312 @@
+<div class="h-screen flex flex-col overflow-hidden bg-slate-50 text-slate-900 font-sans custom-font text-base">
+
+    <!-- TOP BAR -->
+    <div class="flex-none p-4 pt-0 border-b border-slate-200 bg-white z-20 flex justify-between items-center shadow-sm">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 tracking-tight">Release Management</h1>
+            <div class="text-sm text-slate-500 font-medium">Pipeline Dashboard</div>
+        </div>
+        <div class="flex items-center gap-2">
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <div class="flex-1 flex flex-col overflow-hidden relative">
+
+        <!-- Controls & KPIs -->
+        <div class="flex-none p-5 space-y-5">
+            <!-- KPIs -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <!-- Active -->
+                <!-- <div
+                    class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="text-sm font-bold text-slate-500 uppercase mb-1 tracking-wide">Active Releases</div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-3xl font-bold text-slate-800">{{ filteredReleases.length }}</div>
+                        <div class="flex gap-0.5 h-6 items-end opacity-50">
+                            <div class="w-1.5 bg-violet-500 h-[40%]"></div>
+                            <div class="w-1.5 bg-violet-500 h-[80%]"></div>
+                            <div class="w-1.5 bg-violet-500 h-[60%]"></div>
+                        </div>
+                    </div>
+                </div> -->
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm border-l-4 border-l-purple-500">
+                    <div class="text-sm font-bold text-slate-500 uppercase mb-1 tracking-wide">Upcoming Releases</div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-3xl font-bold text-purple-600">
+                            {{ getCountByStatus('Upcoming-Release') }}
+                        </div>
+                        <i
+                            class="ri-calendar-event-line flex gap-0.5 h-6 items-end opacity-50 text-purple-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm border-l-4 border-l-blue-500">
+                    <div class="text-sm font-bold text-slate-500 uppercase mb-1 tracking-wide">Active Releases</div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-3xl font-bold text-blue-600">{{ filteredReleases.length }}</div>
+                        <div class="flex gap-0.5 h-6 items-end opacity-50">
+                            <div class="w-1.5 bg-blue-500 h-[40%]"></div>
+                            <div class="w-1.5 bg-blue-500 h-[80%]"></div>
+                            <div class="w-1.5 bg-blue-500 h-[60%]"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Review -->
+                <!-- <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm border-l-4 border-l-purple-500">
+                    <div class="text-sm font-bold text-slate-500 uppercase mb-1 tracking-wide">In Review</div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-3xl font-bold text-purple-600">{{ getCountByStatus('In-Review') }}</div>
+                        <i class="ri-eye-line text-2xl text-purple-200"></i>
+                    </div>
+                </div> -->
+                <!-- Deployed -->
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm border-l-4 border-l-green-500">
+                    <div class="text-sm font-bold text-slate-500 uppercase mb-1 tracking-wide">Pass</div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-3xl font-bold text-green-600">{{ getCountByStatus('Pass') }}</div>
+                        <i class="ri-rocket-line text-2xl text-green-200"></i>
+                    </div>
+                </div>
+                <!-- Failed -->
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm border-l-4 border-l-red-500">
+                    <div class="text-sm font-bold text-slate-500 uppercase mb-1 tracking-wide">Failed</div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-3xl font-bold text-red-600">{{ getCountByStatus('Failed') }}</div>
+                        <i class="ri-error-warning-line text-2xl text-red-200"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <!-- <div
+                class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex gap-4 items-center w-full md:w-auto">
+                    <div class="bg-slate-100 border border-slate-200 rounded-lg p-1.5 flex">
+                        <button class=" px-1 rounded transition-colors"
+                            [ngClass]="currentView === 'table' ? 'bg-white text-[var(--text-active)] shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'"
+                            (click)="setView('table')">
+                            <i class="ri-table-line text-2xl"></i>
+                        </button>
+                        <button class="px-1 rounded transition-colors"
+                            [ngClass]="currentView === 'kanban' ? 'bg-white text-[var(--text-active)] shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'"
+                            (click)="setView('kanban')">
+                            <i class="ri-trello-line text-2xl"></i>
+                        </button>
+                    </div>
+                    <div class="relative flex-1 md:w-72">
+                        <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                        <input type="text" placeholder="Search..." [(ngModel)]="searchQuery"
+                            (ngModelChange)="onSearchChange($event)"
+                            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-base font-medium focus:border-[var(--text-active)] focus:ring-1 focus:ring-[var(--text-active)] outline-none transition-all placeholder:font-normal">
+                    </div>
+                    <form class="example-form">
+                        <mat-form-field class="w-full sm:w-52" appearance="outline">
+                            <input type="text" matInput placeholder="Select Release Type"
+                                [formControl]="releaseTypeControl" [matAutocomplete]="releaseAuto">
+                            <button *ngIf="releaseTypeControl.value" mat-icon-button matSuffix type="button"
+                                aria-label="Clear" (click)="clearReleaseType()">
+                                <mat-icon>close</mat-icon>
+                            </button>
+                            <mat-autocomplete #releaseAuto="matAutocomplete" autoActiveFirstOption>
+                                <mat-option (click)="setReleaseType('All')" value="All"> All</mat-option>
+                                <mat-option (click)="setReleaseType('Internal')" value="Internal">Internal</mat-option>
+                                <mat-option (click)="setReleaseType('External')" value="External">External</mat-option>
+                            </mat-autocomplete>
+                        </mat-form-field>
+                    </form>
+                </div>
+
+                <button (click)="createNew()"
+                    class="w-full md:w-auto bg-[var(--text-active)] text-white px-5 py-1.5 rounded-lg text-base font-medium shadow-sm hover:bg-[var(--text-active)] transition-colors flex items-center justify-center gap-2">
+                    <i class="ri-add-line text-lg"></i> New Release
+                </button>
+            </div> -->
+
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+  
+                <div class="flex gap-4 items-center w-full md:w-auto flex-wrap">
+                    
+                    <div class="bg-slate-100 border border-slate-200 rounded-lg p-1.5 flex">
+                    <button class="px-1 rounded transition-colors"
+                        [ngClass]="currentView === 'table' ? 'bg-white text-[var(--text-active)] shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'"
+                        (click)="setView('table')">
+                        <i class="ri-table-line text-2xl"></i>
+                    </button>
+                    <button class="px-1 rounded transition-colors"
+                        [ngClass]="currentView === 'kanban' ? 'bg-white text-[var(--text-active)] shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'"
+                        (click)="setView('kanban')">
+                        <i class="ri-trello-line text-2xl"></i>
+                    </button>
+                    </div>
+         
+                    <div class="relative flex-1 md:w-72">
+                    <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                    <input type="text" placeholder="Search..." [(ngModel)]="searchQuery"
+                        (ngModelChange)="onSearchChange($event)"
+                        class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-base font-medium focus:border-[var(--text-active)] focus:ring-1 focus:ring-[var(--text-active)] outline-none transition-all placeholder:font-normal">
+                    </div>
+         
+                    <div class="relative w-full sm:w-52">
+                    <select [(ngModel)]="selectedReleaseType"
+                        (change)="applyFilters()"
+                        class="release-type-select w-full px-4 py-2.5 bg-white border-2 border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-[var(--text-active)] focus:ring-2 focus:ring-[var(--text-active)]/20 hover:border-slate-400 transition-all appearance-none cursor-pointer pr-10">
+                        <option value="All">Select Release Type</option>
+                        <option value="Internal">Internal</option>
+                        <option value="External">External</option>
+                    </select>
+                    <i class="ri-arrow-down-s-line absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-lg"></i>
+                    </div>
+                </div>
+         
+                <button (click)="createNew()"
+                    class="w-full md:w-auto bg-[var(--text-active)] text-white px-5 py-1.5 rounded-lg text-base font-medium shadow-sm hover:opacity-90 transition-colors flex items-center justify-center gap-2 shrink-0">
+                    <i class="ri-add-line text-lg"></i> New Release
+                </button>
+            </div>
+        </div>
+
+        <!-- CONTENT AREA -->
+        <div class="flex-1 overflow-hidden px-5 pb-5">
+
+            <!-- VIEW: TABLE -->
+            <div *ngIf="currentView === 'table'"
+                class="h-full bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+                <div class="overflow-auto flex-1">
+                    <div #tableEl class="w-full h-full"></div>
+                </div>
+            </div>
+
+            <!-- VIEW: KANBAN -->
+            <div *ngIf="currentView === 'kanban'" class="h-full custom-scrollbar overflow-x-auto  overflow-y-hidden">
+                <div class="flex justify-center h-full gap-5 min-w-max pb-2">
+                    <!-- Column Template -->
+                    <ng-container *ngFor="let status of statusList">
+                        <div class="flex-none w-96 flex flex-col h-full bg-slate-100/50 border border-slate-200 rounded-xl overflow-hidden"
+                            (dragover)="onDragOver($event)" (drop)="onDrop($event, status)">
+                            <!-- Col Header -->
+                            <div class="p-4 bg-white border-b border-slate-200 flex justify-between items-center shadow-sm z-10"
+                                [ngClass]="{
+                                 'border-t-4 border-t-gray-400': status === 'Open',
+                                 'border-t-4 border-t-pink-400': status === 'Upcoming-Release',
+                                 'border-t-4 border-t-orange-400': status === 'On-Hold',
+                                 'border-t-4 border-t-blue-500': status === 'In-Progress',
+                                 'border-t-4 border-t-purple-500': status === 'To-be-Tested',
+                                 'border-t-4 border-t-red-500': status === 'Failed',
+                                 'border-t-4 border-t-green-500': status === 'Pass',
+                                 'border-t-4 border-t-yellow-500': status === 'Rejected',
+                               }">
+                                <div class="flex flex-col">
+                                    <span
+                                        class="font-bold text-sm text-slate-700 uppercase tracking-wide">{{status}}</span>
+                                </div>
+                                <span
+                                    class="text-sm font-bold bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded border border-slate-200">
+                                    {{getReleasesByStatus(status).length}}
+                                </span>
+                            </div>
+
+                            <!-- Col Body -->
+                            <div class="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
+                                <div *ngFor="let release of getReleasesByStatus(status); trackBy: trackById"
+                                    draggable="true" (dragstart)="onDragStart($event, release)"
+                                    class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-0.5 group">
+
+                                    <div class="flex justify-between mb-2 relative">
+                                        <span
+                                            class="text-xs font-mono text-[var(--text-active)] bg-violet-50 px-2 py-0.5 rounded font-bold">{{release.code}}</span>
+                                        <span class="text-[10px] px-2 py-0.5 rounded border font-semibold"
+                                            [ngClass]="release.release_type === 'External' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-gray-50 text-gray-600 border-gray-200'">
+                                            {{release.release_type}}
+                                        </span>
+                                        <span *ngIf="isReleaseOverdue(release)"
+                                            class="release-date-badge release-date-badge--overdue" matTooltip="Overdue">
+                                            <i class="ri-alert-line"></i>
+                                            <!-- Overdue -->
+                                        </span>
+
+                                        <div class="relative bottom-0 !right-4">
+                                            <button (click)="toggleMenu($event, release?.id)"
+                                                class="text-slate-400 hover:text-blue-500 focus:outline-none rounded-full hover:bg-slate-50 transition-colors"><i
+                                                    class="ri-more-fill text-xl"></i></button>
+                                            <!-- Dropdown -->
+                                            <div *ngIf="activeMenuId === release?.id"
+                                                class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-100 z-50 dropdown-enter overflow-hidden">
+                                                <a href="#" (click)="$event.preventDefault();openDailogue(release)"
+                                                    class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2">
+                                                    <i class="ri-eye-line"></i> View Details
+                                                </a>
+                                                <a href="#" (click)="$event.preventDefault();openDrawer(release)"
+                                                    class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2">
+                                                    <i class="ri-edit-line"></i> Edit
+                                                </a>
+                                                <!-- <div class="border-t border-slate-200 my-1"></div>
+                                                <a href="#" (click)="$event.preventDefault(); deleteRelease(release)"
+                                                    class="block px-4 py-2 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2">
+                                                    <i class="ri-delete-bin-line"></i> Remove
+                                                </a> -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <h4
+                                        class="text-base font-semibold mb-1 text-slate-800 group-hover:text-[var(--text-active)] transition-colors line-clamp-2 leading-tight">
+                                        {{release.title}}
+                                    </h4>
+                                    <div class="text-sm text-slate-500 mb-3 font-medium">{{release.version}}</div>
+                                    <div class="text-sm text-slate-500 mb-3 font-medium"
+                                        *ngIf="release.status == 'Upcoming-Release'">
+                                        Released Date:<span
+                                            class="text-xs font-mono text-[var(--danger)] bg-violet-50 px-2 py-0.5 rounded font-bold">
+                                            {{release.released_date}}</span>
+                                    </div>
+                                    <!-- Mini Progress Bar Visual -->
+                                    <div class="w-full h-2 bg-slate-100 rounded-full mb-3 overflow-hidden">
+                                        <div class="h-full rounded-full"
+                                            [style.width.%]="status === 'Pass' ? 100 : status === 'To-be-Tested' ? 40 : status === 'In-Progress' ? 60 : 10"
+                                            [ngClass]="{
+                                            'bg-gray-400': status === 'Open',
+                                            'bg-blue-500': status === 'In-Progress',
+                                            'bg-purple-500': status === 'To-be-Tested',
+                                            'bg-green-500': status === 'Pass',
+                                            'bg-red-500': status === 'Failed',
+                                            'bg-yellow-500': status === 'Rejected'
+                                         }">
+                                        </div>
+                                    </div>
+
+                                    <div *ngIf="release.status === 'Rejected'; else releaseMeta"
+                                        class="border-t border-dashed border-slate-200 pt-3">
+                                        <div
+                                            class="text-[11px] font-semibold uppercase tracking-wide text-yellow-700 mb-1">
+                                            Reject Reason
+                                        </div>
+                                        <div class="text-sm text-slate-600 break-words">
+                                            {{ release.reject_reason || '-' }}
+                                        </div>
+                                    </div>
+
+                                    <ng-template #releaseMeta>
+                                        <div
+                                            class="flex justify-between items-center border-t border-dashed border-slate-200 pt-3">
+                                            <div class="flex items-center gap-2">
+                                                <div
+                                                    class="w-6 h-6 rounded-full bg-slate-100 text-[10px] flex items-center justify-center font-bold text-slate-600 border border-white shadow-sm">
+                                                    {{getOwnerInitials(release.assignee_name)}}
+                                                </div>
+                                                <span
+                                                    class="text-xs text-slate-500 truncate max-w-[90px] font-medium">{{release.assignee_name}}</span>
+                                            </div>
+                                            <span
+                                                class="text-xs text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded font-medium">
+                                                {{release.planned_date | date:'MMM d'}}
+                                            </span>
+                                        </div>
+                                    </ng-template>
+                                </div>
+                            </div>
+                        </div>
+                    </ng-container>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

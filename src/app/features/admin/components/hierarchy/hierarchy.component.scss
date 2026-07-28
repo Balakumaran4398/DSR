@@ -1,0 +1,908 @@
+:host {
+  display: block;
+  --hc-ink: #172033;
+  --hc-muted: #64748b;
+  --hc-line: rgba(15, 23, 42, 0.82);
+  --hc-glass: rgba(255, 255, 255, 0.78);
+  --hc-glass-strong: rgba(255, 255, 255, 0.92);
+  --hc-shadow: 0 24px 56px rgba(15, 23, 42, 0.12);
+  --hc-teal: #0f766e;
+  --hc-blue: #0284c7;
+  --hc-orange: #ea580c;
+  --hc-indigo: #4338ca;
+  --hc-green: #15803d;
+  --hc-card-border: #cbd5e1;
+  --hc-connector: 3px solid rgb(126, 202, 247);
+}
+
+
+.hierarchy-hero,
+.hierarchy-canvas {
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 30px;
+  background: var(--hc-glass);
+  // box-shadow: var(--hc-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.hierarchy-hero {
+  margin-bottom: 1.5rem;
+  padding: 1.75rem 1.9rem;
+}
+
+.hierarchy-hero__eyebrow,
+.hierarchy-canvas__eyebrow {
+  display: inline-flex;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hierarchy-hero__eyebrow {
+  background: rgba(15, 118, 110, 0.1);
+  color: var(--hc-teal);
+}
+
+.hierarchy-canvas__eyebrow {
+  background: rgba(2, 132, 199, 0.1);
+  color: var(--hc-blue);
+}
+
+.hierarchy-hero h1,
+.hierarchy-canvas__head h2 {
+  margin: 0.9rem 0 0.4rem;
+  color: var(--hc-ink);
+  font: 800 clamp(2rem, 4vw, 3rem) 'Outfit', sans-serif;
+  letter-spacing: -0.04em;
+}
+
+.hierarchy-canvas__head h2 {
+  font-size: clamp(1.5rem, 3vw, 2.15rem);
+}
+
+.hierarchy-hero p,
+.hierarchy-canvas__head p {
+  margin: 0;
+  color: var(--hc-muted);
+  font-size: 0.98rem;
+  line-height: 1.7;
+}
+
+.hierarchy-hero p {
+  max-width: 55rem;
+}
+
+.hierarchy-hero__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 1.2rem;
+}
+
+.hierarchy-stat {
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(240, 249, 255, 0.76));
+}
+
+.hierarchy-stat strong {
+  display: block;
+  color: var(--hc-ink);
+  font: 800 1.5rem 'Outfit', sans-serif;
+}
+
+.hierarchy-stat small {
+  color: var(--hc-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hierarchy-canvas {
+  padding: 1.6rem;
+}
+
+.hierarchy-canvas__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.hierarchy-canvas__head p {
+  max-width: 32rem;
+}
+
+.hierarchy-scroll-panel {
+  max-height: calc(100vh - 11rem);
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.hierarchy-selection-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.hierarchy-selection-grid {
+  display: grid;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.hierarchy-selection-grid--managers {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.hierarchy-selection-grid--owners {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.hierarchy-selection-grid--projects {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.hierarchy-selection-node {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.hierarchy-detail-panel {
+  width: 100%;
+  padding: 1.35rem;
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  border-radius: 30px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.96));
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.08);
+}
+
+.hierarchy-detail-panel__header {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.4rem;
+}
+
+.hierarchy-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.hierarchy-section--members {
+  gap: 0.85rem;
+}
+
+.hierarchy-section__heading {
+  color: var(--hc-ink);
+  font: 800 0.9rem 'Outfit', sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hierarchy-detail-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.hierarchy-project-detail {
+  padding: 1.15rem;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(191, 219, 254, 0.6);
+}
+
+.hierarchy-project-detail__header {
+  display: flex;
+  justify-content: center;
+}
+
+.hierarchy-admin-tree {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.hierarchy-admin-tree__level {
+  width: 100%;
+}
+
+.hierarchy-tree-shell--manager {
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.hierarchy-tree {
+  min-width: max-content;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.hierarchy-tree__level,
+.hierarchy-tree__item {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hierarchy-tree__level {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding-top: 1.75rem;
+}
+
+.hierarchy-tree__level::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 1.75rem;
+  border-left: var(--hc-connector);
+  transform: translateX(-50%);
+}
+
+.hierarchy-tree__level--root {
+  padding-top: 0;
+}
+
+.hierarchy-tree__level--root::before {
+  display: none;
+}
+
+.hierarchy-tree__item {
+  position: relative;
+  padding: 1.75rem 0.8rem 0;
+  text-align: center;
+}
+
+.hierarchy-tree__item::before,
+.hierarchy-tree__item::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 1.75rem;
+  border-top: var(--hc-connector);
+}
+
+.hierarchy-tree__item::before {
+  right: 50%;
+}
+
+.hierarchy-tree__item::after {
+  left: 50%;
+  border-left: var(--hc-connector);
+}
+
+.hierarchy-tree__item:first-child::before,
+.hierarchy-tree__item:last-child::after {
+  border-top: 0;
+}
+
+.hierarchy-tree__item:last-child::before {
+  border-right: var(--hc-connector);
+  border-radius: 0 12px 0 0;
+}
+
+.hierarchy-tree__item:first-child::after {
+  border-radius: 12px 0 0 0;
+}
+
+.hierarchy-tree__item:only-child {
+  padding-top: 0;
+}
+
+.hierarchy-tree__item:only-child::before,
+.hierarchy-tree__item:only-child::after {
+  display: none;
+}
+
+.hierarchy-tree__item--root {
+  padding-top: 0;
+}
+
+.hierarchy-tree__item--root::before,
+.hierarchy-tree__item--root::after {
+  display: none;
+}
+
+.hierarchy-tree__item--leaf {
+  min-width: 14rem;
+}
+
+.hierarchy-tree__level--members {
+  align-items: stretch;
+}
+
+.hierarchy-root-flow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.hierarchy-root-flow__connector,
+.hierarchy-main-branch__connector,
+.hierarchy-subtree__connector,
+.hierarchy-project-tree__connector,
+.hierarchy-manager-owner__connector {
+  position: relative;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.98));
+}
+
+.hierarchy-root-flow__connector {
+  height: 2rem;
+  margin-top: 0.85rem;
+}
+
+.hierarchy-root-flow__connector::after,
+.hierarchy-main-branch__connector::after,
+.hierarchy-subtree__connector::after,
+.hierarchy-project-tree__connector::after,
+.hierarchy-manager-owner__connector::after {
+  content: '';
+  position: absolute;
+  bottom: -0.22rem;
+  left: 50%;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-right: 2px solid var(--hc-line);
+  border-bottom: 2px solid var(--hc-line);
+  transform: translateX(-50%) rotate(45deg);
+  background: #ffffff;
+}
+
+.hierarchy-manager-flow {
+  display: grid;
+  gap: 1.75rem;
+}
+
+.hierarchy-manager-owner {
+  position: relative;
+  padding: 1.2rem 1.2rem 1.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 30px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(246, 250, 255, 0.94));
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
+}
+
+.hierarchy-manager-owner__card {
+  max-width: 20rem;
+  margin: 0 auto;
+}
+
+.hierarchy-manager-owner__connector {
+  height: 1.4rem;
+  margin: 0.8rem auto 0;
+}
+
+.hierarchy-manager-project-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.hierarchy-manager-project-grid--expanded {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.hierarchy-manager-project-grid::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(16.666% + 0.5rem);
+  right: calc(16.666% + 0.5rem);
+  border-top: var(--hc-connector);
+}
+
+.hierarchy-manager-project {
+  position: relative;
+  padding-top: 1.45rem;
+}
+
+.hierarchy-manager-project::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 1.45rem;
+  border-left: var(--hc-connector);
+  transform: translateX(-50%);
+}
+
+.hierarchy-main-branch__connector,
+.hierarchy-subtree__connector,
+.hierarchy-project-tree__connector {
+  height: 1.2rem;
+  margin: 0.7rem auto;
+}
+
+.hierarchy-branch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.hierarchy-main-branch {
+  position: relative;
+  padding: 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(246, 250, 255, 0.92));
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
+}
+
+.hierarchy-main-branch::before {
+  content: '';
+  position: absolute;
+  top: -1rem;
+  left: 50%;
+  width: 2px;
+  height: 1rem;
+  border-left: var(--hc-connector);
+  transform: translateX(-50%);
+}
+
+.hierarchy-subtree-list,
+.hierarchy-project-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.hierarchy-subtree-list--single,
+.hierarchy-project-stack--single {
+  width: 100%;
+}
+
+.hierarchy-subtree-list,
+.hierarchy-project-stack,
+.hierarchy-member-grid {
+  position: relative;
+  padding-left: 1.3rem;
+}
+
+.hierarchy-subtree-list::before,
+.hierarchy-project-stack::before,
+.hierarchy-member-grid::before {
+  content: '';
+  position: absolute;
+  top: 0.65rem;
+  bottom: 0.65rem;
+  left: 0.35rem;
+  border-left: var(--hc-connector);
+}
+
+.hierarchy-subtree {
+  position: relative;
+  padding: 1rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px dashed rgba(14, 165, 233, 0.18);
+}
+
+.hierarchy-subtree::before,
+.hierarchy-project-tree::before,
+.hierarchy-member-branch::before {
+  content: '';
+  position: absolute;
+  top: 2.45rem;
+  left: -0.95rem;
+  width: 0.95rem;
+  border-top: var(--hc-connector);
+}
+
+.hierarchy-member-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.hierarchy-member-grid--expanded {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  width: 100%;
+}
+
+.hierarchy-member-grid--direct,
+.hierarchy-member-grid--project-details {
+  padding-left: 0;
+}
+
+.hierarchy-member-grid--direct::before,
+.hierarchy-member-grid--project-details::before {
+  display: none;
+}
+
+.hierarchy-member-grid--manager {
+  padding-left: 0;
+}
+
+.hierarchy-member-grid--manager::before {
+  display: none;
+}
+
+.hierarchy-member-branch {
+  position: relative;
+}
+
+.hierarchy-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 1rem 1.05rem;
+  border: 2px solid var(--hc-card-border);
+  border-radius: 10px;
+  background: var(--hc-glass-strong);
+  // box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+  text-align: left;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.hierarchy-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+}
+
+.hierarchy-card--root {
+  max-width: 15rem;
+  background: var(--text-active);
+  border-color: rgba(15, 118, 110, 0.4);
+  display: block;
+  text-align: center;
+}
+
+// .hierarchy-card--root::before {
+//   background: rgba(255, 255, 255, 0.72);
+// }
+
+.hierarchy-card--manager {
+  border-color: rgba(249, 115, 22, 0.4);
+  // background: linear-gradient(180deg, rgba(255, 247, 237, 0.98), rgba(255, 255, 255, 0.98));
+  // box-shadow: 0 16px 32px rgba(249, 115, 22, 0.12);
+}
+
+
+
+.hierarchy-card--owner {
+  border-color: rgba(14, 165, 233, 0.38);
+  // background: linear-gradient(180deg, rgba(240, 249, 255, 0.98), rgba(255, 255, 255, 0.98));
+  // box-shadow: 0 16px 32px rgba(14, 165, 233, 0.11);
+}
+
+
+
+// .hierarchy-card--owner-highlight {
+//   box-shadow: 0 16px 32px rgba(234, 88, 12, 0.14);
+// }
+
+.hierarchy-card--project {
+  border-color: rgba(99, 102, 241, 0.34);
+  // background: linear-gradient(180deg, rgba(238, 242, 255, 0.98), rgba(255, 255, 255, 0.98));
+  // box-shadow: 0 16px 32px rgba(99, 102, 241, 0.11);
+}
+
+
+.hierarchy-card--member {
+  border-color: rgba(34, 197, 94, 0.34);
+  // background: linear-gradient(180deg, rgba(240, 253, 244, 0.98), rgba(255, 255, 255, 0.98));
+  // box-shadow: 0 16px 30px rgba(34, 197, 94, 0.1);
+}
+
+
+
+.hierarchy-card--project-manager {
+  border-color: rgba(249, 115, 22, 0.4);
+  // background: linear-gradient(180deg, rgba(255, 247, 237, 0.96), rgba(255, 255, 255, 0.98));
+  // box-shadow: 0 18px 34px rgba(249, 115, 22, 0.14);
+}
+
+.hierarchy-card--interactive.is-selected,
+.hierarchy-selection-node:focus-visible .hierarchy-card--interactive {
+  // box-shadow: 0 20px 38px rgba(15, 23, 42, 0.14);
+  transform: translateY(-2px);
+}
+
+.hierarchy-card--manager.hierarchy-card--interactive.is-selected,
+.hierarchy-selection-node:focus-visible .hierarchy-card--manager.hierarchy-card--interactive {
+  border-color: #fb923c;
+  background: rgb(253, 221, 180);
+}
+
+.hierarchy-card--owner.hierarchy-card--interactive.is-selected,
+.hierarchy-selection-node:focus-visible .hierarchy-card--owner.hierarchy-card--interactive {
+  border-color: #0ea5e9;
+  background: rgb(164, 211, 243);
+}
+
+.hierarchy-card--project.hierarchy-card--interactive.is-selected,
+.hierarchy-selection-node:focus-visible .hierarchy-card--project.hierarchy-card--interactive {
+  border-color: #6366f1;
+  background: rgb(153, 174, 241);
+}
+
+.hierarchy-card--member.hierarchy-card--interactive.is-selected,
+.hierarchy-selection-node:focus-visible .hierarchy-card--member.hierarchy-card--interactive {
+  border-color: #22c55e;
+  background: rgb(172, 252, 200);
+}
+
+.hierarchy-card--detail {
+  width: min(100%, 24rem);
+  // box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+}
+
+.hierarchy-card--manager:hover,
+.hierarchy-selection-node:hover .hierarchy-card--manager {
+  border-color: #fb923c;
+}
+
+.hierarchy-card--owner:hover,
+.hierarchy-selection-node:hover .hierarchy-card--owner {
+  border-color: #0ea5e9;
+}
+
+.hierarchy-card--project:hover {
+  border-color: #6366f1;
+}
+
+.hierarchy-card--member:hover {
+  border-color: #22c55e;
+}
+
+.hierarchy-card--project-manager:hover {
+  border-color: #f97316;
+}
+
+
+.hierarchy-card__content {
+  min-width: 0;
+}
+
+.hierarchy-card__content small,
+.hierarchy-card__content strong,
+.hierarchy-card__content p {
+  display: block;
+  margin: 0;
+}
+
+.hierarchy-card__content small {
+  color: var(--hc-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hierarchy-label {
+  display: inline-flex !important;
+  align-items: center;
+  width: fit-content;
+  padding: 0.28rem 0.58rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  letter-spacing: 0.08em;
+}
+
+.hierarchy-label--root {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.26);
+  color: #ffffff !important;
+}
+
+.hierarchy-label--manager {
+  background: rgba(2, 132, 199, 0.12);
+  border-color: rgba(2, 132, 199, 0.24);
+  color: var(--hc-blue) !important;
+}
+
+.hierarchy-label--owner {
+  background: rgba(234, 88, 12, 0.12);
+  border-color: rgba(234, 88, 12, 0.22);
+  color: var(--hc-orange) !important;
+}
+
+.hierarchy-label--project {
+  background: rgba(67, 56, 202, 0.12);
+  border-color: rgba(67, 56, 202, 0.2);
+  color: var(--hc-indigo) !important;
+}
+
+.hierarchy-label--member {
+  background: rgba(21, 128, 61, 0.12);
+  border-color: rgba(21, 128, 61, 0.22);
+  color: var(--hc-green) !important;
+}
+
+.hierarchy-card__content strong {
+  color: var(--hc-ink);
+  font: 700 0.98rem 'Outfit', sans-serif;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.hierarchy-card__content p {
+  margin-top: 0.28rem;
+  color: var(--hc-muted);
+  font-size: 0.84rem;
+}
+
+.hierarchy-card--root .hierarchy-card__content small,
+.hierarchy-card--root .hierarchy-card__content strong,
+.hierarchy-card--root .hierarchy-card__content p {
+  color: #ffffff;
+}
+
+.hierarchy-card--root .hierarchy-card__content p {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.hierarchy-root__avatar,
+.hierarchy-avatar,
+.hierarchy-member-node__avatar {
+  display: grid;
+  place-items: center;
+  border-radius: 1rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.hierarchy-root__avatar {
+  width: 3.4rem;
+  height: 3.4rem;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  font: 800 1.3rem 'Outfit', sans-serif;
+}
+
+.hierarchy-avatar,
+.hierarchy-member-node__avatar {
+  background: color-mix(in srgb, var(--avatar-tone) 18%, white);
+  color: var(--avatar-tone);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.hierarchy-avatar {
+  width: 2.85rem;
+  height: 2.85rem;
+}
+
+.hierarchy-member-node__avatar {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.85rem;
+}
+
+.hierarchy-inline-empty,
+.hierarchy-empty {
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  color: var(--hc-muted);
+  font-size: 0.88rem;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.hierarchy-inline-empty {
+  border: 1px dashed rgba(100, 116, 139, 0.24);
+}
+
+.hierarchy-inline-empty--centered {
+  text-align: center;
+}
+
+.hierarchy-empty--panel {
+  margin-top: 1rem;
+  border: 1px dashed rgba(100, 116, 139, 0.34);
+  text-align: center;
+}
+
+.hierarchy-animate-in {
+  animation: hierarchyRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hierarchyRise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 1180px) {
+  .hierarchy-branch-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hierarchy-manager-project-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hierarchy-manager-project-grid--expanded {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hierarchy-manager-project-grid::before {
+    left: calc(25% + 0.5rem);
+    right: calc(25% + 0.5rem);
+  }
+}
+
+@media (max-width: 960px) {
+
+  .hierarchy-canvas,
+  .hierarchy-hero {
+    padding: 1.3rem;
+  }
+
+  .hierarchy-canvas__head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hierarchy-hero__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .hierarchy-scroll-panel {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .hierarchy-branch-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hierarchy-tree {
+    padding: 0 0.25rem 0.5rem;
+  }
+
+  .hierarchy-manager-project-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hierarchy-manager-project-grid--expanded,
+  .hierarchy-selection-grid--managers,
+  .hierarchy-selection-grid--owners,
+  .hierarchy-selection-grid--projects,
+  .hierarchy-member-grid--expanded {
+    grid-template-columns: 1fr;
+  }
+
+  .hierarchy-manager-project-grid::before {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .hierarchy-page {
+    padding: 1rem;
+  }
+
+  .hierarchy-member-grid {
+    grid-template-columns: 1fr;
+  }
+}

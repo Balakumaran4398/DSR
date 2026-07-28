@@ -1,0 +1,55 @@
+<div class="w-full animate-fade-in  mx-auto bg-gray-50 min-h-screen ">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-8">
+
+        <!-- 
+           Responsive Wrapper: 
+           - Default: flex-col (mobile stack)
+           - LG: flex-row (desktop row)
+           - flex-wrap: Ensures items wrap if they run out of space on medium screens
+        -->
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between flex-wrap">
+
+            <!-- 1. Title Section -->
+            <div class="flex items-center gap-3 shrink-0">
+                <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
+                   flex items-center justify-center text-white shadow-sm shrink-0">
+                    <i class="ri-calendar-event-line text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">
+                        Documents
+                    </h1>
+                    <p class="text-xs sm:text-sm text-slate-500">
+                        Documents
+                    </p>
+                </div>
+            </div>
+
+            <!-- 3. Actions Section (Search & Add) -->
+            <div class="flex flex-col gap-3 w-full sm:flex-row sm:items-center sm:w-auto shrink-0">
+
+
+                <!-- Add Member Button -->
+                <button class="inline-flex items-center justify-center
+                   w-full sm:w-auto
+                   px-4 py-1 text-sm font-medium
+                   rounded-lg shadow-sm text-white
+                   bg-[var(--text-active)]
+                   hover:opacity-90 hover:shadow-md
+                   active:scale-95
+                   transition-all" (click)="addDoc()">
+                    <i class="ri-add-line mr-2 text-lg"></i>
+                    Add Doc
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Table Card -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <!-- The Grid -->
+        <div #tableDiv></div>
+    </div>
+
+</div>

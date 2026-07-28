@@ -1,0 +1,94 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+textarea[matInput] {
+  resize: vertical;
+}
+
+:host ::ng-deep .mom-attendees-panel {
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 18px !important;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.14);
+}
+
+:host ::ng-deep .mom-attendees-panel .mat-mdc-option {
+  min-height: 46px;
+  margin-bottom: 4px;
+  border-radius: 12px;
+}
+
+:host ::ng-deep .mom-attendees-panel .mdc-list-item__primary-text {
+  color: #0f172a;
+  font-weight: 500;
+}
+
+:host ::ng-deep .mom-attendees-search-option,
+:host ::ng-deep .mom-attendees-search-option.mdc-list-item--disabled {
+  min-height: auto;
+  margin-bottom: 8px;
+  padding: 0;
+  opacity: 1;
+  background: transparent;
+}
+
+:host ::ng-deep .mom-attendees-search-option .mdc-list-item__primary-text,
+:host ::ng-deep .mom-attendees-search-option.mdc-list-item--disabled .mdc-list-item__primary-text {
+  width: 100%;
+  color: inherit;
+}
+
+:host ::ng-deep .mom-attendees-search-shell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  background: #ffffff;
+}
+::ng-deep .mat-mdc-option.mdc-list-item--disabled {
+    opacity: 1 !important;
+}    
+
+
+:host ::ng-deep .mom-attendees-search-shell:focus-within {
+  border-color: rgba(79, 70, 229, 0.5);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
+}
+
+:host ::ng-deep .mom-attendees-search-icon {
+  color: #64748b;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+:host ::ng-deep .mom-attendees-search-input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+:host ::ng-deep .mom-attendees-search-input::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+  font-weight: 400;
+}
+
+:host ::ng-deep .mom-attendees-empty-option,
+:host ::ng-deep .mom-attendees-empty-option.mdc-list-item--disabled {
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 13px;
+  opacity: 1;
+}

@@ -1,0 +1,105 @@
+<div class="task-view-dialog">
+  <button type="button" class="task-view-dialog__close" (click)="close()" aria-label="Close dialog">
+    <i class="ri-close-line"></i>
+  </button>
+
+  <div class="task-view-dialog__hero">
+    <div class="task-view-dialog__pill">
+      <i class="ri-file-list-3-line"></i>
+      <span>{{ task?.taskcode || 'Task Details' }}</span>
+    </div>
+
+    <div class="task-view-dialog__hero-copy">
+      <div class="task-view-dialog__eyebrow">Overview task details</div>
+      <h2>{{ task?.task || 'Untitled task' }}</h2>
+      <p>{{ task?.description || 'No description available for this task yet.' }}</p>
+    </div>
+
+    <!-- <div class="task-view-dialog__status-row">
+      <span class="task-view-dialog__badge task-view-dialog__badge--status">
+        <i class="ri-loader-4-line"></i>
+        {{ task?.status || 'Unknown' }}
+      </span>
+      <span class="task-view-dialog__badge task-view-dialog__badge--priority">
+        <i class="ri-flag-2-line"></i>
+        {{ task?.priority || 'Priority not set' }}
+      </span>
+    </div> -->
+  </div>
+
+  <div class="task-view-dialog__content">
+    <section class="task-view-dialog__section">
+      <!-- <div class="task-view-dialog__section-head">
+        <h3>Context</h3>
+        <span>Project and delivery metadata</span>
+      </div> -->
+      <div class="task-view-dialog__grid">
+        <article class="task-view-dialog__info-card" *ngFor="let item of overviewItems; trackBy: trackByLabel">
+          <div class="task-view-dialog__icon">
+            <i [class]="item.icon"></i>
+          </div>
+          <div>
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="task-view-dialog__section">
+      <!-- <div class="task-view-dialog__section-head">
+        <h3>People and status</h3>
+        <span>Ownership and current progress</span>
+      </div> -->
+      <div class="task-view-dialog__grid">
+        <article class="task-view-dialog__info-card" *ngFor="let item of peopleItems; trackBy: trackByLabel">
+          <div class="task-view-dialog__icon">
+            <i [class]="item.icon"></i>
+          </div>
+          <div>
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="task-view-dialog__section">
+      <!-- <div class="task-view-dialog__section-head">
+        <h3>Schedule</h3>
+        <span>Dates and effort estimates</span>
+      </div> -->
+      <div class="task-view-dialog__grid">
+        <article class="task-view-dialog__info-card" *ngFor="let item of timelineItems; trackBy: trackByLabel">
+          <div class="task-view-dialog__icon">
+            <i [class]="item.icon"></i>
+          </div>
+          <div>
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="task-view-dialog__section">
+      <!-- <div class="task-view-dialog__section-head">
+        <h3>Audit trail</h3>
+        <span>Reference details for follow-up</span>
+      </div> -->
+      <div class="task-view-dialog__grid">
+        <article class="task-view-dialog__info-card" *ngFor="let item of metaItems; trackBy: trackByLabel">
+          <div class="task-view-dialog__icon">
+            <i [class]="item.icon"></i>
+          </div>
+          <div>
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
+        </article>
+      </div>
+    </section>
+  </div>
+
+
+</div>

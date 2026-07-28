@@ -1,0 +1,149 @@
+<!-- <div class="bg-white flex flex-col max-w-xl mx-auto border-l border-slate-200 shadow-xl"> -->
+<div class="h-full flex flex-col bg-white max-w-xl mx-auto border-l border-slate-200 shadow-xl">
+
+    <!-- Header -->
+    <div class="px-6 py-5 border-b border-slate-200 bg-slate-50">
+        <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                <mat-icon class="text-amber-600">person_off</mat-icon>
+            </div>
+
+            <div>
+                <h1 class="text-lg font-bold text-slate-800">
+                    Relieve Employee
+                </h1>
+                <p class="text-sm text-slate-500">
+                    Update relieving details and change employee status
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto p-6">
+        <form [formGroup]="relieveForm" class="flex flex-col gap-6">
+
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+
+                <!-- Top Row -->
+                <div class="flex items-start justify-between">
+              
+                  <!-- Left: Avatar + Name -->
+                  <div class="flex items-center gap-4">
+              
+                    <!-- Avatar -->
+                    <div class="w-14 h-14 rounded-xl bg-amber-100 flex items-center justify-center">
+                      <mat-icon class="text-amber-600 text-2xl">person</mat-icon>
+                    </div>
+              
+                    <div>
+                      <h2 class="text-lg font-semibold text-slate-800 leading-tight">
+                        {{ data?.firstname }} {{ data?.lastname }}
+                      </h2>
+              
+                      <p class="text-sm text-slate-500 mt-1">
+                        {{ data?.position }}
+                      </p>
+                    </div>
+              
+                  </div>
+              
+                  <div class="text-right space-y-1">
+                    <p class="text-sm text-slate-600 break-all">
+                      {{ data?.email }}
+                    </p>
+                    <p class="text-sm text-slate-500">
+                        {{ data?.mobile }}
+                      </p>
+                  </div>
+              
+                </div>
+              
+                <div class="border-t border-slate-200 my-4"></div>
+                  <div class="grid grid-cols-2 gap-y-3 text-sm">
+                  <div class="flex flex-col">
+                    <span class="text-slate-400 text-xs uppercase tracking-wide">
+                      Joining Date
+                    </span>
+                    <span class="text-slate-700 font-medium">
+                      {{ data?.joining_date }}
+                    </span>
+                  </div>
+              
+                  <div class="flex flex-col">
+                    <span class="text-slate-400 text-xs uppercase tracking-wide">
+                      Department
+                    </span>
+                    <span class="text-slate-700 font-medium">
+                      {{ data?.department_name }}
+                    </span>
+                  </div>
+              
+                </div>
+              
+              </div>
+              
+
+            <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+                <mat-icon>assignment</mat-icon>
+                <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+                    Relieving Details
+                </h2>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">
+                    Relieving Date <span class="text-red-500">*</span>
+                </label>
+                <mat-form-field appearance="outline" class="w-full">
+                    <input matInput [matDatepicker]="picker" formControlName="releave_date" placeholder="MM/DD/YYYY">
+                    <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+                    <mat-datepicker #picker></mat-datepicker>
+                    <mat-error *ngIf="relieveForm.controls['releave_date'].invalid">
+                        Relieving date is required
+                    </mat-error>
+                </mat-form-field>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">
+                    Reason <span class="text-red-500">*</span>
+                </label>
+                <mat-form-field appearance="outline" class="w-full">
+                    <textarea matInput rows="4" formControlName="reason" placeholder="Enter reason for relieving...">
+            </textarea>
+                    <mat-error *ngIf="relieveForm.controls['reason'].invalid">
+                        Reason is required
+                    </mat-error>
+                </mat-form-field>
+            </div>
+
+ 
+
+            <!-- <div class="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+
+                <div class="flex flex-col">
+                    <span class="font-semibold text-slate-700">Employee Status</span>
+                    <span class="text-xs text-slate-500">
+                        Toggle to activate or deactivate employee
+                    </span>
+                </div>
+
+                <mat-slide-toggle formControlName="isactive" color="primary">
+                </mat-slide-toggle>
+
+            </div> -->
+
+
+        </form>
+    </div>
+
+    <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+        <button mat-stroked-button color="warn" (click)="close()">
+            Cancel
+        </button>
+        <button mat-flat-button color="primary" [disabled]="relieveForm.invalid" (click)="submit()">
+            Confirm
+        </button>
+    </div>
+
+</div>

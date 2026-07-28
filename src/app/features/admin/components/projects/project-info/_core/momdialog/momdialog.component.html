@@ -1,0 +1,218 @@
+<div class="h-screen bg-white flex flex-col max-w-4xl mx-auto border-l border-slate-200 shadow-sm">
+  <div class="px-6 py-5 border-b border-slate-200 flex justify-between items-start bg-slate-50">
+    <div>
+      <h1 class="text-xl font-bold text-slate-800 m-0">
+        {{ isEditMode ? 'Update MOM' : 'Create New MOM' }}
+      </h1>
+      <p class="text-sm text-slate-500 mt-1">
+        {{ isEditMode ? 'Modify meeting minutes, timing, and outcomes' : 'Capture meeting details, attendees, and action
+        items' }}
+      </p>
+    </div>
+  </div>
+
+  <div class="flex-1 overflow-y-auto p-6 bg-white">
+    <form id="mom-dialog-form" [formGroup]="momForm" (ngSubmit)="submit()" class="flex flex-col gap-6">
+      <section>
+        <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+          <mat-icon>groups</mat-icon>
+          <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+            Meeting Details
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="mom-title">
+              Meeting Title <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <input id="mom-title" matInput type="text" formControlName="title" [errorStateMatcher]="errorStateMatcher"
+                maxlength="150" placeholder="Sprint Review - Project Alpha">
+              <mat-hint align="end">{{ formControls.title?.value?.length || 0 }}/150</mat-hint>
+              <mat-error *ngIf="hasControlError('title')">
+                {{ getControlError('title') }}
+              </mat-error>
+            </mat-form-field>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="mom-date">
+              Meeting Date <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <input id="mom-date" matInput [matDatepicker]="momDatePicker" formControlName="date"
+                [errorStateMatcher]="errorStateMatcher" [max]="maxMeetingDate" placeholder="MM/DD/YYYY">
+              <mat-datepicker-toggle matIconSuffix [for]="momDatePicker"></mat-datepicker-toggle>
+              <mat-datepicker #momDatePicker></mat-datepicker>
+              <mat-error *ngIf="hasControlError('date')">
+                {{ getControlError('date') }}
+              </mat-error>
+            </mat-form-field>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="mom-start-time">
+              Start Time <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input id="mom-start-time" matInput type="time" step="1" formControlName="starttime"
+                (change)="updateEndTime()">
+            </mat-form-field>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="mom-end-time">
+              End Time <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input id="mom-end-time" matInput type="time" step="1" formControlName="endtime"
+                (change)="updateEndTime()">
+            </mat-form-field>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="mom-attendees">
+              Attendees <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <mat-select id="mom-attendees" formControlName="attendees" placeholder="Select attendees" multiple
+                panelClass="mom-attendees-panel" [errorStateMatcher]="errorStateMatcher"
+                (openedChange)="onAttendeesOpenedChange($event)">
+                <mat-select-trigger>
+                  {{ selectedAttendeeNames[0] || 'Select attendees' }}
+                  <span *ngIf="selectedAttendeeNames.length > 1" class="text-slate-500">
+                    +{{ selectedAttendeeNames.length - 1 }} more
+                  </span>
+                </mat-select-trigger>
+
+
+                <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100">
+                  <div class="relative">
+                    <mat-icon class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm !w-4 !h-4"
+                      style="font-size: 16px;">search</mat-icon>
+                    <input [formControl]="attendeeSearchControl"
+                      class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                      placeholder="Search members..." (keydown)="$event.stopPropagation()">
+                  </div>
+                </div>
+
+                <mat-option *ngFor="let employee of filteredEmployees" [value]="employee.id">
+                  <div class="flex items-center gap-2">
+                    <div
+                      class="w-6 h-6 rounded-full bg-slate-200 text-xs flex items-center justify-center font-bold text-slate-600">
+                      {{ employee.employee_name.charAt(0) }}
+                    </div>
+                    {{ employee.employee_name }}
+                  </div>
+                </mat-option>
+
+                <mat-option *ngIf="filteredEmployees.length === 0" disabled class="mom-attendees-empty-option">
+                  No attendees found
+                </mat-option>
+              </mat-select>
+              <mat-error *ngIf="hasControlError('attendees')">
+                {{ getControlError('attendees') }}
+              </mat-error>
+            </mat-form-field>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-2" for="mom-file-upload">
+              Attachment <span class="text-slate-400 text-xs">(Optional)</span>
+            </label>
+            <div class="border border-slate-300 rounded-lg bg-slate-50 p-4">
+              <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-slate-700 m-0">
+                    {{ selectedFileName || 'No file selected' }}
+                  </p>
+
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <input #momFileInput id="mom-file-upload" type="file" class="hidden"
+                    (change)="onFileSelected($event)">
+                  <button type="button" mat-stroked-button color="primary" (click)="momFileInput.click()"
+                    [disabled]="submitting">
+                    Choose File
+                  </button>
+                  <button type="button" mat-button color="warn" *ngIf="selectedFileName"
+                    (click)="clearSelectedFile(momFileInput)" [disabled]="submitting">
+                    Clear
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <mat-divider></mat-divider>
+
+      <section>
+        <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+          <mat-icon>description</mat-icon>
+          <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+            Minutes & Outcomes
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="mom-agenda">
+              Agenda <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <textarea id="mom-agenda" matInput rows="4" formControlName="agenda"
+                [errorStateMatcher]="errorStateMatcher" maxlength="2000"
+                placeholder="Capture the major agenda points discussed in the meeting"></textarea>
+              <mat-hint align="end">{{ formControls.agenda?.value?.length || 0 }}/2000</mat-hint>
+              <mat-error *ngIf="hasControlError('agenda')">
+                {{ getControlError('agenda') }}
+              </mat-error>
+            </mat-form-field>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="mom-discussion">
+              Discussion <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <textarea id="mom-discussion" matInput rows="5" formControlName="discussion"
+                [errorStateMatcher]="errorStateMatcher" maxlength="4000"
+                placeholder="Summarize key updates, blockers, and discussion points"></textarea>
+              <mat-hint align="end">{{ formControls.discussion?.value?.length || 0 }}/4000</mat-hint>
+              <mat-error *ngIf="hasControlError('discussion')">
+                {{ getControlError('discussion') }}
+              </mat-error>
+            </mat-form-field>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="mom-decisions">
+              Decisions / Action Items <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <textarea id="mom-decisions" matInput rows="5" formControlName="decisions"
+                [errorStateMatcher]="errorStateMatcher" maxlength="4000"
+                placeholder="Document decisions taken and action items assigned"></textarea>
+              <mat-hint align="end">{{ formControls.decisions?.value?.length || 0 }}/4000</mat-hint>
+              <mat-error *ngIf="hasControlError('decisions')">
+                {{ getControlError('decisions') }}
+              </mat-error>
+            </mat-form-field>
+          </div>
+        </div>
+      </section>
+    </form>
+  </div>
+
+  <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 sticky bottom-0 z-10">
+    <button type="button" mat-stroked-button color="warn" (click)="close()" [disabled]="submitting" class="!px-6">
+      Cancel
+    </button>
+    <button type="submit" form="mom-dialog-form" mat-flat-button color="primary" [disabled]="submitting" class="!px-6">
+      {{ submitting ? 'Saving...' : (isEditMode ? 'Update MOM' : 'Save MOM') }}
+    </button>
+  </div>
+</div>

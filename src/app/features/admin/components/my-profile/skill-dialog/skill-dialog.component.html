@@ -1,0 +1,48 @@
+<div class="skill-dialog">
+  <button type="button" class="skill-dialog__close" (click)="close()" aria-label="Close dialog">
+    <i class="ri-close-line"></i>
+  </button>
+
+  <div class="skill-dialog__hero">
+    <div class="flex gap-5 mb-6">
+    <div class="skill-dialog__badge">
+      <i class="ri-flashlight-line"></i>
+    </div>
+    <!-- <span class="skill-dialog__eyebrow">{{ isEditMode ? 'Edit Skill' : 'Add Skill' }}</span> -->
+    <h2>{{ isEditMode ? 'Update your skill set' : 'Build your skill set' }}</h2>
+    </div>
+    <p>{{ isEditMode ? 'Update the skill name and experience, then save your changes.' : 'Enter the skill name and experience, then submit to add it to the profile cards.' }}</p>
+  </div>
+
+  <form [formGroup]="skillForm" (ngSubmit)="submit()" class="skill-dialog__form">
+    <div class="skill-dialog__field">
+      <label for="skill">Skill Name</label>
+      <div class="skill-dialog__input-wrap">
+        <i class="ri-code-box-line"></i>
+        <input id="skill" type="text" formControlName="skill" placeholder="Example: Angular" />
+      </div>
+      <span class="skill-dialog__error" *ngIf="sf.skill?.invalid &&  sf.skill?.touched">
+        Skill name is required
+      </span>
+    </div>
+
+    <div class="skill-dialog__field">
+      <label for="experience">Experience</label>
+      <div class="skill-dialog__input-wrap">
+        <i class="ri-timer-flash-line"></i>
+        <input id="experience" type="text" formControlName="experience" placeholder="Example: 3+ years" />
+      </div>
+      <span class="skill-dialog__error"
+        *ngIf="sf.experience?.invalid && (sf.experience?.dirty || sf.experience?.touched)">
+        Experience is required
+      </span>
+    </div>
+
+    <div class="skill-dialog__actions">
+      <button type="button" mat-stroked-button color="warn" class="!px-6" (click)="close()">Cancel</button>
+      <button type="submit" mat-flat-button color="primary" class="!px-6" [disabled]="submitting">
+        {{ submitting ? 'Saving...' : (isEditMode ? 'Update' : 'Submit') }}
+      </button>
+    </div>
+  </form>
+</div>

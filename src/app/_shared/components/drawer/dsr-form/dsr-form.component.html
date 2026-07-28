@@ -1,0 +1,181 @@
+<div class="flex justify-center font-sans bg-gray-100 min-h-screen items-center">
+
+    <div class="w-full bg-white  overflow-hidden flex flex-col h-[99vh]">
+
+        <!-- ================= HEADER ================= -->
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 shrink-0">
+            <h2 class="text-lg font-bold text-gray-800 m-0 flex items-center gap-2">
+                Updates
+            </h2>
+            <span
+                class="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 uppercase tracking-wide">
+                {{ totalTime }} Total
+            </span>
+        </div>
+
+        <!-- ================= COMPOSER ================= -->
+        <form class="p-6 bg-white border-b border-gray-200 flex flex-col gap-4 overflow-y-auto" [formGroup]="taskForm">
+
+            <!-- Row 1: Date & Hours -->
+            <div class="flex gap-4">
+                <!-- Date Picker -->
+                <div class="flex-1">
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Date</label>
+                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                        <input matInput [matDatepicker]="picker" formControlName="date" placeholder="Select date">
+                        <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+                        <mat-datepicker #picker></mat-datepicker>
+                    </mat-form-field>
+                </div>
+
+                <!-- Worked Hours -->
+                <div class="flex-1">
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Hours</label>
+                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                        <input matInput type="time" step="1" formControlName="worked_hours">
+                        <mat-icon matSuffix class="text-m opacity-50 scale-75">schedule</mat-icon>
+                    </mat-form-field>
+                </div>
+            </div>
+
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">{{ selectionLabel }}</label>
+                <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                    <mat-select formControlName="subtaskid" [placeholder]="selectionPlaceholder"
+                        (selectionChange)="onSelectionChange($event)">
+                        <mat-option [value]="null" disabled>{{ selectionLabel }}</mat-option>
+                        <mat-option *ngFor="let p of (isTaskEntryMode ? taskList : subtasks)" [value]="p.id">
+                            {{ p.task }}
+                        </mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+
+            <!-- Comments -->
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Update Details</label>
+                <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                    <textarea matInput rows="3" placeholder="Describe your work..."
+                        formControlName="comments"></textarea>
+                </mat-form-field>
+            </div>
+
+            <!-- ================= PROGRESS ================= -->
+            <div class="mt-2">
+                <div class="bg-slate-50 border border-gray-200 rounded-lg p-4">
+
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[11px] font-bold text-blue-600 uppercase tracking-wider">Progress</span>
+                        <div class="flex items-center gap-1">
+                            <span class="text-xs font-medium text-gray-500 mr-1">Completed</span>
+                            <span class="text-sm font-bold" [style.color]="getProgressColor()">
+                                {{ taskForm.get('completion_percentage')?.value }}%
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Material Slider -->
+                    <div class="flex items-center gap-4 mb-3 -mx-2">
+                        <mat-slider class="flex-1 w-full" min="0" max="100" step="5" discrete
+                            [displayWith]="formatLabel">
+                            <input matSliderThumb formControlName="completion_percentage">
+                        </mat-slider>
+                    </div>
+
+                    <!-- Presets -->
+                    <div class="flex justify-between gap-1">
+                        <button type="button"
+                            class="flex-1 py-1.5 text-[11px] font-medium border border-gray-300 bg-white rounded cursor-pointer hover:bg-[var(--text-active)]  hover:text-white transition-colors"
+                            [class.bg-[var(--text-active)]]="taskForm.get('completion_percentage')?.value === 0"
+                            [class.text-white]="taskForm.get('completion_percentage')?.value === 0"
+                            [class.border-gray-300]="taskForm.get('completion_percentage')?.value === 0"
+                            (click)="setCompletion(0)">0%</button>
+
+                        <button type="button"
+                            class="flex-1 py-1.5 text-[11px] font-medium border border-gray-300 bg-white rounded cursor-pointer hover:bg-[var(--text-active)]  hover:text-white transition-colors"
+                            [class.bg-[var(--text-active)]]="taskForm.get('completion_percentage')?.value === 25"
+                            [class.text-white]="taskForm.get('completion_percentage')?.value === 25"
+                            [class.border-gray-300]="taskForm.get('completion_percentage')?.value === 25"
+                            (click)="setCompletion(25)">25%</button>
+
+                        <button type="button"
+                            class="flex-1 py-1.5 text-[11px] font-medium border border-gray-300 bg-white rounded cursor-pointer hover:bg-[var(--text-active)]  hover:text-white transition-colors"
+                            [class.bg-[var(--text-active)]]="taskForm.get('completion_percentage')?.value === 50"
+                            [class.text-white]="taskForm.get('completion_percentage')?.value === 50"
+                            [class.border-gray-300]="taskForm.get('completion_percentage')?.value === 50"
+                            (click)="setCompletion(50)">50%</button>
+
+                        <button type="button"
+                            class="flex-1 py-1.5 text-[11px] font-medium border border-gray-300 bg-white rounded cursor-pointer hover:bg-gray-800  hover:text-white transition-colors"
+                            [class.bg-[var(--text-active)]]="taskForm.get('completion_percentage')?.value === 75"
+                            [class.text-blue]="taskForm.get('completion_percentage')?.value === 75"
+                            [class.border-gray-300]="taskForm.get('completion_percentage')?.value === 75"
+                            (click)="setCompletion(75)">75%</button>
+
+                        <button type="button"
+                            class="flex-1 py-1.5 text-[11px] font-medium border border-gray-300 bg-white rounded cursor-pointer hover:bg-gray-800 hover:text-white transition-colors"
+                            [class.bg-[var(--text-active)]]="taskForm.get('completion_percentage')?.value === 100"
+                            [class.text-white]="taskForm.get('completion_percentage')?.value === 100"
+                            [class.border-gray-300]="taskForm.get('completion_percentage')?.value === 100"
+                            (click)="setCompletion(100)">100%</button>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="flex justify-end mt-4">
+                <button mat-flat-button color="primary" [disabled]="taskForm.invalid" (click)="submit()">
+                    {{ editId ? 'Update' : 'Add' }}
+                </button>
+            </div>
+
+        </form>
+
+        <!-- ================= FEED ================= -->
+        <div class="flex-1 overflow-y-auto bg-gray-50 p-4">
+            <div *ngFor="let item of logEntries"
+                class="bg-white border border-gray-200 rounded-lg p-4 mb-3 relative border-l-[3px] shadow-sm hover:shadow-md transition-shadow group"
+                [ngClass]="{
+                  'border-l-emerald-500': getStatus(item.completion_percentage) === 'green',
+                  'border-l-amber-500': getStatus(item.completion_percentage) === 'amber',
+                  'border-l-red-500': getStatus(item.completion_percentage) === 'red'
+              }">
+
+                <div class="flex justify-between items-start mb-2">
+                    <span class="font-semibold text-sm text-gray-800 line-clamp-1 mr-2">{{ item.task }}</span>
+
+                    <div class="flex items-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
+                        <span
+                            class="bg-gray-100 px-2 py-0.5 rounded font-medium border border-gray-200 text-gray-600">{{
+                            item.worked_hours }}</span>
+                        <span>•</span>
+                        <span>{{ item.date | date:'MMM d' }}</span>
+
+                        <div class="flex gap-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button mat-icon-button class="!scale-75 !w-8 !h-8 text-gray-400 hover:text-blue-600"
+                                (click)="edit(item)" matTooltip="Edit">
+                                <mat-icon class="!text-[18px]">edit</mat-icon>
+                            </button>
+                            <button mat-icon-button class="!scale-75 !w-8 !h-8 text-gray-400 hover:text-red-500"
+                                (click)="delete(item.id)" matTooltip="Delete">
+                                <mat-icon class="!text-[18px]">delete</mat-icon>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-m text-gray-600 leading-relaxed break-words">
+                    {{ item.comments }}
+                </div>
+            </div>
+
+            <div *ngIf="logEntries.length === 0"
+                class="flex flex-col items-center justify-center p-10 text-gray-400 h-40">
+                <mat-icon class="!w-12 !h-12 !text-[48px] mb-2 opacity-20">history_toggle_off</mat-icon>
+                <span class="text-sm">No entries found.</span>
+            </div>
+
+        </div>
+
+    </div>
+</div>

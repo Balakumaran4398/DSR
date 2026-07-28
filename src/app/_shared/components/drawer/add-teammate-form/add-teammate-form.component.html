@@ -1,0 +1,80 @@
+<div class="h-screen bg-white flex flex-col max-w-4xl mx-auto  border-l border-slate-200">
+
+    <!-- 1. Header -->
+    <div class="px-6 py-5 border-b border-slate-200 flex justify-between items-start bg-slate-50">
+        <div>
+            <h1 class="text-xl font-bold text-slate-800 m-0">
+                Resource Assignment
+            </h1>
+            <p class="text-sm text-slate-500 mt-1">
+                Modify Resource Assignment details
+            </p>
+        </div>
+    </div>
+
+    <!-- 2. Scrollable Content -->
+    <div class="flex-1 overflow-y-auto p-6 bg-white">
+        <form [formGroup]="taskForm" class="flex flex-col gap-6">
+            <!-- Section 1 -->
+            <section>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                    <!-- Owner -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Resource Assignment <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+
+                            <mat-select formControlName="employee_list" placeholder="Select Owners" multiple>
+
+                                <!-- Search Box Sticky at Top -->
+                                <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100">
+                                    <div class="relative">
+                                        <mat-icon
+                                            class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm !w-4 !h-4"
+                                            style="font-size: 16px;">search</mat-icon>
+                                        <input [formControl]="searchControl"
+                                            class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                            placeholder="Search members..." (keydown)="$event.stopPropagation()">
+                                    </div>
+                                </div>
+
+                                <!-- Options List -->
+                                <mat-option *ngFor="let m of filteredEmployees" [value]="m.id">
+                                    <div class="flex items-center gap-2">
+                                        <div
+                                            class="w-6 h-6 rounded-full bg-slate-200 text-xs flex items-center justify-center font-bold text-slate-600">
+                                            {{ m.employee_name.charAt(0) }}
+                                        </div>
+                                        {{ m.employee_name }}
+                                    </div>
+                                </mat-option>
+
+                                <!-- No Results State (Only if absolutely nothing matches and nothing is selected) -->
+                                <div *ngIf="filteredEmployees.length === 0"
+                                    class="p-4 text-center text-sm text-slate-400 italic">
+                                    No members found
+                                </div>
+
+                            </mat-select>
+                            <mat-error *ngIf="rf.employee_list?.invalid">Resource is required.</mat-error>
+                        </mat-form-field>
+                    </div>
+                </div>
+            </section>
+
+            <mat-divider></mat-divider>
+
+        </form>
+    </div>
+
+    <!-- 3. Sticky Footer -->
+    <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 sticky bottom-0 z-10">
+        <button mat-stroked-button color="warn" (click)="onCancel()" class="!px-6">
+            Cancel
+        </button>
+        <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="taskForm.invalid" class="!px-6">
+            Save
+        </button>
+    </div>
+
+</div>

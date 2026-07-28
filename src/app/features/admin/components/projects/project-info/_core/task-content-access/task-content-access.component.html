@@ -1,0 +1,312 @@
+<div class="flex flex-col bg-white font-sans text-slate-900">
+
+    <!-- Sticky Tab Header -->
+    <div class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b-2 border-slate-100">
+        <div class=" mx-auto px-4 sm:px-6">
+            <nav class="flex space-x-1 overflow-x-auto no-scrollbar" aria-label="Tabs">
+                <button *ngFor="let tab of tabs"
+                    class="py-4 px-4 text-m font-semibold border-b-2 transition-all duration-200 focus:outline-none whitespace-nowrap flex items-center gap-2"
+                    [class.border-[var(--text-active)]]="activeTab === tab.id"
+                    [class.text-[var(--text-active)]]="activeTab === tab.id"
+                    [class.border-transparent]="activeTab !== tab.id" [class.text-slate-500]="activeTab !== tab.id"
+                    [class.hover:text-slate-700]="activeTab !== tab.id" (click)="setActiveTab(tab.id)">
+                    <mat-icon class="!w-4 !h-4 text-[18px] leading-none" 
+              [class.text-[var(--text-active)]]="activeTab === tab.id" 
+              [class.text-slate-400]="activeTab !== tab.id"
+            >{{tab.icon}}</mat-icon>
+                    {{ tab.label }}
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main Content (Scrollable) -->
+    <div class="flex-1 overflow-y-auto">
+        <div class=" mx-auto p-6 md:p-8">
+            <ng-container [ngSwitch]="activeTab">
+
+                <!-- DSR ENTRIES TAB -->
+                <div *ngSwitchCase="'dsr-entries'" class="h-full w-full flex flex-col animate-fade-in">
+                    <div class="flex flex-col sm:flex-row gap-3 justify-between items-center mb-8">
+                        <div class="flex items-center gap-3 shrink-0">
+                            <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
+                               flex items-center justify-center text-white shadow-sm shrink-0">
+                                <i class="ri-calendar-event-line text-xl"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">
+                                    DSR Entries
+                                </h1>
+                                <p class="text-xs sm:text-sm text-slate-500">
+                                    {{ contentMode === 'dsr-overview' ? 'Employee DSR overview with comments and worked hours' : 'Define DSR Entries scope and timeline' }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div  class="flex flex-col justify-between gap-3 w-full sm:flex-row sm:items-center sm:w-auto shrink-0">
+                            <div class="relative w-full sm:w-56 lg:w-64">
+                                <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                    <i class="ri-search-line text-gray-400"></i>
+                                </span>
+
+                                <input type="text" (input)="onSearch($event)" placeholder="Search..." class="w-full pl-10 pr-4 py-2
+                                     bg-slate-50 border border-slate-200 rounded-lg text-sm
+                                     focus:outline-none focus:bg-white focus:border-[var(--text-active)]
+                                     focus:ring-1 focus:ring-[var(--text-active)]
+                                     placeholder-gray-400 transition-all" />
+                            </div>
+
+                            <button *ngIf="contentMode === 'task'" class="inline-flex items-center justify-center
+                                   w-full sm:w-auto
+                                   px-4 py-1 text-sm font-medium
+                                   rounded-lg shadow-sm text-white
+                                   bg-[var(--text-active)]
+                                   hover:opacity-90 hover:shadow-md
+                                   active:scale-95
+                                   transition-all" (click)="addtodaydsr()">
+                                <i class="ri-add-line mr-2 text-lg"></i>
+                                Add Today DSR
+                            </button>
+                        </div>
+                    </div>
+
+                    <div
+                        class="dsr-entries-table relative border border-slate-200 rounded-none overflow-x-auto overflow-y-visible shadow-none min-h-[400px]">
+
+                        <div #dsrEntriesTableRef class="w-full"></div>
+                    </div>
+                </div>
+               <!-- SUB-TASKS TAB -->
+                <div *ngSwitchCase="'sub-tasks'" class="h-full w-full flex flex-col animate-fade-in">
+                    <div class="flex flex-col sm:flex-row gap-3 justify-between items-center mb-8">
+                        <div class="flex items-center gap-3 shrink-0">
+                            <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
+                               flex items-center justify-center text-white shadow-sm shrink-0">
+                                <i class="ri-calendar-event-line text-xl"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">
+                                    Sub Task
+                                </h1>
+                                <p class="text-xs sm:text-sm text-slate-500">
+                                    Define sub-task scope and timeline
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- 3. Actions Section (Search & Add) -->
+                        <div
+                            class="flex flex-col justify-between gap-3 w-full sm:flex-row sm:items-center sm:w-auto shrink-0">
+
+                            <!-- Search -->
+                            <div class="relative w-full sm:w-56 lg:w-64">
+                                <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                    <i class="ri-search-line text-gray-400"></i>
+                                </span>
+
+                                <input type="text" (input)="onSearch($event)" placeholder="Search..." class="w-full pl-10 pr-4 py-2
+                                     bg-slate-50 border border-slate-200 rounded-lg text-sm
+                                     focus:outline-none focus:bg-white focus:border-[var(--text-active)]
+                                     focus:ring-1 focus:ring-[var(--text-active)]
+                                     placeholder-gray-400 transition-all" />
+                            </div>
+
+                            <!-- Add Member Button -->
+                            <button class="inline-flex items-center justify-center
+                                   w-full sm:w-auto
+                                   px-4 py-1 text-sm font-medium
+                                   rounded-lg shadow-sm text-white
+                                   bg-[var(--text-active)]
+                                   hover:opacity-90 hover:shadow-md
+                                   active:scale-95
+                                   transition-all" (click)="addSubtask()">
+                                <i class="ri-add-line mr-2 text-lg"></i>
+                                Add Subtask
+                            </button>
+                        </div>
+                    </div>
+
+                    <div
+                        class="flex-1 relative border border-slate-200 rounded-none overflow-hidden shadow-none min-h-[400px]">
+
+                        <div #subtasksTableRef class="h-full w-full"></div>
+                    </div>
+                </div>
+
+                <!-- COMMENTS TAB -->
+                <div *ngSwitchCase="'comments'" class="flex flex-col h-full mx-auto animate-fade-in">
+                    <!-- Input -->
+                    <div class="mb-10">
+                        <mat-form-field appearance="outline" class="w-full no-floating-label minimal-input">
+                            <textarea matInput [formControl]="commentControl" placeholder="Write a comment..." rows="2"
+                                class="!resize-none text-base !py-2 text-slate-900"
+                                (keydown.control.enter)="addComment()">
+                  </textarea>
+                        </mat-form-field>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="text-xs text-slate-400">Press <span class="font-bold text-slate-600">Ctrl +
+                                    Enter</span> to post</span>
+                            <button mat-flat-button color="primary" (click)="addComment()"
+                                [disabled]="!commentControl.valid" class="!rounded-md !font-bold bg-active !text-white">
+                                Post Comment
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- List -->
+                    <div class="space-y-8 pb-10">
+                        <div class="flex gap-4 group" *ngFor="let comment of comments; trackBy: trackById">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 mt-1 shadow-sm"
+                                [style.background-color]="getAvatarColor(comment.author.name)">
+                                {{getInitials(comment.author.name)}}
+                            </div>
+
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1.5">
+                                    <span class="font-bold text-slate-900 text-sm">{{comment.author.name}}</span>
+                                    <span
+                                        class="text-m font-semibold text-slate-500">{{formatTimeAgo(comment.timestamp)}}</span>
+                                </div>
+
+                                <div class="text-slate-800 text-[15px] leading-relaxed" *ngIf="!comment.isEditing">
+                                    {{comment.content}}
+                                </div>
+
+                                <!-- Edit Mode -->
+                                <div class="space-y-3 mt-3" *ngIf="comment.isEditing">
+                                    <mat-form-field appearance="outline" class="w-full no-floating-label minimal-input">
+                                        <textarea matInput [(ngModel)]="editCache" rows="3"></textarea>
+                                    </mat-form-field>
+                                    <div class="flex gap-3 justify-end">
+                                        <button mat-button (click)="cancelCommentEdit(comment)"
+                                            class="!text-slate-600 !font-bold">Cancel</button>
+                                        <button mat-flat-button color="primary" (click)="saveEditComment(comment)"
+                                            class="!font-bold bg-active !text-white">Update</button>
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="flex gap-4 mt-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    *ngIf="!comment.isEditing">
+                                    <button
+                                        class="text-xs text-slate-400 hover:text-slate-800 font-bold flex items-center gap-1 cursor-pointer transition-colors uppercase tracking-wider"
+                                        (click)="enableEdit(comment)">
+                                        Edit
+                                    </button>
+                                    <button
+                                        class="text-xs text-slate-400 hover:text-red-700 font-bold flex items-center gap-1 cursor-pointer transition-colors uppercase tracking-wider"
+                                        (click)="deleteComment(comment.id)">
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="py-16 text-center text-slate-400" *ngIf="comments.length === 0">
+                            <p>No comments yet.</p>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <!-- ISSUES TAB -->
+                <div *ngSwitchCase="'issues'" class="h-full w-full flex flex-col animate-fade-in">
+                    <div
+                        class="flex-1 relative border border-slate-200 rounded-none overflow-hidden shadow-none min-h-[400px]">
+                        <div *ngIf="!isTabulatorLoaded"
+                            class="absolute inset-0 flex items-center justify-center text-slate-900 font-bold">LOADING
+                            DATA...</div>
+                        <div id="issues-table" class="h-full w-full"></div>
+                    </div>
+                </div>
+
+                <!-- TIMELINE TAB -->
+                <div *ngSwitchCase="'status-timeline'"
+                    class="flex flex-col h-full max-w-4xl mx-auto py-4 animate-fade-in">
+                    <div class="relative pl-8 border-l-2 border-slate-200 space-y-12 py-2">
+                        <div *ngFor="let log of timelineLogs" class="relative group">
+                            <!-- Dot -->
+                            <div class="absolute -left-[41px] top-1.5 w-5 h-5 rounded-full border-2 border-white shadow-none z-10"
+                                [ngClass]="getTimelineDotColor(log.status)">
+                            </div>
+
+                            <div class="flex flex-col gap-3">
+                                <div class="flex items-center gap-3 text-sm">
+                                    <span class="font-bold text-slate-900 text-m">{{ log.employee_name || 'System'
+                                        }}</span>
+                                    <span
+                                        class="text-slate-600 font-semibold uppercase text-xs tracking-wider border border-slate-200 px-2 py-0.5 rounded">{{
+                                        log.action || 'updated' }}</span>
+                                    <span class="text-slate-500 text-m font-semibold uppercase ml-auto tracking-wide">{{
+                                        log.logdate | date:'medium' }}</span>
+                                </div>
+
+                                <div class="flex items-start gap-3">
+                                    <span [ngClass]="getStatusColor(log.status)"
+                                        class="px-2 py-1 rounded text-[11px] font-bold border-0 inline-block uppercase tracking-wide">
+                                        {{ log.status }}
+                                    </span>
+                                    <p class="text-slate-800 text-base  leading-relaxed p-0 border-0 w-full"
+                                        *ngIf="log.remark">
+                                        {{ log.remark }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ACTIVITY TAB -->
+                <div *ngSwitchCase="'activity'" class="flex flex-col h-full max-w-4xl mx-auto py-2 animate-fade-in">
+                    <div class="space-y-8">
+                        <div *ngFor="let activity of activityList" class="flex gap-5 items-start group">
+                            <div class="mt-1">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-active flex items-center justify-center text-white font-bold shadow-sm">
+                                    <mat-icon class="!w-5 !h-5 text-[20px]">history</mat-icon>
+                                </div>
+                            </div>
+
+                            <div class="flex-1 pb-6 border-b-2 border-slate-100 group-last:border-0">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div class="text-base text-slate-800">
+                                        <span class="font-bold text-m mr-2">{{ activity.employee_name || 'System'
+                                            }}</span>
+                                        <span class="text-slate-500 font-semibold uppercase text-xs tracking-wider">{{
+                                            activity.action }}</span>
+                                    </div>
+                                   
+                                        <div class="text-xs  text-slate-500 font-bold uppercase tracking-widest whitespace-nowrap">
+                                            {{ activity.logdate | date:'mediumDate' }} • {{ activity.logdate | date:'mediumTime' }}
+                                          </div>
+                                </div>
+
+                                <div class="flex flex-wrap gap-2 items-center mt-3">
+                                    <span
+                                        class="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide border whitespace-nowrap"
+                                        [ngClass]="getStatusColor(activity.status)">
+                                        {{ activity.status }}
+                                    </span>
+
+
+                                </div>
+
+                                <p class="text-sm text-slate-700 mt-3 font-medium border-l-4 border-[var(--text-active)] pl-4 py-1"
+                                    *ngIf="activity.remark">
+                                    "{{ activity.remark }}"
+                                </p>
+
+                                
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div *ngSwitchDefault class="flex flex-col items-center justify-center h-full text-slate-400">
+                    <p>Select a tab to view content</p>
+                </div>
+
+            </ng-container>
+        </div>
+    </div>
+</div>

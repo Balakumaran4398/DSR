@@ -1,0 +1,66 @@
+<div *ngIf="isOpen" (click)="close()"
+    class="fixed inset-0 bg-slate-900/20 backdrop-blur-[2px] z-[90] transition-opacity">
+</div>
+
+<div [class.translate-x-0]="isOpen" [class.translate-x-full]="!isOpen"
+    class="fixed top-0 right-0 h-full w-full md:w-[600px] bg-white shadow-xl z-[100] transition-transform duration-300 ease-in-out flex flex-col font-sans">
+    <header class="shrink-0 bg-white border-b border-slate-100 relative z-20">
+        <div class="absolute top-3 right-3 text-right">
+            <button (click)="close()" class="md:hidden text-slate-400 p-1">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+            <button (click)="close()" class="hidden md:block ml-2 text-slate-300 hover:text-slate-600 transition">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+    </header>
+
+    <div class="flex-1 overflow-y-auto md:p-4 bg-slate-50">
+        <!-- <div
+            class="h-[800px] border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-400"> -->
+        <ng-container [ngSwitch]="activeType">
+            <ng-template [ngSwitchCase]="'member'">
+                <app-user-form [data]="data"> </app-user-form>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'project'">
+                <app-project-form [data]="data"></app-project-form>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'task'">
+                <app-task-form [type]="formType" [data]="data"></app-task-form>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'teammate'">
+                <app-add-teammate-form></app-add-teammate-form>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'release'">
+                <app-release-form [data]="data"></app-release-form>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'mom'">
+                <app-momdialog [data]="data"></app-momdialog>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'phases'">
+                <app-phase-form [data]="data"></app-phase-form>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'sub-task'">
+                <app-subtask-form [data]="data"></app-subtask-form>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'dsr'">
+                <app-dsr-form [data]="data"></app-dsr-form>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'relieve'">
+                <app-releieve-form [data]="data"></app-releieve-form>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'client'">
+                <app-client-form [data]="data"></app-client-form>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'ticket'">
+                <app-self-ticket-form [data]="data"></app-self-ticket-form>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'assignticket'">
+                <app-assign-ticket-form [data]="data"></app-assign-ticket-form>
+            </ng-template>
+
+        </ng-container>
+        <!-- </div> -->
+    </div>
+
+</div>

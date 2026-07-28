@@ -1,0 +1,190 @@
+<div class="h-screen bg-white flex flex-col w-full max-w-5xl mx-auto border-l border-slate-200">
+
+    <!-- Header -->
+    <div class="px-8 py-5 border-b border-slate-200 flex justify-between items-start bg-slate-50">
+        <div>
+            <div class="flex items-center gap-2 mb-5">
+                <mat-icon>business</mat-icon>
+                <h1 class="text-xl font-bold text-slate-800 m-0">
+                    {{ isEditMode ? 'Update Client' : 'Create New Client' }}
+                </h1>
+            </div>
+            <p class="text-sm text-slate-500 mt-2">
+                {{ isEditMode
+                ? 'Modify client information and contact details'
+                : 'Add a new client with address and contact information'
+                }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Content (NO SCROLL) -->
+    <div class="flex-1 px-8 py-5 bg-white">
+
+        <form [formGroup]="clientForm" class="flex flex-col gap-6">
+
+            <!-- Basic Information -->
+            <section>
+
+                <div class="flex items-center gap-2 mb-5 text-[var(--text-active)]">
+                    <mat-icon>business</mat-icon>
+
+                    <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+                        Client Details
+                    </h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+
+                    <!-- Name -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-2">
+                            Name <span class="text-red-500">*</span>
+                        </label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput formControlName="companyName" placeholder="Enter company name">
+                            <mat-error *ngIf="showError('companyName', 'required')">Name is required.</mat-error>
+                            <mat-error *ngIf="showError('companyName', 'maxlength')">Name cannot exceed 200
+                                characters.</mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Phone -->
+                    <div>
+
+                        <label class="block text-sm font-medium text-slate-700 mb-2">
+                            Phone <span class="text-red-500">*</span>
+                        </label>
+
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput formControlName="mobile" maxlength="10" inputmode="numeric"
+                                (keypress)="numbersOnly($event)" (input)="limitMobile($event)">
+                            <mat-error *ngIf="showError('mobile', 'required')">Phone is required.</mat-error>
+                            <mat-error
+                                *ngIf="showError('mobile', 'pattern') || showError('mobile', 'minlength') || showError('mobile', 'maxlength')">
+                                Phone must be 10 digits.
+                            </mat-error>
+                        </mat-form-field>
+
+                    </div>
+
+                    <!-- Email -->
+                    <div>
+
+                        <label class="block text-sm font-medium text-slate-700 mb-2">
+                            Email
+                        </label>
+
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput type="email" formControlName="email">
+                            <mat-error *ngIf="showError('email', 'pattern')">Enter a valid email ending with .com or
+                                .in.</mat-error>
+                        </mat-form-field>
+
+                    </div>
+
+                    <!-- Address -->
+                    <div class="md:col-span-2">
+
+                        <label class="block text-sm font-medium text-slate-700 mb-2">
+                            Address Line <span class="text-red-500">*</span>
+                        </label>
+
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <textarea matInput formControlName="address" rows="3"></textarea>
+                            <mat-error *ngIf="showError('address', 'required')">Address Line is required.</mat-error>
+                            <mat-error *ngIf="showError('address', 'maxlength')">Address Line cannot exceed 250
+                                characters.</mat-error>
+                        </mat-form-field>
+
+                    </div>
+
+                    <!-- City -->
+                    <div>
+
+                        <label class="block text-sm font-medium text-slate-700 mb-2">
+                            City <span class="text-red-500">*</span>
+                        </label>
+
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput formControlName="city">
+                            <mat-error *ngIf="showError('city', 'required')">City is required.</mat-error>
+                            <mat-error *ngIf="showError('city', 'numbersNotAllowed')">City cannot contain numeric
+                                values.</mat-error>
+                            <mat-error *ngIf="showError('city', 'maxlength')">City cannot exceed 200
+                                characters.</mat-error>
+                        </mat-form-field>
+
+                    </div>
+
+                    <!-- State -->
+                    <div>
+
+                        <label class="block text-sm font-medium text-slate-700 mb-2">
+                            State <span class="text-red-500">*</span>
+                        </label>
+
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput formControlName="state">
+                            <mat-error *ngIf="showError('state', 'required')">State is required.</mat-error>
+                            <mat-error *ngIf="showError('state', 'maxlength')">State cannot exceed 100 characters.</mat-error>
+                        </mat-form-field>
+
+                    </div>
+
+                    <!-- Pincode -->
+                    <div>
+
+                        <label class="block text-sm font-medium text-slate-700 mb-2">
+                            Pincode <span class="text-red-500">*</span>
+                        </label>
+
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput formControlName="pincode" maxlength="6" inputmode="numeric"
+                                (keypress)="numbersOnly($event)" (input)="limitPincode($event)">
+                            <mat-error *ngIf="showError('pincode', 'required')">Pincode is required.</mat-error>
+                            <mat-error
+                                *ngIf="showError('pincode', 'pattern') || showError('pincode', 'minlength') || showError('pincode', 'maxlength')">
+                                Pincode must be 6 digits.
+                            </mat-error>
+                        </mat-form-field>
+
+                    </div>
+
+                    <!-- Website -->
+                    <div>
+
+                        <label class="block text-sm font-medium text-slate-700 mb-2">
+                            Website
+                        </label>
+
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput formControlName="website" placeholder="https://example.com">
+                        </mat-form-field>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+            <mat-divider></mat-divider>
+
+        </form>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="px-8 py-4 bg-slate-50 flex justify-end gap-4 border-t border-slate-200">
+
+        <button mat-stroked-button color="warn" (click)="onCancel()" class="!px-8">
+            Cancel
+        </button>
+
+        <button mat-flat-button color="primary" (click)="onSubmit()" class="!px-8">
+            Save
+        </button>
+
+    </div>
+
+</div>

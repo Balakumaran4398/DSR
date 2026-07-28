@@ -1,0 +1,199 @@
+<div class="h-screen bg-white flex flex-col max-w-4xl mx-auto border-l border-slate-200">
+
+  <!-- Header -->
+  <div class="px-6 py-5 border-b border-slate-200 bg-slate-50">
+    <div class="flex items-center gap-2">
+      <mat-icon>confirmation_number</mat-icon>
+      <h1 class="text-xl font-bold text-slate-800 m-0">
+        {{ isEditMode ? 'Update Ticket' : 'Create Ticket' }}
+      </h1>
+    </div>
+    <p class="text-sm text-slate-500 mt-1">
+      {{ isEditMode ? 'Modify ticket information' : 'Create a new support ticket' }}
+    </p>
+  </div>
+
+  <!-- Body -->
+  <div class="flex-1 overflow-y-auto p-6 bg-white">
+    <form [formGroup]="ticketForm" class="flex flex-col gap-6">
+
+      <!-- Ticket Information -->
+      <section>
+        <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+          <mat-icon>confirmation_number</mat-icon>
+          <h2 class="text-sm font-bold uppercase tracking-wider m-0">Ticket Information</h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+
+          <!-- Client -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Client <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <mat-select formControlName="clientId" placeholder="Select Client"
+                (selectionChange)="onClientSelectionChange($event.value)" (openedChange)="onClientSelectOpened($event)">
+                <mat-select-trigger>
+                  {{ rf.clientName?.value || 'Select Client' }}
+                </mat-select-trigger>
+                <div class="px-3 py-2 bg-white sticky top-0 z-10" (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()">
+                  <input type="text" class="w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none"
+                    placeholder="Search Client" [value]="clientSearchText" (input)="filterClients($event)">
+                </div>
+                <mat-option [value]="null">Select Client</mat-option>
+                <mat-option *ngFor="let client of filteredClients" [value]="getClientValue(client)">
+                  {{ client.company_name }}
+                </mat-option>
+                <mat-option *ngIf="!filteredClients.length" disabled>No clients found</mat-option>
+              </mat-select>
+              <mat-error *ngIf="rf.clientId?.invalid">Client is required</mat-error>
+            </mat-form-field>
+          </div>
+          <!-- Project -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Project Title </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <mat-select formControlName="project_id" placeholder="Select Project"
+                (selectionChange)="onProjectSelectionChange($event.value)" (openedChange)="onProjectSelectOpened($event)">
+                <mat-select-trigger>
+                  {{ rf.projectName?.value || 'Select Project' }}
+                </mat-select-trigger>
+                <div class="px-3 py-2 bg-white sticky top-0 z-10" (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()">
+                  <input type="text" class="w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none"
+                    placeholder="Search Project" [value]="projectSearchText" (input)="filterProjects($event)">
+                </div>
+                <mat-option [value]="null">Select Project</mat-option>
+                <mat-option *ngFor="let p of filteredProjects" [value]="p.id">
+                  {{ p.project_title }}
+                </mat-option>
+                <mat-option *ngIf="!filteredProjects.length" disabled>No projects found</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <!-- Ticket Name -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Ticket Name <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput formControlName="ticket_name" placeholder="Enter ticket name">
+              <mat-error *ngIf="rf.ticket_name?.invalid">Ticket Name is required</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Priority -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Priority <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <mat-select formControlName="priority" placeholder="Select Priority">
+                <mat-option *ngFor="let priority of priorityOptions" [value]="priority.id">
+                  <span class="inline-flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full" [ngClass]="priority.dotClass"></span>
+                    {{priority.value}}
+                  </span>
+                </mat-option>
+              </mat-select>
+              <mat-error *ngIf="rf.priority?.invalid">Priority is required</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Status -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Status <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <mat-select formControlName="status" placeholder="Select Status">
+                <mat-option *ngFor="let status of statusList" [value]="status.id">
+                  {{status.name}}
+                </mat-option>
+              </mat-select>
+              <mat-error *ngIf="rf.status?.invalid">Status is required</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Worked Hours -->
+          <div class="flex-1">
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Worked Hours<span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <input matInput type="time" step="1" formControlName="worked_hours">
+              <mat-icon matSuffix class="text-m opacity-50 scale-75">schedule</mat-icon>
+            </mat-form-field>
+          </div>
+
+        </div>
+      </section>
+
+      <mat-divider></mat-divider>
+
+      <!-- Ticket Description -->
+      <section>
+        <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+          <mat-icon>description</mat-icon>
+          <h2 class="text-sm font-bold uppercase tracking-wider m-0">Ticket Details</h2>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4">
+
+          <!-- Description -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Ticket description
+              <!-- <span class="text-red-500">*</span> -->
+            </label>
+            <mat-form-field appearance="outline" class="w-full">
+              <textarea matInput rows="4" formControlName="ticketDescription"></textarea>
+              <!-- <mat-error *ngIf="rf.ticketDescription?.invalid">Ticket Description is required</mat-error> -->
+            </mat-form-field>
+          </div>
+
+          <!-- Why Issue Happened -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Reason for issue
+            </label>
+            <mat-form-field appearance="outline" class="w-full">
+              <textarea matInput rows="4" formControlName="client_comments"></textarea>
+            </mat-form-field>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Solution
+            </label>
+            <mat-form-field appearance="outline" class="w-full">
+              <textarea matInput rows="4" formControlName="solution"></textarea>
+            </mat-form-field>
+          </div>
+
+          <!-- Solution -->
+          <!-- <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">
+                Solution <span class="text-red-500">*</span>
+              </label>
+              <mat-form-field appearance="outline" class="w-full">
+                <textarea matInput rows="4" formControlName="solution"></textarea>
+                <mat-error *ngIf="rf.solution?.invalid">Solution is required</mat-error>
+              </mat-form-field>
+            </div> -->
+
+        </div>
+      </section>
+
+    </form>
+  </div>
+
+  <!-- Footer -->
+  <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+    <button mat-stroked-button color="warn" (click)="onCancel()">Cancel</button>
+    <button mat-flat-button color="primary" [disabled]="ticketForm.invalid" (click)="onSubmit()">Save</button>
+  </div>
+
+</div>

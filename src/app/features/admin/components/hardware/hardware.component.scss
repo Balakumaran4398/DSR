@@ -1,0 +1,14 @@
+:host {
+  display: block;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

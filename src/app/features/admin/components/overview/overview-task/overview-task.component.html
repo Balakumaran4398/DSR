@@ -1,0 +1,84 @@
+<div class="w-full animate-fade-in  mx-auto bg-gray-50 min-h-screen ">
+    <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 mb-8">
+        <div class="flex flex-col items-center gap-4 lg:flex-row lg:items-center lg:justify-between flex-wrap">
+            <!-- 3. Actions Section (Search & Add) -->
+            <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto shrink-0">
+                <form class="example-form w-full sm:w-72">
+                    <mat-form-field class="w-full" appearance="outline">
+                        <input type="text" matInput placeholder="Select employee" [formControl]="myControl"
+                            [matAutocomplete]="auto">
+                        <button *ngIf="myControl.value" mat-icon-button matSuffix type="button" aria-label="Clear"
+                            (click)="clearSelection()">
+                            <mat-icon>close</mat-icon>
+                        </button>
+                        <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayFn" autoActiveFirstOption
+                            (optionSelected)="onEmployeeSelect($event.option.value)">
+                            <mat-option *ngFor="let emp of filteredOptions | async" [value]="emp">
+                                {{ emp.employee_name }}
+                            </mat-option>
+                        </mat-autocomplete>
+                    </mat-form-field>
+                </form>
+            </div>
+
+            <div class="flex items-center justify-center w-full lg:w-auto my-1 lg:my-0">
+                <app-date-range-filter [initialStartDate]="initialStartDate" [initialEndDate]="initialEndDate"
+                    navigationStep="week"
+                    (rangeChange)="onRangeChange($event)"></app-date-range-filter>
+            </div>
+            <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto">
+                <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto" role="tablist">
+                    <button [disabled]="!canDownloadPdf" title="View PDF" (click)="previewOverviewPdf()"
+                        class="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg shadow-sm bg-white text-slate-600 hover:bg-slate-100 border border-slate-200">
+                        <i class="ri-eye-line text-lg mr-2"></i>
+                    </button>
+                    <button [disabled]="!hasViewedPdf || !canDownloadPdf" title="PDF Download" (click)="generateOverviewPdf()"
+                        class="cursor-pointer transition-all duration-200 inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg shadow-sm border"
+                        [ngClass]="{
+                            'pdf-enabled': hasViewedPdf && canDownloadPdf,
+                            'pdf-disabled': !hasViewedPdf || !canDownloadPdf
+                        }">
+                        <i class="ri-file-pdf-2-fill !text-2xl"></i>
+                    </button>
+                    <div class="flex flex-col items-center justify-center gap-3 w-full  sm:flex-row sm:items-center sm:w-auto">
+                        <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto" role="tablist">
+                            <button *ngFor="let tab of mainTabs" (click)="setActiveTab(tab.id)"
+                                [attr.aria-selected]="currentView === tab.id"
+                                class="inline-flex items-center justify-center w-full sm:w-auto px-6 py-2 text-lg font-semibold rounded-lg shadow-sm "
+                                [class]="currentView === tab.id ? 'bg-[var(--text-active)] text-white ring-2 ring-blue-100' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'">
+                                <ng-container *ngIf="tab.id === 'kanban'; else timeIcon">
+                                    <i class="ri-trello-line text-2xl"></i>
+                                </ng-container>
+                                <ng-template #timeIcon>
+                                    <i class="ri-table-line text-2xl"></i>
+                                </ng-template>
+                                {{ tab.label }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <!-- Table Card -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <!-- The Grid -->
+
+        <div [class.hidden]="currentView !== 'table'"
+            class="h-full bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+            <div class="overflow-auto flex-1">
+                <div #tableDiv></div>
+            </div>
+        </div>
+        <div *ngIf="kanbanInitialized" [class.hidden]="currentView !== 'kanban'"
+            class="h-full bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+            <div class="h-full ">
+                <app-overview-task-gantt [rawData]="tableData"></app-overview-task-gantt>
+            </div>
+        </div>
+
+
+    </div>
+
+</div>

@@ -1,0 +1,192 @@
+<div class="w-full animate-fade-in  mx-auto bg-gray-50 min-h-screen ">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-8">
+
+        <!-- <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between flex-wrap">
+
+            <div class="flex items-center gap-3 shrink-0">
+                <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
+                   flex items-center justify-center text-white shadow-sm shrink-0">
+                    <i class="ri-calendar-event-line text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">
+                        {{title}}
+                    </h1>
+                    <p class="text-xs sm:text-sm text-slate-500">
+                        {{titleDesc}}
+                    </p>
+                </div>
+            </div>
+
+
+            <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-center 2xl:justify-self-center min-w-0">
+                <div class="flex items-center justify-center  w-full lg:w-auto my-2 lg:my-0">
+                    <app-date-range-filter [initialStartDate]="initialStartDate" [initialEndDate]="initialEndDate"
+                        navigationStep="week"
+                        (rangeChange)="onRangeChange($event)"></app-date-range-filter>
+                </div>
+                <mat-form-field appearance="outline" class="w-full xl:w-64" subscriptSizing="dynamic">
+                    <mat-select [value]="version" placeholder="Select version"
+                        (selectionChange)="onVersionChange($event.value)">
+                        <mat-option [value]="null">All Versions</mat-option>
+                        <mat-option *ngFor="let v of versionList" [value]="v">{{ v }}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+            <div class="flex flex-col gap-3 w-full sm:flex-row sm:items-center sm:w-auto shrink-0">
+
+                <div class="relative w-full sm:w-56 lg:w-64">
+                    <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                        <i class="ri-search-line text-gray-400"></i>
+                    </span>
+
+                    <input type="text" [value]="searchTerm" (input)="onSearch($event)" placeholder="Search..." class="w-full pl-10 pr-4 py-2
+                     bg-slate-50 border border-slate-200 rounded-lg text-sm
+                     focus:outline-none focus:bg-white focus:border-[var(--text-active)]
+                     focus:ring-1 focus:ring-[var(--text-active)]
+                     placeholder-gray-400 transition-all text-slate-900" />
+                </div>
+
+                <button class="inline-flex items-center justify-center
+                   w-full sm:w-auto
+                   px-4 py-1 text-sm font-medium
+                   rounded-lg shadow-sm text-white
+                   bg-[var(--text-active)]
+                   hover:opacity-90 hover:shadow-md
+                   active:scale-95
+                   transition-all" (click)="addMenber()">
+                    <i class="ri-add-line mr-2 text-lg"></i>
+                    Add {{btnText}}
+                </button>
+            </div>
+
+        </div> -->
+        <div class="flex flex-col gap-4 2xl:grid 2xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] 2xl:items-center">
+
+            <!-- 1. Title Section -->
+            <div class="flex items-center gap-3 shrink-0">
+                <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
+                   flex items-center justify-center text-white shadow-sm shrink-0">
+                    <i class="ri-calendar-event-line text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">
+                        {{title}}
+                    </h1>
+                    <p class="text-xs sm:text-sm text-slate-500">
+                        {{titleDesc}}
+                    </p>
+                </div>
+            </div>
+
+            <div
+                class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-center 2xl:justify-self-center min-w-0">
+                <div class="flex items-center justify-center  w-full lg:w-auto my-2 lg:my-0">
+                    <app-date-range-filter [initialStartDate]="initialStartDate" [initialEndDate]="initialEndDate"
+                        navigationStep="week"
+                        (rangeChange)="onRangeChange($event)"></app-date-range-filter>
+                </div>
+                <mat-form-field appearance="outline" class="w-full xl:w-64" subscriptSizing="dynamic">
+                    <mat-select [value]="version" placeholder="Select version"
+                        (selectionChange)="onVersionChange($event.value)">
+                        <mat-option [value]="null">All Versions</mat-option>
+                        <mat-option *ngFor="let v of versionList" [value]="v">{{ v }}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+
+
+            <!-- 3. Actions Section (Search & Add) -->
+            <div class="flex flex-col gap-3 w-full sm:flex-row sm:items-center sm:w-auto shrink-0">
+
+                <!-- Search -->
+                <div class="relative w-full sm:w-56 lg:w-64">
+                    <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                        <i class="ri-search-line text-gray-400"></i>
+                    </span>
+
+                    <input type="text" [value]="searchTerm" (input)="onSearch($event)" placeholder="Search..." class="w-full pl-10 pr-4 py-2
+                     bg-slate-50 border border-slate-200 rounded-lg text-sm
+                     focus:outline-none focus:bg-white focus:border-[var(--text-active)]
+                     focus:ring-1 focus:ring-[var(--text-active)]
+                     placeholder-gray-400 transition-all text-slate-900" />
+                </div>
+
+                <!-- Add Member Button -->
+                <button class="inline-flex items-center justify-center
+                w-full sm:w-auto
+                px-4 py-1 text-sm font-medium
+                rounded-lg shadow-sm text-white
+                bg-[var(--text-active)]
+                hover:opacity-90 hover:shadow-md
+                active:scale-95
+                transition-all whitespace-nowrap" (click)="addMenber()">
+                    <i class="ri-add-line mr-2 text-lg"></i>
+                    Add {{btnText}}
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Table Card -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <!-- The Grid -->
+        <div #tableDiv></div>
+    </div>
+
+</div>
+<div class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-white text-slate-900 px-2 py-2 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] flex items-center gap-4 min-w-[380px] border border-slate-200 transition-all duration-300 ease-out"
+    [class.translate-y-[150%]]="!showBar" [class.opacity-0]="!showBar" [class.translate-y-0]="showBar"
+    [class.opacity-100]="showBar">
+
+    <!-- Counter Pill -->
+    <div class="bg-[var(--text-active)] text-white rounded-full px-4 py-2 flex items-center gap-2 ml-1">
+        <span class="font-bold text-white-400">{{ selectedCount }}</span>
+        <span class="text-xs font-medium  text-white-400 uppercase tracking-wider">Selected</span>
+    </div>
+
+    <!-- Actions Toolbar -->
+    <div class="flex items-center gap-1 relative">
+
+        <!-- MOVE DROPDOWN -->
+        <div class="relative">
+            <button (click)="toggleMoveMenu($event)"
+                class="w-10 h-10 flex items-center justify-center rounded-full text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition tooltip"
+                title="Move to..." [class.bg-blue-50]="showMoveMenu" [class.text-blue-600]="showMoveMenu">
+                <i class="ri-folder-transfer-line text-lg"></i>
+            </button>
+
+            <!-- Menu -->
+            <div *ngIf="showMoveMenu"
+                class="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-60 bg-white rounded-lg shadow-xl border border-slate-200  overflow-hidden flex flex-col animate-fadeIn">
+                <div
+                    class="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Move to Phase
+                </div>
+
+                <button *ngFor="let phase of phaseList" (click)="moveTo(phase)"
+                    class="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition flex items-center gap-2">
+                    <i class="ri-code-line opacity-70"></i> {{ phase.phase_title +"-"+phase.code }}
+                </button>
+
+            </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="w-px h-6 bg-slate-200 mx-2"></div>
+
+        <!-- Delete -->
+        <button (click)="onDelete()"
+            class="w-10 h-10 flex items-center justify-center rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 transition tooltip"
+            title="Delete Rows">
+            <i class="ri-delete-bin-line text-lg"></i>
+        </button>
+    </div>
+
+    <!-- Cancel Button -->
+    <button (click)="cancelSelection()"
+        class="ml-auto mr-2 px-4 py-2 rounded-full text-sm font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition">
+        Cancel
+    </button>
+</div>

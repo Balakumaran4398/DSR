@@ -1,0 +1,278 @@
+<div
+    class="overview-release-page w-full h-screen flex flex-col overflow-hidden bg-slate-50 text-slate-900 font-sans custom-font text-base">
+    <!-- MAIN DASHBOARD CONTENT -->
+    <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 mb-6 sm:mb-8">
+        <div class="flex flex-col items-center gap-4 lg:flex-row lg:items-center lg:justify-between flex-wrap">
+            <!-- 3. Actions Section (Search & Add) -->
+            <div
+                class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto shrink-0">
+                <form class="example-form w-full sm:w-72">
+                    <mat-form-field class="w-full" appearance="outline">
+                        <input type="text" matInput placeholder="Select Project" [formControl]="myControl"
+                            [matAutocomplete]="auto">
+                        <button *ngIf="myControl.value" mat-icon-button matSuffix type="button" aria-label="Clear"
+                            (click)="clearSelection()">
+                            <mat-icon>close</mat-icon>
+                        </button>
+                        <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayFn" autoActiveFirstOption>
+                            <mat-option (onSelectionChange)="onProjectSelect(emp)"
+                                *ngFor="let emp of filteredOptions | async" [value]="emp">{{ emp.project_title }}
+                            </mat-option>
+                        </mat-autocomplete>
+                    </mat-form-field>
+                </form>
+
+                <form class="example-form w-full sm:w-auto">
+                    <mat-form-field class="w-full sm:w-56" appearance="outline">
+                        <input type="text" matInput placeholder="Select Release Type" [formControl]="releaseTypeControl"
+                            [matAutocomplete]="releaseAuto">
+                        <button *ngIf="releaseTypeControl.value" mat-icon-button matSuffix type="button"
+                            aria-label="Clear" (click)="clearReleaseType()">
+                            <mat-icon>close</mat-icon>
+                        </button>
+                        <mat-autocomplete #releaseAuto="matAutocomplete" autoActiveFirstOption>
+                            <mat-option (click)="setReleaseType('All')" value="All"> All</mat-option>
+                            <mat-option (click)="setReleaseType('Internal')" value="Internal">Internal</mat-option>
+                            <mat-option (click)="setReleaseType('External')" value="External">External</mat-option>
+                        </mat-autocomplete>
+                    </mat-form-field>
+                </form>
+
+            </div>
+            <div class="flex items-center justify-center w-full lg:w-auto my-1 lg:my-0">
+                <app-date-range-filter (rangeChange)="onRangeChange($event)"></app-date-range-filter>
+            </div>
+
+            <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto">
+                <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto"
+                    role="tablist">
+                    <button [disabled]="!canDownloadPdf" title="View PDF" (click)="previewReleaseOverviewPdf()"
+                        class="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg shadow-sm bg-white text-slate-600 hover:bg-slate-100 border border-slate-200">
+                        <i class="ri-eye-line text-lg mr-2"></i>
+                    </button>
+                    <button [disabled]="!hasViewedPdf || !canDownloadPdf" title="PDF Download"
+                        (click)="generateReleaseOverviewPdf()"
+                        class="cursor-pointer transition-all duration-200 inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg shadow-sm border"
+                        [ngClass]="{
+                          'pdf-enabled': hasViewedPdf && canDownloadPdf,
+                          'pdf-disabled': !hasViewedPdf || !canDownloadPdf
+                        }">
+                        <i class="ri-file-pdf-2-fill !text-2xl"></i>
+                    </button>
+                    <button [disabled]="!canDownloadPdf" title="Excel Download" (click)="generateReleaseOverviewExcel()"
+                        class="cursor-pointer transition-all duration-200 inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg shadow-sm border"
+                        [ngClass]="{
+                          'excel-enabled': canDownloadPdf,
+                          'pdf-disabled': !canDownloadPdf
+                        }">
+                        <i class="ri-file-excel-2-fill !text-2xl"></i>
+                    </button>
+                    <button *ngFor="let tab of mainTabs" (click)="setActiveTab(tab.id)"
+                        [attr.aria-selected]="currentView === tab.id"
+                        class="inline-flex items-center justify-center w-full sm:w-auto px-6 py-2 text-lg font-semibold rounded-lg shadow-sm "
+                        [class]="currentView === tab.id ? 'bg-[var(--text-active)] text-white ring-2 ring-blue-100' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'">
+                        <ng-container *ngIf="tab.id === 'kanban'; else timeIcon">
+                            <i class="ri-trello-line text-2xl"></i>
+                        </ng-container>
+                        <ng-template #timeIcon>
+                            <i class="ri-table-line text-2xl"></i>
+                        </ng-template>
+                        {{ tab.label }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col min-h-0 relative">
+        <!-- Controls & KPIs -->
+        <div class="flex-none px-3 sm:px-5 py-4 sm:py-5 space-y-5">
+            <!-- KPIs -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <!-- Upcoming -->
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm border-l-4 border-l-yellow-500">
+                    <div class="text-sm font-bold text-slate-500 uppercase mb-1 tracking-wide">Upcoming</div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-3xl font-bold text-yellow-600">{{ getCountByStatus('Upcoming-Release') }}</div>
+                        <i class="ri-calendar-line text-2xl text-yellow-200"></i>
+                    </div>
+                </div>
+                <!-- Active -->
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm border-l-4 border-l-blue-500">
+                    <div class="text-sm font-bold text-slate-500 uppercase mb-1 tracking-wide">Active Releases</div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-3xl font-bold text-blue-600">{{ filteredReleases.length }}</div>
+                        <div class="flex gap-0.5 h-6 items-end opacity-50">
+                            <div class="w-1.5 bg-blue-500 h-[40%]"></div>
+                            <div class="w-1.5 bg-blue-500 h-[80%]"></div>
+                            <div class="w-1.5 bg-blue-500 h-[60%]"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Review -->
+                <!-- <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm border-l-4 border-l-purple-500">
+                    <div class="text-sm font-bold text-slate-500 uppercase mb-1 tracking-wide">In Review</div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-3xl font-bold text-purple-600">{{ getCountByStatus('In-Review') }}</div>
+                        <i class="ri-eye-line text-2xl text-purple-200"></i>
+                    </div>
+                </div> -->
+                <!-- Deployed -->
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm border-l-4 border-l-green-500">
+                    <div class="text-sm font-bold text-slate-500 uppercase mb-1 tracking-wide">Pass</div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-3xl font-bold text-green-600">{{ getCountByStatus('Pass') }}</div>
+                        <i class="ri-rocket-line text-2xl text-green-200"></i>
+                    </div>
+                </div>
+                <!-- Failed -->
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm border-l-4 border-l-red-500">
+                    <div class="text-sm font-bold text-slate-500 uppercase mb-1 tracking-wide">Failed</div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-3xl font-bold text-red-600">{{ getCountByStatus('Failed') }}</div>
+                        <i class="ri-error-warning-line text-2xl text-red-200"></i>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- CONTENT AREA -->
+        <div class="flex-1 min-h-0 overflow-hidden px-5 pb-5">
+            <!-- VIEW: TABLE -->
+            <div *ngIf="currentView === 'table'"
+                class="h-full min-h-[420px] bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+                <div class="overflow-auto flex-1">
+                    <div #tableEl class="w-full h-full"></div>
+                </div>
+            </div>
+
+            <!-- VIEW: KANBAN -->
+            <div *ngIf="currentView === 'kanban'"
+                class="w-full h-full min-h-0 custom-scrollbar overflow-x-auto overflow-y-hidden">
+                <div class="flex justify-center release_table gap-5 min-w-max pb-2">
+                    <ng-container *ngFor="let status of statusList">
+                        <div class="overview-kanban-column flex-none w-[86vw] sm:w-80 md:w-96 max-w-[24rem] flex flex-col h-full min-h-0 bg-slate-100/50 border border-slate-200 rounded-xl overflow-hidden"
+                            (dragover)="onDragOver($event)" (drop)="onDrop($event, status)">
+                            <div class="p-4 bg-white border-b border-slate-200 flex justify-between items-center shadow-sm z-10"
+                                [ngClass]="{
+                                 'border-t-4 border-t-gray-400': status === 'Open',
+                                 'border-t-4 border-t-pink-400': status === 'Upcoming-Release',
+                                 'border-t-4 border-t-orange-400': status === 'On-Hold',
+                                 'border-t-4 border-t-purple-500': status === 'To-be-Tested',
+                                 'border-t-4 border-t-blue-500': status === 'In-Progress',
+                                 'border-t-4 border-t-yellow-500': status === 'Rejected',
+                                 'border-t-4 border-t-green-500': status === 'Pass',
+                                 'border-t-4 border-t-red-500': status === 'Failed'
+                                 }">
+                                <div class="flex flex-col">
+                                    <span
+                                        class="font-bold text-sm text-slate-700 uppercase tracking-wide">{{status}}</span>
+                                </div>
+                                <span
+                                    class="text-sm font-bold bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded border border-slate-200">
+                                    {{getReleasesByStatus(status).length}}
+                                </span>
+                            </div>
+                            <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-4 custom-scrollbar">
+                                <div *ngFor="let release of getReleasesByStatus(status); trackBy: trackById"
+                                    draggable="true" (dragstart)="onDragStart($event, release)"
+                                    class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-0.5 group">
+                                    <h4
+                                        class="text-sm border-b border-dashed border-slate-200 pb-1 mb-2 text-center font-semibold text-slate-800 group-hover:text-[var(--text-active)] transition-colors line-clamp-2 leading-tight">
+                                        {{release.project_name}}
+                                    </h4>
+                                    <div class="flex justify-between mb-2 relative">
+                                        <span
+                                            class="text-xs font-mono text-[var(--text-active)] bg-violet-50 px-2 py-0.5 rounded font-bold">{{release.code}}</span>
+                                        <!-- <span *ngIf="release.status == 'Upcoming-Release'"
+                                            class="text-xs font-mono text-[var(--warning)] bg-violet-50 px-2 py-0.5 rounded font-bold">Released Date: {{release.released_date}}</span> -->
+                                        <div class="relative">
+                                            <span class="text-[10px] px-2 py-0.5 rounded border font-semibold"
+                                                [ngClass]="release.release_type === 'External' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-gray-50 text-gray-600 border-gray-200'">
+                                                {{release.release_type}}
+                                            </span>
+                                            <span *ngIf="isReleaseOverdue(release)"
+                                                class="release-date-badge release-date-badge--overdue"
+                                                matTooltip="Overdue">
+                                                <i class="ri-alert-line"></i>
+                                            </span>
+                                            <button (click)="toggleMenu($event, release?.id)"
+                                                class="text-slate-400 hover:text-blue-500 focus:outline-none rounded-full hover:bg-slate-50 transition-colors"><i
+                                                    class="ri-more-fill text-xl"></i></button>
+                                            <div *ngIf="activeMenuId === release?.id"
+                                                class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-100 z-50 dropdown-enter overflow-hidden">
+                                                <a href="#" (click)="$event.preventDefault();openDailogue(release)"
+                                                    class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2">
+                                                    <i class="ri-eye-line"></i> View Details
+                                                </a>
+                                                <a href="#" (click)="$event.preventDefault();openDrawer(release)"
+                                                    class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2">
+                                                    <i class="ri-edit-line"></i> Edit
+                                                </a>
+
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <h4
+                                        class="text-base font-semibold mb-1 text-slate-800 group-hover:text-[var(--text-active)] transition-colors line-clamp-2 leading-tight">
+                                        {{release.title}}
+                                    </h4>
+                                    <div class="text-sm text-slate-500 mb-3 font-medium">{{release.version}}</div>
+                                    <div class="text-sm text-slate-500 mb-3 font-medium"
+                                        *ngIf="release.status == 'Upcoming-Release'">
+                                        Released Date:
+                                        <span class="release-date-pill" [ngClass]="getReleaseDateBadgeClass(release)">
+                                            {{release.released_date}}
+                                        </span>
+                                    </div>
+
+                                    <div class="w-full h-2 bg-slate-100 rounded-full mb-3 overflow-hidden">
+                                        <div class="h-full rounded-full"
+                                            [style.width.%]="status === 'Pass' ? 100  : status === 'To-be-Tested' ? 60 : status === 'In-Progress' ? 40 : 10"
+                                            [ngClass]="{
+                                            'bg-gray-400': status === 'Open',
+                                            'bg-blue-500': status === 'In-Progress',
+                                            'bg-purple-500': status === 'To-be-Tested',
+                                            'bg-green-500': status === 'Pass',
+                                            'bg-red-500': status === 'Failed',
+                                            'bg-yellow-500': status === 'Rejected'
+                                         }">
+                                        </div>
+                                    </div>
+                                    <div *ngIf="release.status === 'Rejected'"
+                                        class="border-t border-dashed border-slate-200 pt-3">
+                                        <div
+                                            class="text-[11px] font-semibold uppercase tracking-wide text-yellow-700 mb-1">
+                                            Reject Reason
+                                        </div>
+                                        <div class="text-sm text-slate-600 break-words">
+                                            {{ release.reject_reason || '-' }}
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="flex justify-between items-center border-t border-dashed border-slate-200 pt-3">
+                                        <div class="flex items-center gap-2">
+                                            <div
+                                                class="w-6 h-6 rounded-full bg-slate-100 text-[10px] flex items-center justify-center font-bold text-slate-600 border border-white shadow-sm">
+                                                {{getOwnerInitials(release.assignee_to_name)}}
+                                            </div>
+                                            <span
+                                                class="text-xs text-slate-500 truncate max-w-[90px] font-medium">{{release.assignee_to_name}}</span>
+                                        </div>
+                                        <span
+                                            class="text-xs text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded font-medium">
+                                            {{release.planned_date | date:'MMM d'}}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </ng-container>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

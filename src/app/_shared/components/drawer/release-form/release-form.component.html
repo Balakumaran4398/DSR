@@ -1,0 +1,311 @@
+<div class="h-screen bg-white flex flex-col max-w-4xl mx-auto border-l border-r border-slate-200 shadow-sm">
+    <!-- 1. Header -->
+    <div class="px-6 py-5 border-b border-slate-200 flex justify-between items-start bg-slate-50">
+        <div>
+            <h1 class="text-xl font-bold text-slate-800 m-0">
+                {{ isEditMode ? 'Update Release' : 'Create New Release' }}
+            </h1>
+            <p class="text-sm text-slate-500 mt-1">
+                {{ isEditMode ? 'Modify release details, versioning, and deployment status' : 'Define new release scope,                version, and timeline' }}
+            </p>
+        </div>
+        <!-- Toggle for Demo purposes -->
+         <!-- <button mat-stroked-button (click)="toggleEditMode()" class="text-xs">
+             {{ isEditMode ? 'Switch to Create Mode' : 'Switch to Edit Mode' }}
+         </button> -->
+    </div>
+    <!-- 2. Scrollable Content -->
+    <div class="flex-1 overflow-y-auto p-6 bg-white">
+        <form [formGroup]="releaseForm" class="flex flex-col gap-6">
+            <!-- Section 1: Core Release Details -->
+            <section>
+                <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+                    <!-- <mat-icon>rocket_launch</mat-icon> -->
+                    <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+                        Release Information
+                    </h2>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                    <!-- Project Select -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Project <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select formControlName="projectid" placeholder="Select Project"
+                                (selectionChange)="onProjectChange($event)">
+                                <mat-option [value]="null">Select Project</mat-option>
+                                <mat-option *ngFor="let p of projectList" [value]="p.id">{{ p.project_title
+                                    }}</mat-option>
+                            </mat-select>
+                            <mat-error class="text-m" *ngIf="releaseForm.controls['projectid'].invalid">Project is
+                                required.</mat-error>
+                        </mat-form-field>
+                    </div>
+                    <!-- Version Input -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Version <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput formControlName="version" placeholder="e.g. v1.0.2">
+                            <mat-error *ngIf="releaseForm.controls['version'].invalid">Version is required.</mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Release Title (Full Width) -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Release Title <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput formControlName="title" placeholder="e.g. Q1 Production Deployment">
+                            <mat-error *ngIf="releaseForm.controls['title'].invalid">Title is required.</mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Release Type -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Release Type</label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select formControlName="release_type" placeholder="Select Type">
+                                <mat-option value="Internal">Internal</mat-option>
+                                <mat-option value="External">External</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                    <!-- Status -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Status <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select formControlName="status" placeholder="Select Status">
+                                <mat-option *ngFor="let status of statusList" [value]="status">{{status}}</mat-option>
+                            </mat-select>
+                            <mat-error *ngIf="releaseForm.controls['status'].invalid">Status is required.</mat-error>
+                        </mat-form-field>
+                    </div>
+                    <!-- Planned Date -->
+                    <div >
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Planned Date <span class="text-red-500">*</span>
+                        </label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput [matDatepicker]="plannedPicker"
+                            formControlName="planned_date"
+                            placeholder="MM/DD/YYYY">
+                            <mat-datepicker-toggle matIconSuffix [for]="plannedPicker"></mat-datepicker-toggle>
+                            <mat-datepicker #plannedPicker></mat-datepicker>
+                            <mat-error *ngIf="releaseForm.get('planned_date')?.hasError('required')">
+                                Planned Date is required.
+                            </mat-error>
+                            <mat-error *ngIf="releaseForm.get('planned_date')?.hasError('matDatepickerMin')">
+                                Past dates are not allowed.
+                            </mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Released Date -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Released Date <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput [matDatepicker]="releasedPicker" formControlName="released_date"
+                                placeholder="MM/DD/YYYY">
+                            <mat-datepicker-toggle matIconSuffix [for]="releasedPicker"
+                                [disabled]="!canModifyReleaseDates"></mat-datepicker-toggle>
+                            <mat-datepicker #releasedPicker></mat-datepicker>
+                            <mat-error *ngIf="releaseForm.get('released_date')?.hasError('required')">
+                                Released Date is required.
+                            </mat-error>
+                            <mat-error *ngIf="releaseForm.get('released_date')?.hasError('matDatepickerMin')">
+                                Past dates are not allowed.
+                            </mat-error>
+                        </mat-form-field>
+                    </div> 
+                    <div *ngIf="releaseForm.get('release_type')?.value === 'External'" 
+                        class="grid grid-cols-1 md:grid-cols-2 gap-x-6 min-w-0 col-span-2">
+                        <div class="md:col-span-1">
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Parent Version <span
+                                    class="text-red-500">*</span></label>
+                            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                <mat-select formControlName="parent_version" placeholder="Select version">
+                                <mat-option [value]="null">Select Version</mat-option>
+                                <mat-option *ngFor="let v of versionList" [value]="v">{{ v }}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <div class="md:col-span-1">
+                            <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Client <span class="text-red-500">*</span>
+                            </label>
+                            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select
+                                formControlName="client"
+                                placeholder="Select Clients"
+                                multiple>
+
+                                <!-- Search Box -->
+                                <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100">
+                                <div class="relative">
+                                    <mat-icon
+                                    class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm !w-4 !h-4"
+                                    style="font-size: 16px;">
+                                    search
+                                    </mat-icon>
+                                    <input 
+                                    [formControl]="searchControl"
+                                    class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                    placeholder="Search members..." 
+                                    (keydown)="$event.stopPropagation()">
+                                </div>
+                                </div>
+
+                                <mat-option [value]="0">
+                                All Clients
+                                </mat-option>
+
+                                <!-- Individual Clients -->
+                                <mat-option
+                                *ngFor="let client of filteredClients"
+                                [value]="client.id"
+                                [disabled]="releaseForm.get('client')?.value?.includes(0)">
+                                {{ client.company_name }}
+                                </mat-option>
+
+                            </mat-select>
+
+                            <mat-error *ngIf="releaseForm.get('client')?.invalid">
+                                Client is required.
+                            </mat-error>
+                            </mat-form-field>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2" *ngIf="isRejectedStatus">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Reason <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput formControlName="reject_reason" placeholder="Enter a valid reason">
+                            <mat-error *ngIf="releaseForm.controls['reject_reason'].invalid">Reason is required.</mat-error>
+                        </mat-form-field>
+                    </div>
+                    	 <div *ngIf="closeDate()" class="col-span-2">
+                         <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Close Date 
+                        </label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput [matDatepicker]="plannedPicker" [min]="todayDate"
+                            formControlName="closed_date"
+                            placeholder="MM/DD/YYYY">
+                            <mat-datepicker-toggle matIconSuffix [for]="plannedPicker"></mat-datepicker-toggle>
+                            <mat-datepicker #plannedPicker></mat-datepicker>
+                            <mat-error *ngIf="releaseForm.controls['closed_date'].invalid">
+                            Closed Date is required.
+                            </mat-error>
+                        </mat-form-field>
+                    </div>
+                    <!-- Assigned To (Full Width) -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Assign To <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select formControlName="assigned_to" placeholder="Select Owner">
+                                <mat-option *ngFor="let m of employeeList" [value]="m.id">
+                                    <div class="flex items-center gap-2">
+                                        <div
+                                            class="w-6 h-6 rounded-full bg-slate-200 text-xs flex items-center justify-center font-bold text-slate-600">
+                                            {{ m.employee_name.charAt(0) }}
+                                        </div>
+                                        {{ m.employee_name }}
+                                    </div>
+                                </mat-option>
+                            </mat-select>
+                            <mat-error *ngIf="releaseForm.controls['assigned_to'].invalid">Assignee is
+                                required.</mat-error>
+                        </mat-form-field>
+                    </div>
+                </div>
+            </section>
+
+            <mat-divider></mat-divider>
+            <!-- Section 2: Deployment Details & Communication -->
+            <section>
+                <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+                    <!-- <mat-icon>mail</mat-icon> -->
+                    <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+                        Communication & Assets
+                    </h2>
+                </div>
+                <div class="grid grid-cols-1 gap-4">
+                    <!-- Send Mail Checkbox -->
+                    <div class="mt-2">
+                        <div class="flex items-center">
+                            <mat-checkbox formControlName="ismail" color="primary">
+                                <!-- <span class="text-slate-700 font-medium ml-2">Send email notification upon saving</span> -->
+                                <span class="text-slate-700 font-medium ml-2">Send Release Communication Email to Project Users</span>
+                            </mat-checkbox>
+                        </div>
+                        <div *ngIf="isCommunicationEnabled"
+                            class="mt-2 ml-9 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+                            <span class="font-semibold">Disclaimer:</span>
+                          Saving this release will notify all project users. Please verify the deployment file and release notes before saving.
+                        </div>
+                    </div>
+                    <!-- File Chooser Only -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Deployment Files</label>
+                        <div class="flex items-center gap-3">
+                            <input type="file" multiple #fileInput (change)="onFileSelected($event)" class="hidden"
+                                style="display:none" [disabled]="!isCommunicationEnabled">
+                            <button mat-stroked-button type="button" color="primary" (click)="fileInput.click()"
+                                [disabled]="!isCommunicationEnabled" class="h-[42px]">
+                                <mat-icon>upload_file</mat-icon> Choose Files
+                            </button>
+                            <button mat-button type="button" color="warn" *ngIf="selectedFileNames.length"
+                                (click)="clearSelectedFiles(fileInput)" [disabled]="!isCommunicationEnabled">
+                                Clear
+                            </button>
+                            <div 
+                                class="flex-1 min-h-[42px] px-3 py-2 bg-slate-50 border border-slate-300 rounded text-slate-600 text-sm">
+                                <div class="font-medium">
+                                    {{ selectedFileNames.length ? selectedFileNames.length + ' file(s) selected' : 'No file selected' }}
+                                </div>
+                                <div *ngIf="selectedFileNames.length" class="mt-2 flex flex-wrap gap-2">
+                                    <span *ngFor="let fileName of selectedFileNames"
+                                        class="max-w-full truncate rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600">
+                                        {{ fileName }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Mail Content (Description) -->
+                    <div>
+                        <div *ngIf="showParentReleaseMailContent" class="mb-4">
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Delivered Client Release Note / Mail Content</label>
+                            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                                <textarea matInput [value]="parentReleaseMailContent" rows="6" readonly></textarea>
+                            </mat-form-field>
+                        </div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            {{ showParentReleaseMailContent ? 'New Release Note / Mail Content' : 'Release Note / Mail Content' }}
+                        </label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <textarea matInput formControlName="mail_content" rows="6"
+                                placeholder="Detailed release notes, changelog, or email body..."></textarea>
+                        </mat-form-field>
+                    </div>
+                </div>
+            </section>
+        </form>
+    </div>
+
+    <!-- 3. Sticky Footer -->
+    <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 sticky bottom-0 z-10">
+        <button mat-stroked-button color="warn" (click)="onCancel()" class="!px-6">
+            Cancel
+        </button>
+        <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="releaseForm.invalid" class="!px-6">
+            Save Release
+        </button>
+    </div>
+
+</div>

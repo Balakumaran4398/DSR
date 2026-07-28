@@ -1,0 +1,247 @@
+<section class="login-section-body">
+
+    <!-- Top Navigation -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <div class="nav-icon-bg">
+                <i class="ri-shield-keyhole-fill"></i>
+            </div>
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">Secure Access</div>
+                RIDSYS Portal
+            </div>
+        </div>
+
+        <div class="nav-menu">
+            <div class="nav-item" [class.active]="currentView === 'login'" (click)="switchView('login')">
+                <i class="ri-login-box-line"></i> <span>Login</span>
+            </div>
+            <div class="nav-item" [class.active]="currentView === 'register'" (click)="switchView('register')">
+                <i class="ri-user-add-line"></i> <span>Register</span>
+            </div>
+            <div class="nav-item" [class.active]="currentView === 'forgot'" (click)="switchView('forgot')">
+                <i class="ri-key-2-line"></i> <span>Forgot Password</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <div class="auth-card">
+
+            <!-- LEFT INFO PANEL -->
+            <div class="info-panel">
+                <div class="form-title" style="position: relative; top: -3rem;">
+                    <h2>R-SPACE</h2>
+                </div>
+
+                <div class="info-header">
+                    <h2><i class="ri-building-2-line"></i> Daily Status Report (DSR)</h2>
+                    <p>
+                        Empowering your daily operations with seamless DSR management and digital excellence.
+                    </p>
+                </div>
+
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <i class="ri-shield-check-line"></i>
+                        Keep your daily task updates clear and accurate.
+                    </li>
+                    <li class="feature-item">
+                        <i class="ri-fingerprint-line"></i>
+                        Submit your DSR on time to maintain workflow transparency.
+                    </li>
+                    <li class="feature-item">
+                        <i class="ri-flashlight-fill"></i>
+                        Review your previous entries to track progress and plan effectively.
+                    </li>
+                </ul>
+            </div>
+
+            <!-- RIGHT FORM PANEL -->
+            <div class="form-panel">
+
+                <!-- =================== LOGIN VIEW =================== -->
+                <div class="view-section" *ngIf="currentView === 'login'">
+                    <div class="form-header">
+                        <div class="form-title">
+                            <div>
+                                <h1>Sign In to Account</h1>
+                                <p>Access all features with one click.</p>
+                            </div>
+                        </div>
+                        <span class="action-badge" (click)="switchView('register')">No account?</span>
+                    </div>
+
+                    <form [formGroup]="loginForm" (ngSubmit)="onSubmit('Login')">
+
+                        <!-- Email -->
+                        <div class="form-group">
+                            <div style="position: relative;">
+                                <label class="label">Email</label>
+                                <div class="input-wrapper">
+                                    <input type="email" class="form-input" formControlName="email"
+                                        placeholder="you@ridsys.in" />
+                                    <i class="ri-mail-line input-icon"></i>
+                                </div>
+                                <div class="error" *ngIf="lf.email?.touched && lf.email?.invalid">
+                                    <small *ngIf="lf.email?.errors?.['required']">Email is required.</small>
+                                    <small *ngIf="lf.email?.errors?.['email']">Invalid email format.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Password -->
+                        <div class="form-group">
+                            <div style="position: relative;">
+                                <label class="label">Password</label>
+                                <div class="input-wrapper">
+                                    <input [type]="showPassword ? 'text' : 'password'" class="form-input"
+                                        formControlName="password" placeholder="•••••" />
+                                    <i class="input-icon" [class.ri-eye-line]="!showPassword"
+                                        [class.ri-eye-off-line]="showPassword" (click)="togglePassword()"></i>
+                                </div>
+
+                                <div class="error" *ngIf="lf.password?.touched && lf.password?.invalid">
+                                    <small>Password is required.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="form-actions">
+                            <label class="checkbox-label">
+                                <input type="checkbox" formControlName="rememberme"> Remember me
+                            </label>
+                            <span class="forgot-link" (click)="switchView('forgot')">Forgot password?</span>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Sign In</button>
+                    </form>
+                </div>
+
+                <!-- =================== REGISTER VIEW =================== -->
+                <div class="view-section" *ngIf="currentView === 'register'">
+                    <div class="form-header">
+                        <div class="form-title">
+                            <div class="header-icon">
+                                <i class="ri-user-add-line"></i>
+                            </div>
+                            <div>
+                                <h1>Create Account</h1>
+                                <p>Join us and explore features.</p>
+                            </div>
+                        </div>
+                        <span class="action-badge" (click)="switchView('login')">Have an account?</span>
+                    </div>
+
+                    <form [formGroup]="registerForm" (ngSubmit)="onSubmit('Registration')">
+
+                        <!-- Full Name -->
+                        <div class="form-group">
+                            <div style="position: relative;">
+                                <label class="label">Full Name</label>
+                                <div class="input-wrapper">
+                                    <input type="text" class="form-input" placeholder="John Doe"
+                                        formControlName="fullName" />
+                                    <i class="ri-user-line input-icon"></i>
+                                </div>
+                                <div class="error" *ngIf="rf.fullName?.touched && rf.fullName?.invalid">
+                                    <small>Full name is required.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="form-group">
+                            <div style="position: relative;">
+                                <label class="label">Email</label>
+                                <div class="input-wrapper">
+                                    <input type="email" class="form-input" placeholder="you@ridsys.in"
+                                        formControlName="email" />
+                                    <i class="ri-mail-line input-icon"></i>
+                                </div>
+                                <div class="error" *ngIf="rf.email?.touched && rf.email?.invalid">
+                                    <small *ngIf="rf.email?.errors?.['required']">Email is required.</small>
+                                    <small *ngIf="rf.email?.errors?.['email']">Invalid email format.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Password -->
+                        <div class="form-group">
+                            <div style="position: relative;">
+                                <label class="label">Password</label>
+                                <div class="input-wrapper">
+                                    <input [type]="showRegPassword ? 'text' : 'password'" class="form-input"
+                                        formControlName="password" placeholder="Min. 6 characters" />
+                                    <i class="input-icon" [class.ri-eye-line]="!showRegPassword"
+                                        [class.ri-eye-off-line]="showRegPassword" (click)="toggleRegPassword()"></i>
+                                </div>
+
+                                <div class="error" *ngIf="rf.password?.touched && rf.password?.invalid">
+                                    <small *ngIf="rf.password?.errors?.['required']">Password required.</small>
+                                    <small *ngIf="rf.password?.errors?.['minlength']">
+                                        Minimum 6 characters.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Register</button>
+                    </form>
+                </div>
+
+                <!-- =================== FORGOT PASSWORD VIEW =================== -->
+                <div class="view-section" *ngIf="currentView === 'forgot'">
+                    <div class="form-header">
+                        <div class="form-title">
+                            <div class="header-icon">
+                                <i class="ri-key-2-line"></i>
+                            </div>
+                            <div>
+                                <h1>Reset Password</h1>
+                                <p>We'll send a link to reset it.</p>
+                            </div>
+                        </div>
+                        <span class="action-badge" (click)="switchView('login')">Know password?</span>
+                    </div>
+
+                    <form [formGroup]="forgotForm" (ngSubmit)="onSubmit('Reset')">
+
+                        <div class="form-group">
+                            <div style="position: relative;">
+                                <label class="label">Email</label>
+                                <div class="input-wrapper">
+                                    <input type="email" class="form-input" placeholder="you@ridsys.in"
+                                        formControlName="email" />
+                                    <i class="ri-mail-line input-icon"></i>
+                                </div>
+
+                                <div class="error" *ngIf="ff.email?.touched && ff.email?.invalid">
+                                    <small *ngIf="ff.email?.errors?.['required']">Email is required.</small>
+                                    <small *ngIf="ff.email?.errors?.['email']">Invalid email.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Send Instructions</button>
+
+                        <div class="back-link-container">
+                            <span class="back-link" (click)="switchView('login')">
+                                <i class="ri-arrow-left-line"></i> Back to Login
+                            </span>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        &copy; {{ today | date:'yyyy' }} • Powered by RiDSYS Corp. {{VERSION}} • {{RELEASE}}
+    </footer>
+
+</section>

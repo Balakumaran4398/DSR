@@ -1,0 +1,104 @@
+<!-- NAVIGATOR COMPONENT START -->
+<div class="relative z-20 inline-flex w-full items-center p-1 rounded-lg bg-white shadow-sm transition-all duration-300 border border-slate-200"
+    [ngClass]="{
+    'border-color': isOpen
+  }">
+    <!-- Previous Button -->
+    <button (click)="navigate(-1)"
+        class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all active:scale-90 focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed"
+        title="Previous Period">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd"
+                d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                clip-rule="evenodd" />
+        </svg>
+    </button>
+
+    <!-- Main Display (Click to open dropdown) -->
+    <div (click)="toggleDropdown()"
+        class="flex items-center gap-3 px-5 py-2 cursor-pointer rounded-full hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 group select-none min-w-[240px] justify-center mx-1">
+
+        <svg xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5 text-slate-400 group-hover:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24"
+            stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+
+        <div class="flex flex-col items-center leading-tight">
+            <span class="text-sm font-semibold text-slate-700">
+                {{ formattedRange }}
+            </span>
+            <span class="text-sm text-slate-500 font-medium uppercase tracking-wide">
+                {{ durationLabel }}
+            </span>
+        </div>
+
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 transition-transform duration-200"
+            [class.rotate-180]="isOpen" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+    </div>
+
+    <!-- Next Button -->
+    <button (click)="navigate(1)" [disabled]="isFutureDisabled"
+        class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all active:scale-90 focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed"
+        title="Next Period">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd"
+                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                clip-rule="evenodd" />
+        </svg>
+    </button>
+
+    <!-- Dropdown Panel -->
+    <div *ngIf="isOpen"
+        class="absolute top-full right-0 mt-3  bg-white rounded-xl shadow-xl border border-slate-100 p-5 w-80 animate-in fade-in zoom-in-95 duration-200 origin-top-right ring-1 ring-slate-900/5">
+
+        <!-- Presets Grid -->
+        <div class="grid grid-cols-2 gap-2 mb-4">
+            <button *ngFor="let preset of presets" (click)="applyPreset(preset)"
+                class="px-3 py-2 text-sm font-medium text-left rounded-lg hover:bg-indigo-50 transition-colors"
+                [class.bg-indigo-50]="activePreset === preset.label"
+                [style.color]="activePreset === preset.label ? 'var(--text-active)' : ''"
+                [class.text-slate-500]="activePreset !== preset.label">
+                {{ preset.label }}
+            </button>
+        </div>
+
+        <div class="h-px bg-slate-100 my-4"></div>
+
+        <!-- Custom Range Inputs -->
+        <div class="space-y-3">
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Range</label>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1.5">
+                    <span class="text-sm text-slate-500 block ml-1">From</span>
+                    <input type="date" [ngModel]="tempStart | date:'yyyy-MM-dd'"
+                        (ngModelChange)="updateTempDate('start', $event)"
+                        class="w-full text-xs p-2.5 bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-[var(--text-active)] focus:border-[var(--text-active)] outline-none text-slate-700 transition-shadow" />
+                </div>
+                <div class="space-y-1.5">
+                    <span class="text-sm text-slate-500 block ml-1">To</span>
+                    <input type="date" [ngModel]="tempEnd | date:'yyyy-MM-dd'"
+                        (ngModelChange)="updateTempDate('end', $event)" [min]="tempStart | date:'yyyy-MM-dd'"
+                        class="w-full text-xs p-2.5 bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-[var(--text-active)] focus:border-[var(--text-active)] outline-none text-slate-700 transition-shadow" />
+                </div>
+            </div>
+
+            <button (click)="applyCustomRange()"
+                class="w-full mt-2 bg-[var(--text-active)] hover:bg-[var(--text-active)] text-white text-xs font-semibold py-2.5 rounded-lg shadow-sm hover:shadow transition-all active:scale-95 flex items-center justify-center gap-2">
+                <span>Apply Range</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Backdrop for closing dropdown -->
+    <div *ngIf="isOpen" (click)="isOpen = false" class="fixed inset-0 z-[-1] cursor-default"></div>
+
+</div>

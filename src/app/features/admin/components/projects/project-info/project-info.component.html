@@ -1,0 +1,139 @@
+<div class="min-h-screen">
+
+    <!-- Main Card -->
+    <div class="mx-auto overflow-hidden">
+
+        <!-- Header Section -->
+        <div class="px-6 py-2 border-b border-slate-100 bg-white flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-bold text-slate-800 tracking-tight">{{ projectDetails?.project_title || projectDetails?.project_name  }}</h2>
+                <p class="text-sm text-slate-500 mt-1">Project ID: #PRJ-{{projectDetails?.projectid ||projectDetails?.id }}</p>
+            </div>
+            <div class="flex gap-2">
+                <span *ngIf="projectDetails?.isclose"
+                    class="px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold border border-red-200">
+                    Close
+                </span>
+                <span *ngIf="!projectDetails?.isclose"
+                    class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold border border-emerald-200">
+                    Open
+                </span>
+            </div>
+        </div>
+
+        <!-- Content Body with Tabs -->
+        <div class="bg-white p-4">
+
+            <!-- Tabs Bar -->
+            <div class="flex items-center border-b border-gray-200 mb-6">
+
+                <!-- Visible Tabs Container -->
+                <div #tabsContainer
+                    class="flex flex-1 flex-wrap gap-x-6 gap-y-2 text-m font-medium text-gray-500 min-h-12 items-center">
+
+                    <button *ngFor="let tab of visibleTabs"
+                        class="h-full border-b-2 whitespace-nowrap px-1" [ngClass]="activeProjectTab === tab.id
+                ? 'border-[var(--text-active)] text-[var(--text-active)] font-semibold'
+                : 'border-transparent hover:text-[var(--text-active)] hover:border-gray-300'"
+                        (click)="setActiveTab(tab.id)">
+                        {{ tab.label }}
+                    </button>
+
+                </div>
+
+                <!-- More Dropdown -->
+                <div class="relative ml-auto pl-2" *ngIf="overflowTabs.length">
+
+                    <button
+                        class="p-2 text-gray-500 hover:text-[var(--text-active)] hover:bg-slate-50 rounded-lg transition-colors"
+                        (click)="showMoreMenu = !showMoreMenu">
+                        <!-- Using SVG instead of Remix Icon to ensure rendering -->
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M5 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm14 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-7 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                        </svg>
+                    </button>
+
+                    <!-- Dropdown Panel -->
+                    <div *ngIf="showMoreMenu"
+                        class="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-lg z-20 overflow-hidden animate-fade-in origin-top-right">
+
+                        <div class="py-1">
+                            <button *ngFor="let tab of overflowTabs"
+                                class="w-full text-left px-4 py-2.5 text-m hover:bg-slate-50 transition-colors flex items-center justify-between"
+                                [class.text-[var(--text-active)]]="activeProjectTab === tab.id"
+                                [class.bg-slate-50]="activeProjectTab === tab.id"
+                                [class.font-medium]="activeProjectTab === tab.id"
+                                [class.text-gray-700]="activeProjectTab !== tab.id" (click)="setActiveTab(tab.id)">
+                                {{ tab.label }}
+                                <span *ngIf="activeProjectTab === tab.id"
+                                    class="w-1.5 h-1.5 rounded-full bg-[var(--text-active)]"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Backdrop -->
+                    <div *ngIf="showMoreMenu" (click)="showMoreMenu = false" class="fixed inset-0 z-10 cursor-default">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Switching -->
+            <div class=" bg-slate-50 rounded-xl border border-slate-100 p-2">
+                <ng-container [ngSwitch]="activeProjectTab">
+
+                    <div *ngSwitchCase="'dashboard'">
+                        <div class="h-full text-slate-400">
+                            <app-prj-dashboard></app-prj-dashboard>
+                        </div>
+                    </div>
+
+                    <div *ngSwitchCase="'tasks'">
+                        <div class=" h-full text-slate-400">
+                            <app-tasks></app-tasks>
+                        </div>
+                    </div>
+
+                    <div *ngSwitchCase="'users'">
+                        <div class=" h-full text-slate-400">
+                            <app-teammates></app-teammates>
+                        </div>
+                    </div>
+                    <div *ngSwitchCase="'issues'">
+                        <div class=" h-full text-slate-400">
+                            <app-issues></app-issues>
+                        </div>
+                    </div>
+                    <div *ngSwitchCase="'release'">
+                        <div class=" h-full text-slate-400">
+                            <app-release-manager></app-release-manager>
+                        </div>
+                    </div>
+                    <div *ngSwitchCase="'phases'">
+                        <div class=" h-full text-slate-400">
+                            <app-phases></app-phases>
+                        </div>
+                    </div>
+                    <div *ngSwitchCase="'reports'">
+                        <div class="h-full text-slate-400">
+                            <app-reports></app-reports>
+                        </div>
+                    </div>
+                    <div *ngSwitchCase="'documents'">
+                        <div class="h-full text-slate-400">
+                            <app-documents></app-documents>
+                        </div>
+                    </div>
+                    <!-- <div *ngSwitchCase="'mom'">
+                        <div class="h-full text-slate-400">
+                            <app-mom></app-mom>
+                        </div>
+                    </div> -->
+
+                </ng-container>
+            </div>
+
+        </div>
+
+    </div>
+</div>

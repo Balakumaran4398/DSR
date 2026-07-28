@@ -1,0 +1,498 @@
+/* =========================================
+           ESSENTIAL UI UTILITIES (Dropdown/Toast)
+           ========================================= */
+/* Generic rotate utility for the dropdown arrow */
+.rotate-180 {
+    transform: rotate(180deg);
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+.animate-fade-in-down {
+    animation: fadeInDown 0.3s ease-out forwards;
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.animate-scale-in {
+    animation: scaleIn 0.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Hide scrollbar for dropdown menu grid if needed */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+/* =========================================
+           USER PROVIDED TABULATOR CSS
+           ========================================= */
+
+/* Define Variables */
+:root {
+    --tblr-font-size: 0.875rem;
+    --text-main: #111827;
+    /* gray-900 */
+    --text-muted: #6b7280;
+    /* gray-500 */
+    --surface: #ffffff;
+    --bg-body: #f9fafb;
+    /* gray-50 */
+    --bg-hover: #f3f4f6;
+    /* gray-100 */
+    --bg-selected: #eff6ff;
+    /* blue-50 */
+    --border: #eaecf0;
+    /* gray-200 */
+
+    // --primary: var(--text-active);
+
+    --radius: 0.75rem;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --tblr-header-height: 48px;
+    --tblr-row-height: 64px;
+}
+
+body {
+    background-color: var(--bg-body);
+}
+
+/* TABULATOR BASE */
+.tabulator {
+    font-family: inherit, sans-serif !important;
+    font-size: var(--tblr-font-size) !important;
+    color: var(--text-main) !important;
+    background-color: var(--surface) !important;
+    border: none !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.tabulator:focus {
+    outline: none !important;
+}
+
+/* --- HEADER --- */
+.tabulator-header {
+    background-color: var(--bg-body) !important;
+    border-bottom: 1px solid var(--border) !important;
+    border-top: none !important;
+    font-weight: 500 !important;
+    color: var(--text-muted) !important;
+    user-select: none !important;
+    font-family: inherit !important;
+    /* Ensure header sticks vertically */
+    position: sticky;
+    top: 0;
+    z-index: 40;
+}
+
+.tabulator-header .tabulator-col {
+    background-color: var(--bg-body) !important;
+    border-right: 1px solid transparent !important;
+    padding: 0 !important;
+    height: var(--tblr-header-height) !important;
+    /* FIXED: Removed !important to allow sticky to work */
+    position: relative;
+    transition: background-color 0.2s !important;
+}
+
+.tabulator-header .tabulator-col .tabulator-col-content {
+    padding: 0 24px !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.tabulator-header .tabulator-col .tabulator-col-title {
+    text-transform: uppercase !important;
+    font-weight: 600 !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.05em !important;
+    color: var(--text-active) !important;
+}
+
+/* --- CUSTOM SORT ARROW (CSS Borders) --- */
+.tabulator-header .tabulator-col .tabulator-arrow {
+    display: inline-block !important;
+    width: 8px !important;
+    height: 10px !important;
+    margin-left: 8px !important;
+    position: relative !important;
+    border: none !important;
+    background: none !important;
+    opacity: 0.3 !important;
+    transition: all 0.2s ease !important;
+    top: 0 !important;
+}
+
+/* Arrow Shape */
+.tabulator-header .tabulator-col .tabulator-arrow::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 0 !important;
+    transform: translateY(-50%) !important;
+    border-left: 4px solid transparent !important;
+    border-right: 4px solid transparent !important;
+    border-top: 5px solid currentColor !important;
+    border-bottom: none !important;
+    transition: transform 0.2s ease !important;
+}
+
+/* Hover State */
+.tabulator-header .tabulator-col:hover {
+    background-color: var(--bg-hover) !important;
+}
+
+.tabulator-header .tabulator-col:hover .tabulator-col-title {
+    color: var(--text-main) !important;
+}
+
+.tabulator-header .tabulator-col:hover .tabulator-arrow {
+    opacity: 0.6 !important;
+    color: var(--text-main) !important;
+}
+
+/* Ascending State (Up) */
+.tabulator-header .tabulator-col[aria-sort="ascending"] {
+    background-color: var(--bg-hover) !important;
+}
+
+.tabulator-header .tabulator-col[aria-sort="ascending"] .tabulator-col-title {
+    color: var(--text-active) !important;
+}
+
+.tabulator-header .tabulator-col[aria-sort="ascending"] .tabulator-arrow {
+    opacity: 1 !important;
+    color: var(--text-active) !important;
+}
+
+.tabulator-header .tabulator-col[aria-sort="ascending"] .tabulator-arrow::after {
+    transform: translateY(-50%) rotate(180deg) !important;
+    border-top: 5px solid currentColor !important;
+    border-bottom: none !important;
+}
+
+/* Descending State (Down) */
+.tabulator-header .tabulator-col[aria-sort="descending"] {
+    background-color: var(--bg-hover) !important;
+}
+
+.tabulator-header .tabulator-col[aria-sort="descending"] .tabulator-col-title {
+    color: var(--text-active) !important;
+}
+
+.tabulator-header .tabulator-col[aria-sort="descending"] .tabulator-arrow {
+    opacity: 1 !important;
+    color: var(--text-active) !important;
+}
+
+.tabulator-header .tabulator-col[aria-sort="descending"] .tabulator-arrow::after {
+    transform: translateY(-50%) rotate(0deg) !important;
+    border-top: 5px solid currentColor !important;
+    border-bottom: none !important;
+}
+
+/* --- BODY & ROWS --- */
+.tabulator-tableholder::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.tabulator-tableholder::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tabulator-tableholder::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 3px;
+}
+
+.tabulator-tableholder::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-muted);
+}
+
+.tabulator-tableholder .tabulator-table {
+    background-color: var(--surface) !important;
+    border-collapse: collapse !important;
+}
+
+.tabulator-row {
+    background-color: var(--surface) !important;
+    border-bottom: 1px solid var(--border) !important;
+    min-height: var(--tblr-row-height) !important;
+    transition: background-color 0.1s ease !important;
+}
+
+.tabulator-row .tabulator-cell {
+    padding: 0 24px !important;
+    border-right: 1px solid transparent !important;
+    vertical-align: middle !important;
+    // height: var(--tblr-row-height) !important;
+    color: var(--text-main) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+/* Hover Row */
+.tabulator-row:hover {
+    background-color: var(--bg-hover) !important;
+    z-index: 1 !important;
+}
+
+/* Native Checkbox Styling */
+.tabulator-row .tabulator-cell input[type="checkbox"],
+.tabulator-header .tabulator-col-title input[type="checkbox"] {
+    cursor: pointer !important;
+    width: 16px !important;
+    accent-color: var(--text-active) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 4px !important;
+    margin: 0 !important;
+}
+
+/* --- FOOTER --- */
+.tabulator-footer {
+    background-color: var(--surface) !important;
+    border-top: 1px solid var(--border) !important;
+    padding: 12px 24px !important;
+    font-family: 'Roboto', sans-serif !important;
+    font-weight: 400 !important;
+}
+
+.tabulator-footer .tabulator-page.active {
+    background-color: var(--bg-selected) !important;
+    color: var(--text-active) !important;
+    border-color: #c7d2fe !important;
+}
+
+/* --- CUSTOM EDITOR STYLES --- */
+.tabulator-cell.tabulator-editing {
+    border: 2px solid var(--text-active) !important;
+    border-radius: 4px;
+    padding: 0 !important;
+    z-index: 100 !important;
+    /* Ensure editor is on top */
+}
+
+/* Specific fix: When a frozen cell is editing, ensure the primary border overrides the frozen gray border */
+.tabulator .tabulator-row .tabulator-cell.tabulator-frozen.tabulator-editing {
+    border: 2px solid var(--text-active) !important;
+    z-index: 100 !important;
+}
+
+.tabulator-cell.tabulator-editing input,
+
+.tabulator-cell.tabulator-editing select {
+    padding: 8px 12px;
+    font-size: 0.975rem;
+    color: #1f2937;
+}
+
+.tabulator-cell.tabulator-editing textarea {
+    border: none !important;
+    outline: none !important;
+}
+
+/* --- FROZEN COLUMN STYLING --- */
+/* Frozen Header */
+.tabulator .tabulator-header .tabulator-col.tabulator-frozen {
+    border-right: 1px solid #d1d5db !important;
+    /* gray-300 */
+    border-left: none !important;
+    /* Explicitly remove left border */
+    box-shadow: 4px 0 6px -2px rgba(0, 0, 0, 0.05) !important;
+    background-color: var(--bg-body) !important;
+    /* Solid background */
+    z-index: 50 !important;
+    /* Top layer */
+    position: sticky !important;
+    /* FIXED: Restore sticky positioning */
+}
+
+/* Frozen Body Cells */
+.tabulator .tabulator-row .tabulator-cell.tabulator-frozen {
+    border-right: 1px solid #d1d5db !important;
+    /* gray-300 */
+    border-left: none !important;
+    /* Explicitly remove left border */
+    box-shadow: 4px 0 6px -2px rgba(0, 0, 0, 0.05) !important;
+    background-color: var(--surface) !important;
+    /* Solid background */
+    z-index: 20 !important;
+    /* Above scrollable content */
+    position: sticky !important;
+    /* FIXED: Restore sticky positioning */
+}
+
+/* Fix Frozen Hover State */
+.tabulator .tabulator-row:hover .tabulator-cell.tabulator-frozen {
+    background-color: var(--bg-hover) !important;
+}
+
+/* --- LIST EDITOR (Dropdown) STYLING --- */
+.tabulator-edit-list {
+    background: #ffffff !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+    border-radius: 12px !important;
+    padding: 6px !important;
+    font-family: inherit !important;
+    font-size: 0.875rem !important;
+    margin-top: 8px !important;
+    z-index: 10000 !important;
+}
+
+.tabulator-edit-list .tabulator-edit-list-item {
+    color: var(--text-main) !important;
+    padding: 8px 12px !important;
+    border-radius: 8px;
+    transition: background-color 0.15s;
+    margin-bottom: 2px;
+}
+
+.tabulator-edit-list .tabulator-edit-list-item:hover,
+.tabulator-edit-list .tabulator-edit-list-item.tabulator-edit-list-item-active {
+    background-color: var(--bg-selected) !important;
+    color: var(--text-active) !important;
+    font-weight: 500 !important;
+}
+
+
+// material=====================================
+
+// .mat-mdc-text-field-wrapper {
+//     height: 42px !important;
+//     padding-top: 0 !important;
+//     padding-bottom: 0 !important;
+// }
+
+// .mat-mdc-form-field-flex {
+//     height: 42px !important;
+//     align-items: center !important;
+//     padding-top: 0 !important;
+// }
+
+// .mat-mdc-form-field-infix {
+//     padding-top: 0 !important;
+//     padding-bottom: 0 !important;
+//     min-height: 42px !important;
+//     height: 42px !important;
+//     display: flex !important;
+//     align-items: center !important;
+// }
+
+// /* Adjust label position for compact height */
+// .mat-mdc-form-field:not(.mat-form-field-should-float) .mat-mdc-floating-label {
+//     top: 50% !important;
+//     transform: translateY(-50%) !important;
+// }
+
+// /* Adjust input position */
+// .mat-mdc-input-element {
+//     margin-top: 0 !important;
+//     position: relative;
+//     top: 0px;
+//     /* Slight tweak for visual centering */
+// }
+
+.mdc-text-field .mdc-text-field__input {
+    caret-color: var(--mdc-theme-primary, var(--text-active));
+}
+
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__notch {
+    border-width: 2px !important;
+    border-color: var(--text-active) !important;
+    outline: none !important;
+}
+
+
+// /* Ensure selects align correctly */
+// .mat-mdc-select-trigger {
+//     display: flex !important;
+//     align-items: center !important;
+//     height: 100% !important;
+// }
+
+// .mat-mdc-select-arrow-wrapper {
+//     height: 100% !important;
+//     display: flex !important;
+//     align-items: center !important;
+//     transform: translateY(0) !important;
+// }
+
+/* Remove focus overlay */
+.mat-mdc-form-field-focus-overlay {
+    opacity: 0 !important;
+}
+
+/* Default outline */
+.mdc-notched-outline__leading,
+.mdc-notched-outline__notch,
+.mdc-notched-outline__trailing {
+    border-color: #d9e0eb !important;
+    border-width: 1px !important;
+    transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Focused state */
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+    border-color: var(--text-active) !important;
+    border-width: 2px !important;
+}
+
+/* Icon color on focus */
+.mat-mdc-form-field.mat-focused .mat-mdc-icon-button {
+    color: var(--text-active) !important;
+}
+
+/* Cell Vertical Alignment Fixes */
+.tabulator-cell {
+    height: auto !important;
+    min-height: 50px;
+    display: flex !important;
+    align-items: center !important;
+    /* Forces vertical centering across all columns */
+    border-right: none !important;
+    padding: 0 !important;
+    border-bottom: none !important;
+    white-space: normal !important;
+    /* Ensure wrapping is allowed */
+    word-wrap: break-word !important;
+}
+
+.tabulator-row {
+    min-height: 50px;
+    border-bottom: 1px solid #f3f4f6 !important;
+    background-color: #ffffff;
+    display: flex;
+}
+
+.tabulator-row:hover {
+    background-color: #f9fafb !important;
+}

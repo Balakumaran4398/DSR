@@ -1,0 +1,179 @@
+<div class="h-screen bg-white flex flex-col max-w-4xl mx-auto border-l border-r border-slate-200 shadow-sm">
+
+    <!-- 1. Header -->
+    <div class="px-6 py-5 border-b border-slate-200 flex justify-between items-start bg-slate-50">
+        <div>
+            <h1 class="text-xl font-bold text-slate-800 m-0">
+                {{ isEditMode ? 'Update Phase' : 'Create New Phase' }}
+            </h1>
+            <p class="text-sm text-slate-500 mt-1">
+                {{ isEditMode ? 'Modify phase milestones, timeline, and assignment' : 'Define new phase scope, timeline,
+                and assign resources' }}
+            </p>
+        </div>
+        <button mat-stroked-button *ngIf="false" (click)="toggleEditMode()" class="text-xs">
+            {{ isEditMode ? 'Switch to Create Mode' : 'Switch to Edit Mode' }}
+        </button>
+    </div>
+
+    <!-- 2. Scrollable Content -->
+    <div class="flex-1 overflow-y-auto p-6 bg-white">
+        <form [formGroup]="phaseForm" class="flex flex-col gap-6">
+
+            <!-- Section 1: Phase Essentials -->
+            <section>
+                <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+                    <mat-icon>flag</mat-icon>
+                    <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+                        Phase Details
+                    </h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+
+                    <!-- Project Select -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Project <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select formControlName="projectid" placeholder="Select Project">
+                                <mat-option [value]="null">Select Project</mat-option>
+                                <mat-option *ngFor="let p of projectList" [value]="p.id">{{ p.project_title
+                                    }}</mat-option>
+                            </mat-select>
+                            <mat-error *ngIf="phaseForm.controls['projectid'].invalid">Project is required.</mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Phase Type -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Phase Type <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select formControlName="phase_type" placeholder="Select Type">
+                                <mat-option value="Internal">Internal</mat-option>
+                                <mat-option value="External">External</mat-option>
+
+                            </mat-select>
+                            <mat-error *ngIf="phaseForm.controls['phase_type'].invalid">Type is required.</mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Phase Title (Full Width) -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Phase Title <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput formControlName="phase_title" placeholder="e.g. Requirement Gathering">
+                            <mat-error *ngIf="phaseForm.controls['phase_title'].invalid">Title is required.</mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Version (Optional) -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Version</label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput formControlName="version" placeholder="e.g. 1.0">
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Status -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Status <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select formControlName="status" placeholder="Select Status">
+                                <mat-option *ngFor="let status of statusList" [value]="status">{{status}}</mat-option>
+
+                            </mat-select>
+                            <mat-error *ngIf="phaseForm.controls['status'].invalid">Status is required.</mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Start Date -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Start Date <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput [matDatepicker]="startPicker" formControlName="start_date"
+                                placeholder="MM/DD/YYYY">
+                            <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+                            <mat-datepicker #startPicker></mat-datepicker>
+                            <mat-error *ngIf="phaseForm.controls['start_date'].invalid">Start Date is
+                                required.</mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- End Date (Now Mandatory) -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">End Date <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <input matInput [matDatepicker]="endPicker" formControlName="end_date"
+                                placeholder="MM/DD/YYYY">
+                            <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+                            <mat-datepicker #endPicker></mat-datepicker>
+                            <mat-error *ngIf="phaseForm.controls['end_date'].invalid">End Date is required.</mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Assignee (Now Mandatory) -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Assignee <span
+                                class="text-red-500">*</span></label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select formControlName="assignee" placeholder="Select Assignee">
+                                <mat-option [value]="null">Select Assignee</mat-option>
+                                <mat-option *ngFor="let m of employeeList" [value]="m.id">
+                                    <div class="flex items-center gap-2">
+                                        <div
+                                            class="w-6 h-6 rounded-full bg-slate-200 text-xs flex items-center justify-center font-bold text-slate-600">
+                                            {{ m.employee_name.charAt(0) }}
+                                        </div>
+                                        {{ m.employee_name }}
+                                    </div>
+                                </mat-option>
+                            </mat-select>
+                            <mat-error *ngIf="phaseForm.controls['assignee'].invalid">Assignee is required.</mat-error>
+                        </mat-form-field>
+                    </div>
+
+                </div>
+            </section>
+
+            <mat-divider></mat-divider>
+
+            <!-- Section 2: Remarks (Optional) -->
+            <section>
+                <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+                    <mat-icon>notes</mat-icon>
+                    <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+                        Additional Info
+                    </h2>
+                </div>
+
+                <div class="grid grid-cols-1">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <textarea matInput formControlName="remark" rows="4"
+                                placeholder="Any additional notes or context for this phase..."></textarea>
+                        </mat-form-field>
+                    </div>
+                </div>
+            </section>
+
+        </form>
+    </div>
+
+    <!-- 3. Sticky Footer -->
+    <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 sticky bottom-0 z-10">
+        <button mat-stroked-button color="warn" (click)="onCancel()" class="!px-6">
+            Cancel
+        </button>
+        <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="phaseForm.invalid" class="!px-6">
+            Save Phase
+        </button>
+    </div>
+
+</div>

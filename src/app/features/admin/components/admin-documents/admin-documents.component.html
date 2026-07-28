@@ -1,0 +1,147 @@
+<div class="w-full animate-fade-in  mx-auto bg-gray-50 min-h-screen ">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-8">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between flex-wrap">
+            <div class="flex items-center gap-3 shrink-0">
+                <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
+                   flex items-center justify-center text-white shadow-sm shrink-0">
+                    <i class="ri-file-text-line dsr-nav-nav-icon"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">
+                        Documents
+                    </h1>
+                    <p class="text-xs sm:text-sm text-slate-500">
+                        View and manage all documents related to this project.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-3 w-full sm:flex-row sm:items-center sm:w-auto shrink-0">
+              <div class="relative w-full sm:w-56 lg:w-64">
+                <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <i class="ri-search-line text-gray-400"></i>
+                </span>
+
+                <input type="text" [value]="searchTerm" (input)="onSearch($event)" placeholder="Search..." class="w-full pl-10 pr-4 py-2
+                 bg-slate-50 border border-slate-200 rounded-lg text-sm
+                 focus:outline-none focus:bg-white focus:border-[var(--text-active)]
+                 focus:ring-1 focus:ring-[var(--text-active)]
+                 placeholder-gray-400 transition-all text-slate-900" />
+            </div>
+                <button class="inline-flex items-center justify-center
+                   w-full sm:w-auto
+                   px-4 py-1 text-sm font-medium
+                   rounded-lg shadow-sm text-white
+                   bg-[var(--text-active)]
+                   hover:opacity-90 hover:shadow-md
+                   active:scale-95
+                   transition-all" 
+                   (click)="addDoc()">
+                    <i class="ri-add-line mr-2 text-lg"></i>
+                    Add Doc
+                </button>
+            </div>
+
+        </div>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+      <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <div #tableDiv></div>
+    </div>
+          </div> 
+          
+      </div>
+
+<div *ngIf="showUploadModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+  <mat-card class="w-full max-w-2xl shadow-xl rounded-2xl overflow-hidden" style="min-width: 50vw !important;">
+    
+    <div class="bg-[var(--text-active)] px-6 py-8 text-white flex justify-between items-start">
+      <div>
+        <h2 class="text-2xl font-bold m-0 flex items-center gap-2">
+          <mat-icon>upload_file</mat-icon>
+          {{editModal ? 'Edit Document' : 'Document Upload'}}
+        </h2>
+        <p class="text-indigo-100 mt-2 text-sm">Fill in the details and choose a file to submit.</p>
+      </div>
+      <button (click)="closeModal()" class="text-white hover:opacity-80 transition p-0">
+        <i class="ri-close-line text-2xl"></i>
+      </button>
+    </div>
+
+    <mat-card-content class="p-8">
+      <form [formGroup]="uploadForm" (ngSubmit)="onSubmit()" class="flex flex-col gap-6">
+
+        <div class="flex flex-col gap-1.5 mt-2">
+          <label class="text-sm font-medium text-slate-700 ml-1">Document Title</label>
+          <mat-form-field appearance="outline" class="w-full">
+            <input matInput formControlName="title" placeholder="Enter the Document title">
+            <mat-icon matSuffix class="text-slate-400">title</mat-icon>
+            <mat-error *ngIf="uploadForm.get('title')?.hasError('required') && uploadForm.get('title')?.touched">
+              Title is required
+            </mat-error>
+            <mat-error *ngIf="uploadForm.get('title')?.hasError('maxlength') && uploadForm.get('title')?.touched">
+              Document Title must be 200 characters or less
+            </mat-error>
+          </mat-form-field>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-slate-700 ml-1">Attachment</label>
+          <div class="relative border-2 border-dashed border-slate-300 rounded-xl p-8 transition-all duration-200 flex flex-col items-center justify-center gap-3 bg-white hover:border-[var(--text-active)] hover:bg-indigo-50/30 cursor-pointer"
+            [class.border-indigo-500]="fileName" 
+            [class.bg-indigo-50]="fileName">
+            
+            <input 
+              type="file" 
+              #fileInput
+              (change)="onFileSelected($event)"
+              class="hidden"
+            />
+
+            <mat-icon class="!w-12 !h-12 text-5xl" [class.text-indigo-500]="fileName" [class.text-slate-400]="!fileName">
+              {{ fileName ? 'check_circle' : 'cloud_upload' }}
+            </mat-icon>
+
+            <div class="text-center">
+              <ng-container *ngIf="fileName; else noFileSelected">
+                <span class="text-indigo-700 font-semibold block">{{ fileName }}</span>
+                <button type="button" mat-button (click)="clearFile($event)" class="mt-2">
+                  Remove file
+                </button>
+              </ng-container>
+              <ng-template #noFileSelected>
+                <span class="text-slate-600 block">Drag and drop or click to browse</span>
+              </ng-template>
+            </div>        
+
+            <button type="button" mat-flat-button color="primary" class="mt-3" (click)="fileInput.click()">
+              {{ fileName ? 'Change File' : 'Choose File' }}
+            </button>
+          </div>
+          <span *ngIf="uploadForm.get('file')?.hasError('required') && uploadForm.get('file')?.touched && !editModal"
+            class="text-red-500 text-xs mt-1 ml-1">
+            Please select a file to upload.
+          </span>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-slate-100">
+          <button mat-button type="button" (click)="onReset()" [disabled]="isSubmitting">
+            Reset
+          </button>
+          <button mat-flat-button color="primary" type="submit"
+            [disabled]="isSubmitting || uploadForm.get('title')?.invalid || (!editModal && uploadForm.get('file')?.invalid)" class="px-8 py-2 rounded-lg">
+            <ng-container *ngIf="isSubmitting; else submitBtnText">
+              Processing...
+            </ng-container>
+            <ng-template #submitBtnText>
+              Submit
+            </ng-template>
+          </button>
+        </div>
+      </form>
+      
+    </mat-card-content>
+    
+  </mat-card>
+  
+</div>

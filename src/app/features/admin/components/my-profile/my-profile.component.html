@@ -1,0 +1,188 @@
+<div class="profile-page animate-fade-in">
+  <div class="profile-orb profile-orb-one"></div>
+  <div class="profile-orb profile-orb-two"></div>
+
+  <div *ngIf="loading" class="profile-loading">
+    <div class="profile-loading__card"></div>
+    <div class="profile-loading__grid">
+      <div class="profile-loading__tile" *ngFor="let item of [1, 2, 3, 4]"></div>
+    </div>
+  </div>
+
+  <ng-container *ngIf="!loading">
+    <div *ngIf="!loadFailed && profile; else emptyState" class="profile-layout">
+      <section class="profile-content-grid">
+        <article class="profile-card profile-card--spotlight">
+          <div class="profile-card__header">
+            <div>
+              <span class="profile-card__eyebrow">Work Details</span>
+              <h2>Professional Information</h2>
+            </div>
+          </div>
+          <div class="profile-intro">
+            <div class="profile-intro__glow"></div>
+
+            <div class="profile-avatar-shell">
+              <div class="profile-avatar-stack">
+                <div class="profile-avatar-ring">
+                  <ng-container *ngIf="avatarUrl; else initialsAvatar">
+                    <img [src]="avatarUrl" [alt]="fullName" class="profile-avatar-image" />
+                  </ng-container>
+
+                  <ng-template #initialsAvatar>
+                    <div class="profile-avatar-fallback">{{ avatarInitials }}</div>
+                  </ng-template>
+                </div>
+              </div>
+            </div>
+
+            <div class="profile-hero__copy">
+              <div class="profile-title-surface">
+                <h1 class="profile-title">
+                  {{ fullName }}
+                </h1>
+              </div>
+              <p class="profile-intro__subtitle">
+                {{ profileTitle }} • {{ profileSubtitle }}
+              </p>
+
+              <div class="profile-intro__meta" *ngIf="heroMeta.length">
+                <div class="profile-intro__meta-chip" *ngFor="let item of heroMeta; trackBy: trackByLabel">
+                  <i [class]="item.icon"></i>
+                  <span>{{ item.value }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <dl class="profile-info-grid">
+            <div class="profile-info-item" *ngFor="let item of professionalItems; trackBy: trackByLabel">
+              <dt>
+                <i [class]="item.icon"></i>
+                <span>{{ item.label }}</span>
+              </dt>
+              <dd [class.profile-info-item__mono]="item.mono">{{ item.value || 'Not available' }}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="profile-card profile-card--secondary">
+          <div class="profile-card__header">
+            <div>
+              <span class="profile-card__eyebrow">Reach Me</span>
+              <h2>Contact Information</h2>
+            </div>
+          </div>
+
+          <dl class="profile-info-grid">
+            <div class="profile-info-item" *ngFor="let item of contactItems; trackBy: trackByLabel">
+              <dt>
+                <i [class]="item.icon"></i>
+                <span>{{ item.label }}</span>
+              </dt>
+              <dd [class.profile-info-item__mono]="item.mono">{{ item.value || 'Not available' }}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="profile-card profile-card--secondary">
+          <div class="profile-card__header">
+            <div>
+              <span class="profile-card__eyebrow">Personal</span>
+              <h2>Basic Profile Details</h2>
+            </div>
+          </div>
+
+          <dl class="profile-info-grid">
+            <div class="profile-info-item" *ngFor="let item of personalItems; trackBy: trackByLabel">
+              <dt>
+                <i [class]="item.icon"></i>
+                <span>{{ item.label }}</span>
+              </dt>
+              <dd [class.profile-info-item__mono]="item.mono">{{ item.value || 'Not available' }}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <!-- <article *ngIf="showSkillsCard" class="profile-card profile-card--skills"> -->
+        <article  class="profile-card profile-card--skills">
+          <div class="profile-card__header">
+            <div>
+              <span class="profile-card__eyebrow">Skill Set</span>
+              <h2>Key Skills & Experience</h2>
+            </div>
+
+         
+             <button class="inline-flex items-center justify-center
+                   w-full sm:w-auto
+                   px-4 py-1 text-sm font-medium
+                   rounded-lg shadow-sm text-white
+                   bg-[var(--text-active)]
+                   hover:opacity-90 hover:shadow-md
+                   active:scale-95
+                   transition-all" (click)="openSkillDialog()">
+                    <i class="ri-add-line mr-2 text-lg"></i>
+                    Add Skill
+                </button>
+          </div>
+
+          <p class="profile-skill-note">Only three skills are visible at a time. Scroll the card to view the remaining
+            entries.</p>
+
+          <div class="profile-skill-scroll" [class.profile-skill-scroll--empty]="!skillDetails.length">
+            <ng-container *ngIf="skillDetails.length; else emptySkills">
+              <div class="profile-skill-list">
+                <article class="profile-skill-row" *ngFor="let skill of skillDetails; trackBy: trackBySkill">
+                  <div class="profile-skill-row__top">
+                    <div class="profile-skill-row__identity">
+                      <div class="profile-skill-row__icon">
+                        <i [class]="skill.icon"></i>
+                      </div>
+
+                      <div>
+                        <h3>{{ skill.name }}</h3>
+                        <p>{{ skill.category }}</p>
+                      </div>
+                    </div>
+
+                    <div class="profile-skill-row__meta">
+                      <strong>{{ skill.experience }}</strong>
+                      <div class="profile-skill-row__actions">
+                        <button type="button" class="profile-skill-row__action-btn" (click)="openSkillDialog(skill)" aria-label="Edit skill">
+                          <i class="ri-edit-line"></i>
+                        </button>
+                        <button type="button" class="profile-skill-row__action-btn profile-skill-row__action-btn--danger" (click)="removeSkill(skill)" aria-label="Delete skill">
+                          <i class="ri-delete-bin-line"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- <div class="profile-skill-row__track">
+                    <span class="profile-skill-row__fill" [style.width.%]="skill.level"></span>
+                  </div> -->
+                </article>
+              </div>
+            </ng-container>
+
+            <ng-template #emptySkills>
+              <div class="profile-empty-inline">
+                No skills added yet. Use the Add Skill button to enter a skill and experience.
+              </div>
+            </ng-template>
+          </div>
+        </article>
+      </section>
+    </div>
+
+    <ng-template #emptyState>
+      <section class="profile-empty-state">
+        <div class="profile-empty-state__icon">
+          <i class="ri-user-search-line"></i>
+        </div>
+        <h2>Profile details are not available</h2>
+        <p>We could not find employee details from the API response for this account.</p>
+        <button type="button" class="profile-retry-btn" (click)="loadProfile()">Retry</button>
+      </section>
+    </ng-template>
+  </ng-container>
+</div>

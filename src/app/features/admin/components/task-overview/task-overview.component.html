@@ -1,0 +1,357 @@
+<!-- Main Layout Container -->
+<div class="flex h-[92vh] bg-[#F8FAFC] font-sans overflow-hidden"
+    style="--tw-selection-color: color-mix(in srgb, var(--text-active), transparent 80%); --tw-selection-text-color: var(--text-active)">
+    <!-- LEFT SIDEBAR: List View + Filters -->
+    <aside
+        class="w-full md:w-[320px] lg:w-[400px] flex flex-col bg-white border-r border-slate-200/60 shrink-0 h-full shadow-xl shadow-slate-200/50 z-20 transition-all duration-300"
+        [class.hidden]="mobileView && selectedTask">
+        <!-- Sidebar Header (Filters) -->
+        <div class="p-5 border-b border-slate-100 bg-white/80 backdrop-blur-md sticky top-0 z-20 ">
+            <!-- Title Row -->
+            <div class="flex justify-between items-center">
+                <h3 class="text-slate-800 font-extrabold text-base uppercase tracking-wider flex items-center gap-2">
+                    <div class="p-1.5 rounded-md"
+                        [style.background-color]="'color-mix(in srgb, var(--text-active), transparent 90%)'"
+                        [style.color]="'var(--text-active)'">
+                        <mat-icon class="!text-[20px] !w-5 !h-5">filter_list</mat-icon>
+                    </div>Tasks List
+                </h3>
+                <!-- Count Badge -->
+                <!-- <span class="text-xs font-bold px-3 py-1 rounded-full border shadow-sm"
+                    [style.background-color]="'color-mix(in srgb, var(--text-active), transparent 90%)'"
+                    [style.color]="'var(--text-active)'"
+                    [style.border-color]="'color-mix(in srgb, var(--text-active), transparent 80%)'">
+                    {{tasks.length}} Found
+                </span> -->
+                <!-- <button [disabled]="!canDownloadPdf" title="PDF Download" (click)="generateDSRPdf()"
+                    class="cursor-pointer transition-all duration-200 rounded" [ngClass]="{
+                  'pdf-enabled': canDownloadPdf,'pdf-disabled': !canDownloadPdf}">
+                    <i class="ri-file-pdf-2-fill !text-2xl"></i></button> -->
+                    <div class="flex items-center gap-2">
+
+                        <button
+                            title="Table View"
+                            (click)="openTableView()"
+                            class="cursor-pointer transition-all duration-200 rounded p-1.5"
+                            [ngClass]="viewMode === 'table' ? 'bg-slate-200' : 'hover:bg-slate-100'">
+                            <mat-icon class="!text-[22px] text-slate-600">table_chart</mat-icon>
+                        </button>
+                      
+                        <button
+                            title="Card View"
+                            (click)="openCardView()"
+                            class="cursor-pointer transition-all duration-200 rounded p-1.5"
+                            [ngClass]="viewMode === 'card' ? 'bg-slate-200' : 'hover:bg-slate-100'">
+                            <mat-icon class="!text-[22px] text-slate-600">view_agenda</mat-icon>
+                        </button>
+                      
+                        <button
+                            [disabled]="!canDownloadPdf"
+                            title="PDF Download"
+                            (click)="generateDSRPdf()"
+                            class="cursor-pointer transition-all duration-200 rounded"
+                            [ngClass]="{
+                              'pdf-enabled': canDownloadPdf,
+                              'pdf-disabled': !canDownloadPdf
+                            }">
+                            <i class="ri-file-pdf-2-fill !text-2xl"></i>
+                        </button>
+                      
+                      </div>
+                      
+                    
+            </div>
+            <!-- 1. NAME FILTER -->
+            <div class="group">
+                <label
+                    class="block text-sm font-bold text-slate-700 mb-1.5 ml-1 transition-colors group-focus-within:text-[var(--text-active)]">Search
+                    Employee</label>
+                <!-- <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                    <mat-icon matPrefix
+                        class="text-slate-500 mr-2 transition-colors group-focus-within:text-[var(--text-active)]">search</mat-icon>
+                    <input matInput placeholder="Enter employee name" [(ngModel)]="searchTerm"
+                        class="!font-medium !text-slate-600 placeholder:!text-slate-400">
+                    <button *ngIf="searchTerm" matSuffix mat-icon-button aria-label="Clear" (click)="searchTerm=''">
+                        <mat-icon class="text-slate-500 hover:text-[var(--text-active)] icon-sm">close</mat-icon>
+                    </button>
+                </mat-form-field> -->
+
+                <form class="example-form">
+                    <mat-form-field class="w-full" appearance="outline">
+                        <input type="text" matInput placeholder="Select employee" [formControl]="myControl"
+                            [matAutocomplete]="auto">
+                        <button *ngIf="hasEmployeeSelection" mat-icon-button matSuffix type="button" aria-label="Clear"
+                            (click)="clearSelection()">
+                            <mat-icon>close</mat-icon>
+                        </button>
+                        <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayFn"
+                            (optionSelected)="onEmployeeSelection($event.option.value)" autoActiveFirstOption>
+                            <mat-option [value]="0">Select all</mat-option>
+                            <mat-option *ngFor="let emp of filteredOptions | async" [value]="emp">
+                                {{ emp.employee_name }}
+                            </mat-option>
+                        </mat-autocomplete>
+                    </mat-form-field>
+                </form>
+            </div>
+
+            <!-- 2. DATE RANGE FILTER -->
+            <div class="group">
+                <div class="flex justify-between items-center mb-1.5">
+                    <label
+                        class="block text-sm font-bold text-slate-700 ml-1 transition-colors group-focus-within:text-[var(--text-active)]">Date
+                        Range</label>
+                    <!-- Small Reset Link -->
+                    <button *ngIf="filterStartDate || filterEndDate || searchTerm" (click)="resetFilters()"
+                        class="text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-[var(--text-active)] transition-colors underline decoration-dotted underline-offset-2">
+                        Reset Filters
+                    </button>
+                </div>
+                <div class="relative transition-all duration-300 rounded-xl">
+                    <mat-form-field appearance="outline" class="w-full text-sm" subscriptSizing="dynamic">
+                        <mat-date-range-input [rangePicker]="picker">
+                            <input matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate"
+                                class=" placeholder:font-medium">
+                            <input matEndDate placeholder="End Date" [(ngModel)]="filterEndDate"
+                                (dateChange)="filterTask()" class=" placeholder:font-medium">
+                        </mat-date-range-input>
+                        <mat-datepicker-toggle matIconSuffix [for]="picker"
+                            class="text-slate-600 scale-90 hover:text-[var(--text-active)] transition-colors"></mat-datepicker-toggle>
+                        <mat-date-range-picker #picker></mat-date-range-picker>
+                    </mat-form-field>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task List -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 bg-slate-50/50" #taskList>
+            <div *ngFor="let task of tasks; let i = index" (click)="selectTask(task)" matRipple
+                class="group p-4 rounded-xl border  cursor-pointer transition-all duration-300 relative select-none animate-slide-in"
+                [style.animation-delay]="i * 50 + 'ms'" [ngClass]="{
+              'bg-white hover:bg-white hover:shadow-lg hover:shadow-slate-200/50 hover:-translate-y-0.5': selectedTask?.id !== task.id
+          }" [class.bg-gradient-to-r]="selectedTask?.id === task.id" #taskItem
+                [class.border-transparent]="selectedTask?.id === task.id"
+                [class.shadow-md]="selectedTask?.id === task.id"
+                [style.background]="selectedTask?.id === task.id ? 'linear-gradient(to right, color-mix(in srgb, var(--text-active), transparent 95%), white)' : ''"
+                [style.border-color]="selectedTask?.id === task.id ? 'color-mix(in srgb, var(--text-active), transparent 80%)' : ''">
+                <!-- Active Indicator Line -->
+                <div *ngIf="selectedTask?.id === task.id"
+                    class="absolute left-0 top-3 bottom-3 w-1.5 rounded-r-full shadow-sm"
+                    [style.background-color]="'var(--text-active)'"
+                    [style.box-shadow]="'0 0 10px color-mix(in srgb, var(--text-active), transparent 70%)'"></div>
+
+                <!-- Row 1: Name & Date -->
+                <div class="flex justify-between items-center mb-2.5 pl-2">
+                    <span
+                        class="font-extrabold text-slate-800 text-sm uppercase truncate pr-2 transition-colors group-hover:text-[var(--text-active)]">
+                        {{ task.employee_name }}
+                    </span>
+                    <span
+                        class="text-xs text-slate-600 font-bold whitespace-nowrap bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 transition-colors group-hover:border-[color-mix(in_srgb,var(--text-active),transparent_80%)] group-hover:bg-[color-mix(in_srgb,var(--text-active),transparent_95%)] group-hover:text-[var(--text-active)]">
+                        {{ task.date }}
+                    </span>
+                </div>
+
+                <!-- Row 2: Project & Action -->
+                <div class="flex justify-between items-center pl-2">
+                    <div class="flex items-center text-xs text-slate-600 font-bold uppercase tracking-wide truncate">
+                        <span class="w-2.5 h-2.5 rounded-full mr-2 flex-shrink-0 shadow-sm transition-all duration-300"
+                            [style.background-color]="selectedTask?.id === task.id ? 'var(--text-active)' : '#94a3b8'"
+                            [style.box-shadow]="selectedTask?.id === task.id ? '0 0 8px color-mix(in srgb, var(--text-active), transparent 50%)' : ''"
+                            [ngClass]="{'scale-110': selectedTask?.id === task.id}"></span>
+                        <span class="truncate group-hover:text-slate-900">{{ task.project_title }}</span>
+                    </div>
+
+                    <!-- Icon Button -->
+                    <div class="text-slate-400 transition-all duration-300 transform group-hover:translate-x-1 group-hover:text-[var(--text-active)]"
+                        [style.color]="selectedTask?.id === task.id ? 'var(--text-active)' : ''">
+                        <mat-icon class="!text-[22px] !w-5.5 !h-5.5">chevron_right</mat-icon>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- No Results State -->
+            <div *ngIf="tasks.length === 0"
+                class="p-8 text-center text-slate-500 flex flex-col items-center justify-center h-64 animate-fade-in">
+                <div class="relative">
+                    <div class="absolute inset-0 rounded-full blur-xl opacity-50"
+                        [style.background-color]="'color-mix(in srgb, var(--text-active), transparent 90%)'"></div>
+                    <div
+                        class="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm relative z-10">
+                        <mat-icon class="!text-4xl opacity-40 text-slate-500">search_off</mat-icon>
+                    </div>
+                </div>
+                <h4 class="text-slate-700 font-bold mb-1">No tasks found</h4>
+                <p class="text-sm text-slate-500 mb-6 max-w-[200px]">We couldn't find any tasks matching your filters.
+                </p>
+                <button mat-flat-button (click)="resetFilters()"
+                    class="!rounded-full !px-6 !py-1 !h-10 !font-bold shadow-lg transition-all !text-white"
+                    [style.background-color]="'var(--text-active)'"
+                    [style.box-shadow]="'0 10px 15px -3px color-mix(in srgb, var(--text-active), transparent 80%)'">
+                    Reset Filters
+                </button>
+            </div>
+        </div>
+    </aside>
+    <!-- RIGHT PANEL: Details View -->
+    <main class="flex-1 bg-[#F8FAFC] h-full overflow-hidden  flex flex-col relative w-full"
+        [class.hidden]="mobileView && !selectedTask" [class.block]="!mobileView || (mobileView && selectedTask)">
+
+        <!-- Mobile Back Button (Sticky & Blurred) -->
+        <div *ngIf="mobileView && selectedTask"
+            class="sticky top-0 z-30 bg-white/90 backdrop-blur-md p-4 border-b border-slate-200 flex items-center shadow-sm">
+            <button mat-icon-button (click)="deselectTask()" class="!text-slate-700">
+                <mat-icon>arrow_back</mat-icon>
+            </button>
+            <span class="ml-2 font-bold text-slate-800 text-base uppercase tracking-wide">Back to List</span>
+        </div>
+
+        <div
+            class="flex-1 overflow-y-auto border  rounded-lg shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] flex justify-center items-start custom-scrollbar w-full">
+            <ng-container *ngIf="viewMode === 'card'">
+
+            <!-- Detail Card -->
+            <div *ngIf="selectedTask"
+                class="w-full  bg-white rounded-2xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] border border-slate-100 p-6 md:p-10 lg:p-12 min-h-[600px] animate-scale-in relative overflow-hidden">
+
+                <!-- Decorative Background Blob -->
+                <div class="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl opacity-60 pointer-events-none"
+                    [style.background-color]="'color-mix(in srgb, var(--text-active), transparent 90%)'"></div>
+
+                <div
+                    class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-6 border-b border-slate-100 gap-4 relative z-10">
+                    <div class="flex items-center gap-4">
+
+                        <div>
+                            <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Task Details
+                            </h2>
+                            <span class="text-sm text-slate-500 font-semibold mt-1 block">ID: #{{selectedTask.id}} •
+                                <span class="text-slate-700">{{selectedTask.date}}</span></span>
+                        </div>
+                    </div>
+                    <div
+                        class="px-4 py-1.5 bg-emerald-50 text-emerald-800 text-xs font-extrabold uppercase rounded-full border border-emerald-200 flex items-center gap-1.5 shadow-sm">
+                        <span class="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                        Active
+                    </div>
+                </div>
+
+                <div class="space-y-8 relative z-10">
+                    <!-- Reusable Detail Row -->
+                    <ng-container
+                        *ngTemplateOutlet="row; context: { label: 'Employee Name', value: selectedTask.employee_name, icon: 'person' }"></ng-container>
+                    <ng-container
+                        *ngTemplateOutlet="row; context: { label: 'Project Name', value: selectedTask.project_title, icon: 'folder' }"></ng-container>
+                    <!-- Responsive Grid for Dates (Fix applied here: grid-cols-1 by default, split on xl) -->
+                    <div
+                        class="grid grid-cols-1 xl:grid-cols-2 gap-x-12 gap-y-8 p-6 bg-slate-50 rounded-xl border border-slate-200">
+                        <ng-container
+                            *ngTemplateOutlet="row; context: { label: 'Start Date', value: selectedTask.start_date, icon: 'event' }"></ng-container>
+                        <ng-container
+                            *ngTemplateOutlet="row; context: { label: 'End Date', value: selectedTask.end_date, icon: 'event_available' }"></ng-container>
+                    </div>
+                    <!-- Divider with text -->
+                    <div class="relative flex py-2 items-center">
+                        <div class="flex-grow border-t border-slate-200"></div>
+                        <span class="flex-shrink mx-4 text-slate-400 text-xs font-bold uppercase tracking-widest">Task Content</span>
+                        <div class="flex-grow border-t border-slate-200"></div>
+                    </div>
+                    <ng-container
+                        *ngTemplateOutlet="row; context: { label: 'Task Name', value: selectedTask.task, icon: 'title' }"></ng-container>
+                    <!-- Description (Handling long text) -->
+                    <ng-container
+                        *ngTemplateOutlet="row; context: { label: 'Sub Task', value: selectedTask.sub_task, isLong: true, icon: 'notes' }"></ng-container>
+                    <ng-container
+                        *ngTemplateOutlet="row; context: { label: 'Comments', value: selectedTask.comments, icon: 'comment' }"></ng-container>
+                    <ng-container
+                        *ngTemplateOutlet="row; context: { label: 'Worked Hours', value: selectedTask.worked_hours, icon: 'schedule' }"></ng-container>
+
+                    <!-- Simple Progress Bar -->
+                    <div class="mt-8 p-6 bg-slate-50 rounded-xl border border-slate-200">
+                        <div class="flex justify-between items-center mb-3">
+                            <div class="flex items-center gap-2">
+                                <mat-icon class="text-slate-500 !text-base">flag</mat-icon>
+                                <span class="text-xs font-bold text-slate-600 uppercase tracking-wide">Completion</span>
+                            </div>
+                            <span class="text-base font-extrabold"
+                                [style.color]="'var(--text-active)'">{{selectedTask.completion_percentage}}%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-3">
+                            <div class="h-3 rounded-full transition-all duration-500"
+                                [style.width]="selectedTask.completion_percentage + '%'"
+                                [style.background-color]="'var(--text-active)'"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </ng-container>
+            <!-- Empty State -->
+            <div *ngIf="!selectedTask"
+                class="flex flex-col items-center justify-center h-full text-slate-500 p-4 text-center animate-fade-in">
+                <div class="w-32 h-32 bg-slate-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                    <mat-icon class="!w-16 !h-16 !text-[64px] opacity-20 text-slate-600">assignment</mat-icon>
+                </div>
+                <h3 class="text-xl font-bold text-slate-700 mb-2">No Task Selected</h3>
+                <p class="text-slate-500 max-w-xs text-sm">Select a task from the list on the left to view full details
+                    and progress.</p>
+            </div>
+           
+            <ng-container *ngIf="viewMode === 'table'">
+                <div class="w-full animate-fade-in mx-auto bg-gray-50 min-h-screen p-4">
+                  <div class="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="h-10 w-10 rounded-lg bg-[var(--text-active)] flex items-center justify-center text-white shadow-sm">
+                        <i class="ri-task-line text-xl"></i>
+                      </div>
+                      <div>
+                        <h1 class="text-lg sm:text-xl font-bold text-slate-900">Task Management</h1>
+                        <p class="text-xs sm:text-sm text-slate-500">Track and Manage Employee Tasks</p>
+                      </div>
+                    </div>
+                    <div class="relative w-full sm:w-64">
+                      <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                        <i class="ri-search-line text-gray-400 text-sm"></i>
+                      </span>
+                      <input type="text" (input)="onSearch($event)" placeholder="Search tasks..."
+                             class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--text-active)] placeholder-gray-400 transition" />
+                    </div>
+                  </div>
+                  <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                    <div #taskTableDiv></div>
+                  </div>
+                </div>
+              </ng-container>  
+        </div>
+    </main>
+</div>
+
+<!-- Template for Grid Row to ensure perfect alignment -->
+<ng-template #row let-label="label" let-value="value" let-isLong="isLong" let-icon="icon">
+    <!-- Desktop/Tablet Layout: Exact Grid Alignment -->
+    <div
+        class="hidden md:grid md:grid-cols-[180px_20px_1fr] items-start group hover:bg-slate-50 p-2.5 -mx-2.5 rounded-lg transition-colors">
+        <div class="text-sm font-bold text-slate-500 uppercase tracking-wide pt-1 flex items-center gap-2.5">
+            <mat-icon
+                class="!text-[18px] !w-4.5 !h-4.5 text-slate-400 transition-colors group-hover:text-[var(--text-active)]">{{icon}}</mat-icon>
+            {{ label }}
+        </div>
+        <div class="text-sm font-bold text-slate-300 select-none pt-1">:</div>
+        <div class="text-base text-slate-900 font-medium leading-relaxed whitespace-pre-line break-words"
+            [class.text-justify]="isLong">
+            {{ value }}
+        </div>
+    </div>
+
+    <!-- Mobile Layout: Stacked -->
+    <div class="md:hidden flex flex-col mb-6">
+        <div class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+            <mat-icon class="!text-[18px] !w-4.5 !h-4.5 text-slate-400">{{icon}}</mat-icon>
+            {{ label }}
+        </div>
+        <div
+            class="text-base text-slate-900 font-medium leading-relaxed whitespace-pre-line pl-3 border-l-2 border-slate-200 break-words ml-1">
+            {{ value }}
+        </div>
+    </div>
+</ng-template>

@@ -1,0 +1,177 @@
+<div class="hierarchy-page">
+  <section class="hierarchy-stage">
+    <div class="hierarchy-canvas hierarchy-animate-in">
+      <div class="hierarchy-empty hierarchy-empty--panel" *ngIf="loadingManagers">
+        Loading flow chart details...
+      </div>
+
+      <div class="hierarchy-empty hierarchy-empty--panel" *ngIf="!loadingManagers && !managers.length">
+        No hierarchy details found.
+      </div>
+
+      <div class="hierarchy-scroll-panel" *ngIf="!loadingManagers && managers.length">
+        <div class="hierarchy-root-flow">
+          <article class="hierarchy-card hierarchy-card--root">
+            <!-- <span class="hierarchy-root__avatar">{{ rootTitle.slice(0, 1) }}</span> -->
+            <div class="hierarchy-card__content">
+              <!-- <small class="hierarchy-label hierarchy-label--root">{{ rootRoleLabel }}</small> -->
+              <strong>{{ rootTitle }}</strong>
+            </div>
+          </article>
+          <div class="hierarchy-root-flow__connector"></div>
+        </div>
+
+        <section class="hierarchy-selection-stage">
+          <div class="hierarchy-selection-grid hierarchy-selection-grid--managers">
+            <button type="button" class="hierarchy-selection-node"
+              *ngFor="let manager of managers; trackBy: trackByManager" (click)="selectManager(manager.id)">
+              <article class="hierarchy-card hierarchy-card--manager hierarchy-card--interactive"
+                [class.is-selected]="activeManagerId === manager.id">
+                <span class="hierarchy-avatar" [ngStyle]="getAvatarStyle(manager.accent)">{{ manager.initials
+                  }}</span>
+                <div class="hierarchy-card__content">
+                  <strong>{{ manager.name }}</strong>
+                </div>
+              </article>
+            </button>
+          </div>
+
+          <ng-container *ngIf="currentManager as manager; else noManagerBranch">
+            <ng-container [ngTemplateOutlet]="managerBranch" [ngTemplateOutletContext]="{ $implicit: manager }">
+            </ng-container>
+          </ng-container>
+
+          <ng-template #noManagerBranch>
+            <div class="hierarchy-empty hierarchy-empty--panel">
+              No manager details found.
+            </div>
+          </ng-template>
+        </section>
+      </div>
+    </div>
+  </section>
+</div>
+
+<ng-template #managerBranch let-manager>
+  <section class="hierarchy-detail-panel">
+    <ng-container *ngIf="getProductOwnersForManager(manager.id).length; else directManagerMembers">
+      <section class="hierarchy-section">
+        <div class="hierarchy-section__heading">Product Owners</div>
+        <div class="hierarchy-selection-grid hierarchy-selection-grid--owners">
+          <button type="button" class="hierarchy-selection-node"
+            *ngFor="let owner of getProductOwnersForManager(manager.id); trackBy: trackByProductOwner"
+            (click)="selectOwner(owner.id)">
+            <article class="hierarchy-card hierarchy-card--owner hierarchy-card--interactive"
+              [class.is-selected]="getSelectedOwnerForManager(manager.id)?.id === owner.id">
+              <span class="hierarchy-avatar" [ngStyle]="getAvatarStyle(owner.accent)">{{ owner.initials }}</span>
+              <div class="hierarchy-card__content">
+                <!-- <small class="hierarchy-label hierarchy-label--owner">Product Owner</small> -->
+                <strong>{{ owner.name }}</strong>
+                <!-- <p>{{ getProjectsForOwner(owner.id).length }} linked projects</p> -->
+              </div>
+            </article>
+          </button>
+        </div>
+      </section>
+
+      <ng-container *ngIf="getSelectedOwnerForManager(manager.id) as owner">
+        <div class="hierarchy-subtree__connector"></div>
+
+        <section class="hierarchy-section">
+          <div class="hierarchy-section__heading">Projects</div>
+          <div class="hierarchy-selection-grid hierarchy-selection-grid--projects"
+            *ngIf="getProjectsForOwner(owner.id).length; else noProjectsForOwner">
+            <button type="button" class="hierarchy-selection-node"
+              *ngFor="let project of getProjectsForOwner(owner.id); trackBy: trackByProject"
+              (click)="selectProject(project.id)">
+              <article class="hierarchy-card hierarchy-card--project hierarchy-card--interactive"
+                [class.is-selected]="getSelectedProjectForOwner(owner.id)?.id === project.id">
+                <div class="hierarchy-card__content">
+                  <!-- <small class="hierarchy-label hierarchy-label--project">Project</small> -->
+                  <strong>{{ project.title }}</strong>
+                  <!-- <p>{{ getMembersForProject(project.id).length || project.memberCount }} connected members</p> -->
+                </div>
+              </article>
+            </button>
+          </div>
+
+          <ng-template #noProjectsForOwner>
+            <div class="hierarchy-inline-empty">
+              No projects available.
+            </div>
+          </ng-template>
+        </section>
+
+        <ng-container *ngIf="getSelectedProjectForOwner(owner.id) as project">
+          <div class="hierarchy-project-tree__connector"></div>
+
+          <section class="hierarchy-section hierarchy-project-detail">
+            <section class="hierarchy-section hierarchy-section--members">
+              <div class="hierarchy-section__heading">Project Members</div>
+              <div class="hierarchy-member-grid hierarchy-member-grid--expanded hierarchy-member-grid--project-details"
+                *ngIf="getMembersForProject(project.id).length; else noProjectMembers">
+                <div class="hierarchy-member-branch"
+                  *ngFor="let member of getMembersForProject(project.id); trackBy: trackByMember">
+                  <article class="hierarchy-card hierarchy-card--member">
+                    <span class="hierarchy-member-node__avatar" [ngStyle]="getAvatarStyle(member.accent)">
+                      {{ member.initials }}
+                    </span>
+                    <div class="hierarchy-card__content">
+                      <!-- <small class="hierarchy-label hierarchy-label--member">Member</small> -->
+                      <strong>{{ member.name }}</strong>
+                    </div>
+                  </article>
+                </div>
+              </div>
+
+              <ng-template #noProjectMembers>
+                <div class="hierarchy-inline-empty">
+                  No members available.
+                </div>
+              </ng-template>
+            </section>
+          </section>
+        </ng-container>
+
+        <div class="hierarchy-inline-empty hierarchy-inline-empty--centered"
+          *ngIf="!getSelectedProjectForOwner(owner.id) && getProjectsForOwner(owner.id).length">
+          Select a project to view its members.
+        </div>
+      </ng-container>
+
+      <div class="hierarchy-inline-empty hierarchy-inline-empty--centered"
+        *ngIf="!getSelectedOwnerForManager(manager.id)">
+        Select a product owner to view that owner's projects.
+      </div>
+    </ng-container>
+
+    <ng-template #directManagerMembers>
+      <div class="hierarchy-main-branch__connector" *ngIf="getDirectMembersForManager(manager.id).length"></div>
+
+      <section class="hierarchy-section hierarchy-section--members"
+        *ngIf="getDirectMembersForManager(manager.id).length; else noManagerContent">
+        <div class="hierarchy-section__heading">Team Members</div>
+        <div class="hierarchy-member-grid hierarchy-member-grid--expanded hierarchy-member-grid--direct">
+          <div class="hierarchy-member-branch"
+            *ngFor="let member of getDirectMembersForManager(manager.id); trackBy: trackByMember">
+            <article class="hierarchy-card hierarchy-card--member">
+              <span class="hierarchy-member-node__avatar" [ngStyle]="getAvatarStyle(member.accent)">
+                {{ member.initials }}
+              </span>
+              <div class="hierarchy-card__content">
+                <!-- <small class="hierarchy-label hierarchy-label--member">Member</small> -->
+                <strong>{{ member.name }}</strong>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <ng-template #noManagerContent>
+        <div class="hierarchy-inline-empty">
+          No projects or team members found.
+        </div>
+      </ng-template>
+    </ng-template>
+  </section>
+</ng-template>

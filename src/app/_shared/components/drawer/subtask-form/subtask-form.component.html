@@ -1,0 +1,146 @@
+<div class="h-screen bg-white flex flex-col max-w-4xl mx-auto border-l border-r border-slate-200 shadow-sm">
+
+  <!-- 1. Header -->
+  <div class="px-6 py-5 border-b border-slate-200 flex justify-between items-start bg-slate-50">
+    <div>
+      <h1 class="text-xl font-bold text-slate-800 m-0">
+        {{ formTitle }}
+      </h1>
+      <p class="text-sm text-slate-500 mt-1">
+        {{ isEditMode ? 'Modify sub-task details' : 'Define sub-task scope and timeline' }}
+      </p>
+    </div>
+    <!-- <button mat-stroked-button (click)="toggleEditMode()" class="text-xs">
+      {{ isEditMode ? 'Switch to Create Mode' : 'Switch to Edit Mode' }}
+    </button> -->
+  </div>
+
+  <!-- 2. Scrollable Content -->
+  <div class="flex-1 overflow-y-auto p-6 bg-white">
+    <form [formGroup]="subTaskForm" class="flex flex-col gap-6">
+      <!-- Section 1: Sub-Task Essentials -->
+      <section>
+        <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+          <!-- <mat-icon>subdirectory_arrow_right</mat-icon> -->
+          <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+            Sub-Task Information
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+
+
+          <!-- Sub-Task Title (Full Width) -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-1">Sub Task <span
+                class="text-red-500">*</span></label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <input matInput formControlName="task" placeholder="Enter Sub Task Title">
+              <mat-error *ngIf="subTaskForm.controls['task'].invalid">Sub Task is required.</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Priority -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Priority <span
+                class="text-red-500">*</span></label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <mat-select formControlName="priority" placeholder="Select Priority">
+                <mat-option value="High">
+                  <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500"></span>
+                    High</span>
+                </mat-option>
+                <mat-option value="Medium">
+                  <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Medium</span>
+                </mat-option>
+                <mat-option value="Low">
+                  <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-green-500"></span>
+                    Low</span>
+                </mat-option>
+              </mat-select>
+              <mat-error *ngIf="subTaskForm.controls['priority'].invalid">Priority is required.</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Status -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Status <span
+                class="text-red-500">*</span></label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <mat-select formControlName="status" placeholder="Select Status">
+
+                <mat-option *ngFor="let status of statusList" [value]="status">{{status}}</mat-option>
+
+              </mat-select>
+              <mat-error *ngIf="subTaskForm.controls['status'].invalid">Status is required.</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Start Date -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Start Date <span
+                class="text-red-500">*</span></label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <input matInput  [matDatepicker]="startPicker" formControlName="start_date"
+                placeholder="MM/DD/YYYY">
+              <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+              <mat-datepicker #startPicker></mat-datepicker>
+              <mat-error *ngIf="subTaskForm.controls['start_date'].invalid">Start Date is required.</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- End Date -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">End Date <span
+                class="text-red-500">*</span></label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <input matInput [min]="subTaskForm.controls['start_date'].value" [matDatepicker]="endPicker" formControlName="end_date"
+                placeholder="MM/DD/YYYY">
+              <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+              <mat-datepicker #endPicker></mat-datepicker>
+              <mat-error *ngIf="subTaskForm.controls['end_date'].invalid">End Date is required.</mat-error>
+            </mat-form-field>
+          </div>
+
+
+
+        </div>
+      </section>
+
+      <mat-divider></mat-divider>
+
+      <!-- Section 2: Description -->
+      <section>
+        <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+          <!-- <mat-icon>description</mat-icon> -->
+          <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+            Description
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-1">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <textarea matInput formControlName="description" rows="4"
+                placeholder="Detailed description..."></textarea>
+            </mat-form-field>
+          </div>
+        </div>
+      </section>
+
+    </form>
+  </div>
+
+  <!-- 3. Sticky Footer -->
+  <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 sticky bottom-0 z-10">
+    <button mat-stroked-button color="warn" (click)="onCancel()" class="!px-6">
+      Cancel
+    </button>
+    <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="subTaskForm.invalid" class="!px-6">
+      {{ isEditMode ? 'Update Sub-Task' : 'Save Sub-Task' }}
+    </button>
+  </div>
+
+</div>

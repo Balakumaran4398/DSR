@@ -1,0 +1,49 @@
+<div class="w-full animate-fade-in  mx-auto bg-gray-50 min-h-screen ">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-8">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between flex-wrap">
+            <div class="flex items-center gap-3 shrink-0">
+                <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
+                   flex items-center justify-center text-white shadow-sm shrink-0">
+                    <i class="ri-mail-line dsr-nav-nav-icon"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">
+                        Mails
+                    </h1>
+                    <p class="text-xs sm:text-sm text-slate-500">
+                        View and manage all mails.
+                    </p>
+                </div>
+            </div>
+            <div
+                class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-center 2xl:justify-self-center min-w-0">
+                <div class="flex items-center justify-center  w-full lg:w-auto my-2 lg:my-0">
+                    <app-date-range-filter [initialStartDate]="initialStartDate" [initialEndDate]="initialEndDate"
+                        navigationStep="week"
+                        (rangeChange)="onRangeChange($event)"></app-date-range-filter>
+                </div>
+
+            </div>
+
+            <div class="flex flex-col gap-3 w-full sm:flex-row sm:items-center sm:w-auto shrink-0">
+                <div class="relative w-full sm:w-56 lg:w-64">
+                    <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                        <i class="ri-search-line text-gray-400"></i>
+                    </span>
+
+                    <input type="text" [value]="searchTerm" (input)="onSearch($event)" placeholder="Search..." class="w-full pl-10 pr-4 py-2
+                     bg-slate-50 border border-slate-200 rounded-lg text-sm
+                     focus:outline-none focus:bg-white focus:border-[var(--text-active)]
+                     focus:ring-1 focus:ring-[var(--text-active)]
+                     placeholder-gray-400 transition-all text-slate-900" />
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <div #tableDiv></div>
+        <!-- <div *ngFor ="let mail of mails">{{mail | json}}</div> -->
+    </div>
+
+</div>

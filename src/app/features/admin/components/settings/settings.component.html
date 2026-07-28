@@ -1,0 +1,31 @@
+<div class="settings-panel">
+    <h3>Appearance</h3>
+    <!-- <div class="setting-row">
+      <span>Dark Mode</span>
+      <button 
+        class="toggle-switch" 
+        [class.active]="isDarkMode$ | async" 
+        (click)="onToggleDark()">
+        <span class="toggle-knob"></span>
+      </button>
+    </div> -->
+  
+    <hr />
+  
+    <div class="setting-row vertical">
+      <!-- <span>Accent Color</span> -->
+      <div class="theme-grid">
+        <button 
+          *ngFor="let theme of themes" 
+          class="theme-btn"
+          [class.active]="(currentTheme$ | async)?.id === theme.id"
+          [attr.aria-label]="theme.name"
+          (click)="onThemeSelect(theme)">
+          
+          <span class="color-dot" [style.background-color]="theme.colorHex"></span>
+          <span class="theme-name">{{ theme.name }}</span>
+          
+        </button>
+      </div>
+    </div>
+  </div>

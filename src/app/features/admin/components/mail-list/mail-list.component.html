@@ -1,0 +1,99 @@
+<div class="flex flex-col bg-white font-sans text-slate-900 h-full h-[70vh]">
+
+    <!-- Sticky Header -->
+    <div class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b-2 border-slate-100 shrink-0">
+      <div class="flex justify-between items-center px-6 py-4">
+        <h2 class="text-lg font-bold text-slate-800">Mail Detail</h2>
+        <button (click)="matDialog.closeAll()" class="text-slate-400 hover:text-slate-600 transition-colors">
+          <i class="ri-close-line text-2xl"></i>
+        </button>
+      </div>
+    </div>
+  
+    <!-- Main Content (Scrollable) -->
+    <div class="flex-1 overflow-y-auto bg-slate-50/30">
+      <div class="mx-auto p-6 md:p-8">
+        <!-- Release Details Section -->
+        <div class="animate-fade-in"> 
+                    <div *ngIf="!mail" class="py-16 text-center text-slate-400">
+            <p>No release details available.</p>
+          </div>
+          
+          <div *ngIf="mail">
+            <div class="relative rounded-xl border border-slate-200 bg-white p-6 md:p-7 shadow-sm">
+              <!-- Download Button -->
+              <div class="absolute right-5 top-5" *ngIf="mail.file_url">
+                <button (click)="downloadFile(mail.file_url)"
+                  class="bg-[#004e7c] text-white w-9 h-9 rounded-md flex items-center justify-center hover:bg-[#003d61] shadow-sm transition-colors"
+                  title="Download">
+                  <i class="ri-download-fill text-lg"></i>
+                </button>
+              </div>
+  
+              <!-- Content -->
+              <div class="pr-14">
+                <!-- Type Badge -->
+                <div class="flex flex-wrap items-center gap-2 mb-6">
+                  <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider"
+                    [ngClass]="getReleaseMailTypeClasses(mail)">
+                    {{ getReleaseMailType(mail) }}
+                  </span>
+                </div>
+  
+                <!-- Subject -->
+                <div class="flex mb-4 leading-normal items-start">
+                  <div class="w-[120px] font-bold text-slate-900 shrink-0 text-sm">Subject</div>
+                  <div class="w-[20px] text-center font-bold shrink-0 text-sm">:</div>
+                  <div class="flex-1 text-slate-800 font-bold text-sm">{{ mail.subject || '-' }}</div>
+                </div>
+  
+                <!-- Created By -->
+                <div class="flex mb-4 leading-normal items-start">
+                  <div class="w-[120px] font-bold text-slate-900 shrink-0 text-sm">Created By</div>
+                  <div class="w-[20px] text-center font-bold shrink-0 text-sm">:</div>
+                  <div class="flex-1 text-blue-600 font-bold uppercase tracking-tight text-sm">
+                    {{ mail.employee_name || mail.created_by || '-' }}
+                  </div>
+                </div>
+  
+                <!-- Created Date -->
+                <div class="flex items-start leading-normal">
+                  <div class="w-[120px] font-bold text-slate-900 shrink-0 text-sm">Created Date</div>
+                  <div class="w-[20px] text-center font-bold shrink-0 text-sm">:</div>
+                  <div class="flex-1 text-slate-500 font-medium text-sm">{{ mail.created_date | date:'yyyy-MM-dd HH:mm:ss' }}</div>
+  
+                <!-- Attachment -->
+                <div class="flex items-start leading-normal mt-4" *ngIf="mail.file_name">
+                  <div class="w-[120px] font-bold text-slate-900 shrink-0 text-sm">Attachment</div>
+                  <div class="w-[20px] text-center font-bold shrink-0 text-sm">:</div>
+                  <div class="flex-1 text-slate-500 font-medium text-sm">{{ mail.file_name }}</div>
+                </div>
+              </div>
+  
+              <!-- Message Box -->
+              <div class="mt-8 w-full rounded-lg border p-5" [ngClass]="getReleaseMailMessageClasses(mail)">
+                <div class="whitespace-pre-wrap font-sans text-[15px] leading-relaxed text-slate-700">
+                  {{ mail.message || mail.remark || '-' }}
+                </div>
+              </div>
+              <div class="mt-8 rounded-xl border border-blue-100 bg-blue-50/50 p-5"> 
+                <div class="flex items-center gap-2 mb-4">
+                  <i class="pi pi-users text-blue-600"></i>
+                  <h2 class="font-semibold text-gray-800">
+                    Recipients ({{ recipients.length }})
+                  </h2>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                  <span *ngFor="let member of recipients"
+                    class="px-3 py-1 text-sm text-gray-700 bg-white border border-blue-200 rounded-full shadow-sm">
+                    {{ member }}
+                  </span>
+                </div>
+              </div>	
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>

@@ -1,0 +1,170 @@
+<div class="dsr-nav-app-wrapper" [class.dsr-nav-collapsed]="isCollapsed">
+
+    <!-- Mobile Overlay -->
+    <div class="dsr-nav-mobile-overlay" [class.dsr-nav-show]="isMobileOpen" (click)="closeMobileSidebar()">
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="dsr-nav-sidebar" [class.dsr-nav-mobile-open]="isMobileOpen">
+        <!-- Header -->
+        <div class="dsr-nav-sidebar-header">
+            <div class="dsr-nav-logo-wrapper">
+                <i class="ri-briefcase-4-fill dsr-nav-logo-icon"></i>
+                <span class="dsr-nav-logo-text">DSR Pro</span>
+            </div>
+            <!-- Close icon for mobile -->
+            <i class="ri-close-line dsr-nav-close-sidebar-btn" (click)="closeMobileSidebar()"></i>
+        </div>
+
+        <!-- Content -->
+        <div class="dsr-nav-sidebar-content">
+
+            <div class="dsr-nav-menu-label">Main</div>
+
+            <a class="dsr-nav-nav-link" [class.dsr-nav-active]="activeLink === 'dashboard'"
+                (click)="activateLink('dashboard')">
+                <i class="ri-dashboard-line dsr-nav-nav-icon"></i>
+                <span class="dsr-nav-nav-text">Dashboard</span>
+                <span class="dsr-nav-tooltip">Dashboard</span>
+            </a>
+            <a class="dsr-nav-nav-link" [class.dsr-nav-active]="activeLink === 'projects'"
+                (click)="activateLink('projects')">
+                <i class="ri-file-ppt-2-line dsr-nav-nav-icon"></i>
+                <span class="dsr-nav-nav-text">Projects</span>
+                <span class="dsr-nav-tooltip">Projects</span>
+            </a>
+            <a class="dsr-nav-nav-link" [class.dsr-nav-active]="activeLink === 'tasks'" (click)="activateLink('tasks')">
+                <i class="ri-calendar-event-line dsr-nav-nav-icon"></i>
+                <span class="dsr-nav-nav-text">Tasks</span>
+                <span class="dsr-nav-tooltip">Tasks</span>
+            </a>
+            <a class="dsr-nav-nav-link" [class.dsr-nav-active]="activeLink === 'team'" (click)="activateLink('team')">
+                <i class="ri-team-line dsr-nav-nav-icon"></i>
+                <span class="dsr-nav-nav-text">Team</span>
+                <span class="dsr-nav-tooltip">Team</span>
+            </a>
+            <a class="dsr-nav-nav-link" [class.dsr-nav-active]="activeLink === 'inbox'" (click)="activateLink('inbox')">
+                <i class="ri-mail-line dsr-nav-nav-icon"></i>
+                <span class="dsr-nav-nav-text">Inbox</span>
+                <span class="dsr-nav-badge">4</span>
+                <span class="dsr-nav-tooltip">Inbox</span>
+            </a>
+
+            <!-- <div class="dsr-nav-menu-label">Self</div> -->
+
+            <!-- Leads Submenu -->
+            <!-- <div class="dsr-nav-nav-link" [class.dsr-nav-open]="openSubmenu === 'leads'"
+                (click)="toggleSubmenu('leads')">
+                <i class="ri-user-star-line dsr-nav-nav-icon"></i>
+                <span class="dsr-nav-nav-text">Leads</span>
+                <i class="ri-arrow-down-s-line dsr-nav-nav-arrow"></i>
+                <span class="dsr-nav-tooltip">Leads</span>
+            </div>
+            <div class="dsr-nav-submenu" [class.dsr-nav-open]="openSubmenu === 'leads'">
+                <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'new-leads'"
+                    (click)="activateLink('new-leads')">New Leads</a>
+                <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'qualified'"
+                    (click)="activateLink('qualified')">Qualified</a>
+                <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'junk'"
+                    (click)="activateLink('junk')">Junk</a>
+            </div> -->
+
+            <!-- Contacts Submenu -->
+            <!-- <div class="dsr-nav-nav-link" [class.dsr-nav-open]="openSubmenu === 'contacts'"
+                (click)="toggleSubmenu('contacts')">
+                <i class="ri-contacts-book-line dsr-nav-nav-icon"></i>
+                <span class="dsr-nav-nav-text">Contacts</span>
+                <i class="ri-arrow-down-s-line dsr-nav-nav-arrow"></i>
+                <span class="dsr-nav-tooltip">Contacts</span>
+            </div>
+            <div class="dsr-nav-submenu" [class.dsr-nav-open]="openSubmenu === 'contacts'">
+                <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'all-contacts'"
+                    (click)="activateLink('all-contacts')">All Contacts</a>
+                <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'my-contacts'"
+                    (click)="activateLink('my-contacts')">My Contacts</a>
+                <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'companies'"
+                    (click)="activateLink('companies')">Companies</a>
+            </div>
+
+            <a class="dsr-nav-nav-link" [class.dsr-nav-active]="activeLink === 'deals'" (click)="activateLink('deals')">
+                <i class="ri-shake-hands-line dsr-nav-nav-icon"></i>
+                <span class="dsr-nav-nav-text">Deals</span>
+                <span class="dsr-nav-tooltip">Deals</span>
+            </a> -->
+
+            <div class="dsr-nav-menu-label">System</div>
+
+            <!-- Settings Submenu -->
+            <div class="dsr-nav-nav-link" [class.dsr-nav-open]="openSubmenu === 'settings'"
+                (click)="toggleSubmenu('settings')">
+                <i class="ri-settings-4-line dsr-nav-nav-icon"></i>
+                <span class="dsr-nav-nav-text">Settings</span>
+                <i class="ri-arrow-down-s-line dsr-nav-nav-arrow"></i>
+                <span class="dsr-nav-tooltip">Settings</span>
+            </div>
+            <div class="dsr-nav-submenu" [class.dsr-nav-open]="openSubmenu === 'settings'">
+                <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'general'"
+                    (click)="activateLink('general')">General</a>
+                <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'security'"
+                    (click)="activateLink('security')">Security</a>
+                <!-- <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'billing'"
+                    (click)="activateLink('billing')">Billing</a> -->
+            </div>
+
+        </div>
+
+        <!-- Footer (User Menu) -->
+        <div class="dsr-nav-sidebar-footer">
+            <div class="dsr-nav-user-profile" [class.dsr-nav-open]="isUserMenuOpen" (click)="toggleUserMenu()">
+                <div class="dsr-nav-avatar">PG</div>
+                <div class="dsr-nav-user-info">
+                    <div class="dsr-nav-user-name">Prasadarap Gajula</div>
+                    <div class="dsr-nav-user-role"> Developer </div>
+                </div>
+                <i class="ri-arrow-up-s-line dsr-nav-nav-arrow"></i>
+            </div>
+
+            <div class="dsr-nav-user-submenu" [class.dsr-nav-open]="isUserMenuOpen">
+                <a class="dsr-nav-user-sub-link" (click)="closeMobileSidebar()">
+                    <i class="ri-user-line"></i>
+                    <span>My Profile</span>
+                </a>
+                <a class="dsr-nav-user-sub-link" (click)="closeMobileSidebar()">
+                    <i class="ri-settings-2-line"></i>
+                    <span>Account Settings</span>
+                </a>
+                <a class="dsr-nav-user-sub-link" style="color: #EF4444;"
+                    (click)="closeMobileSidebar();confirmLogOut();">
+                    <i class="ri-logout-box-r-line" style="color: #EF4444;"></i>
+                    <span>Sign Out</span>
+                </a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="dsr-nav-main">
+        <div class="dsr-nav-top-bar">
+            <div style="display:flex; align-items:center; gap:0.9375rem;">
+                <!-- Dynamic Toggle Icon -->
+                <i [class]="isCollapsed ? 'ri-menu-unfold-line dsr-nav-toggle-btn' : 'ri-menu-fold-line dsr-nav-toggle-btn'"
+                    (click)="toggleSidebar()"></i>
+                <h2 style="font-size:1.125rem; font-weight:700; color:#334155;">{{ activeLink | titlecase }}</h2>
+            </div>
+
+            <div style="display:flex; gap:1rem; color:#64748B;">
+                <i class="ri-search-line dsr-nav-toggle-btn"></i>
+                <i class="ri-notification-3-line dsr-nav-toggle-btn"></i>
+            </div>
+        </div>
+
+        <div class="dsr-nav-page-content">
+            <router-outlet></router-outlet>
+        </div>
+    </main>
+</div>
+
+<app-confirm-alert [visible]="showAlert" title="Sign out of your account?"
+    message="You will be signed out immediately. Any unsaved changes may be lost." (onConfirm)="logOut()"
+    (onCancel)="showAlert = false">
+</app-confirm-alert>

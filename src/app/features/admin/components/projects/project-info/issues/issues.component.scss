@@ -1,0 +1,122 @@
+:host ::ng-deep .issue-status-cell {
+  overflow: visible;
+}
+
+:host ::ng-deep .issue-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 5px 8px 5px 10px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+:host ::ng-deep .issue-status-pill:hover {
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  transform: translateY(-1px);
+}
+
+:host ::ng-deep .issue-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+:host ::ng-deep .issue-status-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .issue-status-caret {
+  flex: 0 0 auto;
+  font-size: 15px;
+  opacity: 0.72;
+}
+
+:host ::ng-deep .issue-status-success {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+:host ::ng-deep .issue-status-success .issue-status-dot {
+  background: #10b981;
+}
+
+:host ::ng-deep .issue-status-progress {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+:host ::ng-deep .issue-status-progress .issue-status-dot {
+  background: #3b82f6;
+}
+
+:host ::ng-deep .issue-status-warning {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+:host ::ng-deep .issue-status-warning .issue-status-dot {
+  background: #f59e0b;
+}
+
+:host ::ng-deep .issue-status-danger {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+:host ::ng-deep .issue-status-danger .issue-status-dot {
+  background: #ef4444;
+}
+
+:host ::ng-deep .issue-status-muted {
+  color: #475569;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+:host ::ng-deep .issue-status-muted .issue-status-dot {
+  background: #94a3b8;
+}
+
+::ng-deep .tabulator-edit-list {
+  min-width: 190px !important;
+  max-height: 285px !important;
+  overflow-y: auto !important;
+  padding: 6px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18) !important;
+  z-index: 10050 !important;
+}
+
+::ng-deep .tabulator-edit-list .tabulator-edit-list-item {
+  margin: 2px 0 !important;
+  padding: 8px 10px !important;
+  border-radius: 9px !important;
+  color: #334155 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  transition: background 0.14s ease, color 0.14s ease !important;
+}
+
+::ng-deep .tabulator-edit-list .tabulator-edit-list-item:hover,
+::ng-deep .tabulator-edit-list .tabulator-edit-list-item.active {
+  color: var(--text-active) !important;
+  background: color-mix(in srgb, var(--text-active) 10%, #ffffff) !important;
+}
