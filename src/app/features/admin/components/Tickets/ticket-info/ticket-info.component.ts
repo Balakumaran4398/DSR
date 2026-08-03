@@ -11,7 +11,8 @@ export class TicketInfoComponent {
   tabs = [
     { id: 'raisedtickets', label: 'Raised Tickets' },
     { id: 'overalltickets', label: 'Over All Tickets' },
-    { id: 'clients', label: 'Clients' }
+    { id: 'clients', label: 'Clients' },
+    { id: 'products', label: 'Products' }
   ];
 
   ngOnInit(): void {

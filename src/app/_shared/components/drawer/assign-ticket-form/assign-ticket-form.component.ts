@@ -12,9 +12,6 @@ import { ToasterService } from 'src/app/_core/services/toaster.service';
   styleUrls: ['./assign-ticket-form.component.scss']
 })
 export class AssignTicketFormComponent {
-
-
-
   @Input() data: any;
   private fb = inject(FormBuilder);
   assignForm!: FormGroup;
@@ -24,11 +21,19 @@ export class AssignTicketFormComponent {
   filteredEmployees: any[] = [];
   clients: any[] = [];
   filteredClients: any[] = [];
-  projectList: any[] = [];
-  filteredProjects: any[] = [];
+  productList: any[] = [];
+  filteredProducts: any[] = [];
   clientSearchText = '';
-  projectSearchText = '';
+  productSearchText = '';
   empid: any = 0;
+  availableVersions: string[] = [];
+
+  types = [
+    'Client Support',
+    'Requirement',
+    'Bug',
+    'Business'
+  ];
 
   readonly priorityOptions = [
     { id: 1, value: 'High', dotClass: 'bg-red-500' },
@@ -42,7 +47,7 @@ export class AssignTicketFormComponent {
     private toasterService: ToasterService,
     private storageService: StorageService
   ) {
-    this.empid= storageService.getEmpId();
+    this.empid = storageService.getEmpId();
     this.initializeForm();
   }
 
@@ -51,8 +56,9 @@ export class AssignTicketFormComponent {
       department: [null, Validators.required],
       employeeId: [null, Validators.required],
       clientId: [null, Validators.required],
-      project_id: [''],
-      projectName: [''],
+      productId: [null, Validators.required],
+      product_version: [null],
+      type: ['', Validators.required],
       clientName: ['', Validators.required],
       ticket_name: ['', Validators.required],
       ticketDescription: [''],
@@ -66,23 +72,40 @@ export class AssignTicketFormComponent {
     this.getDepartments();
     this.getEmployees();
     this.getAllClients();
-    this.getProjects();
+    this.getAllproducts();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['data'] && this.data) {
       this.isEditMode = true;
-      this.patchFormData();
+
+      if (this.productList.length > 0) {
+        this.patchFormData();
+      }
     }
   }
 
   private patchFormData(): void {
     if (!this.data) return;
 
+    const targetProductId = this.data.productId ?? this.data.product_id;
+
+
+    const selectedProduct = this.productList.find(
+      product => String(product.id) === String(targetProductId)
+    );
+
+    if (selectedProduct) {
+      this.availableVersions = this.getProductVersions(selectedProduct);
+    }
+
+    const selectedVersion = this.normalizeSelectedVersion(this.data.version ?? this.data.product_version);
+
     this.assignForm.patchValue({
       clientId: this.data.clientUserId || this.data.clients_id,
-      project_id: this.data.project_id,
-      projectName: this.data.project_title || '',
+      productId: targetProductId ? Number(targetProductId) : null,
+      product_version: selectedVersion && this.availableVersions.includes(selectedVersion) ? selectedVersion : null,
+      type: this.data.type,
       clientName: this.data.company_name,
       ticket_name: this.data.ticket_name,
       ticketDescription: this.data.description,
@@ -90,9 +113,8 @@ export class AssignTicketFormComponent {
       employeeId: this.data.emp_id,
       employeeName: this.data.assigned_to_name || '',
       priority: this.data.priority,
-      comments: this.data.client_comments || '',
+      comments: this.data.clientComments || ''
     });
-    this.patchSelectedProjectName();
 
     if (this.data.dept_id) {
       this.getEmployeeListByDepartment(this.data.dept_id);
@@ -101,14 +123,8 @@ export class AssignTicketFormComponent {
 
   getDepartments(): void {
     this.authService.getAllDepartments().subscribe({
-      next: (res: any[]) => {
-        this.departments = res;
-        console.log('Departments:', res);
-      },
-      error: (err: any) => {
-        console.error('Get departments error:', err);
-        this.toasterService.error('Failed to load departments');
-      }
+      next: (res: any[]) => { this.departments = res; },
+      error: (err: any) => { this.toasterService.error('Failed to load departments'); }
     });
   }
 
@@ -119,39 +135,54 @@ export class AssignTicketFormComponent {
         this.filteredClients = res;
         this.patchSelectedClientName();
       },
-      error: (err: any) => {
-        console.error('Get clients error:', err);
-        this.toasterService.error('Failed to load clients');
-      }
+      error: (err: any) => { this.toasterService.error('Failed to load clients'); }
     });
   }
-  getProjects(callback?: Function) {
-    this.authService.getAllProjectsByEmployeeId(this.empid).subscribe({
-      next: (res: any) => {
-        this.projectList = res
-        this.filteredProjects = res;
-        this.patchSelectedProjectName();
-        if (callback) callback();
-      }
-    });
-  }
+
   getEmployees(): void {
     this.authService.getEmployeeList().subscribe({
       next: (res: any[]) => {
         this.employees = res;
         this.filteredEmployees = res;
-        console.log('Employees:', res);
+      },
+      error: (err: any) => { this.toasterService.error('Failed to load employees'); }
+    });
+  }
+
+  getAllproducts(): void {
+    this.authService.getAllProducts().subscribe({
+      next: (res: any) => {
+        const products = this.normalizeProductsResponse(res);
+        this.productList = products;
+        this.filteredProducts = products;
+
+        if (this.data) {
+          this.isEditMode = true;
+          this.patchFormData();
+        }
       },
       error: (err: any) => {
-        console.error('Get employees error:', err);
-        this.toasterService.error('Failed to load employees');
+        console.error('getAllproducts error', err);
       }
     });
   }
 
+  onProductChange(productId: any, resetVersion = true): void {
+    const selectedProduct = this.productList.find(
+      product => String(product.id) === String(productId)
+    );
+
+    this.availableVersions = selectedProduct ? this.getProductVersions(selectedProduct) : [];
+
+    if (resetVersion) {
+      this.assignForm.patchValue({
+        product_version: null
+      });
+    }
+  }
+
   onDepartmentChange(): void {
     const deptId = this.assignForm.get('department')?.value;
-    console.log("Selected department id:", deptId);
     if (deptId) {
       this.getEmployeeListByDepartment(deptId);
     } else {
@@ -161,21 +192,17 @@ export class AssignTicketFormComponent {
       employeeId: null,
       employeeName: ''
     });
-    console.log("Employees after filter:", this.filteredEmployees);
   }
 
   filterEmployees(event: Event): void {
     const value = (event.target as HTMLInputElement).value.toLowerCase().trim();
     this.filteredEmployees = value
-      ? this.employees.filter(emp =>
-        emp.employee_name?.toLowerCase().includes(value)
-      )
+      ? this.employees.filter(emp => emp.employee_name?.toLowerCase().includes(value))
       : this.employees;
   }
 
   selectEmployee(event: MatAutocompleteSelectedEvent): void {
     const employee = event.option.value;
-    console.log('Selected employee:', employee.id);
     this.assignForm.patchValue({
       employeeId: employee.id || employee.emp_id,
       employeeName: employee.employee_name
@@ -186,86 +213,32 @@ export class AssignTicketFormComponent {
     this.clientSearchText = (event.target as HTMLInputElement).value;
     const value = this.clientSearchText.toLowerCase().trim();
     this.filteredClients = value
-      ? this.clients.filter(client =>
-        client.company_name?.toLowerCase().includes(value)
-      )
+      ? this.clients.filter(client => client.company_name?.toLowerCase().includes(value))
       : this.clients;
   }
 
   onClientSelectOpened(opened: boolean): void {
     if (!opened) return;
-
     this.clientSearchText = '';
     this.filteredClients = this.clients;
-  }
-
-  onClientSelectionChange(clientId: any): void {
-    if (clientId === null || clientId === undefined) {
-      this.assignForm.patchValue({
-        clientId: null,
-        clientName: ''
-      });
-      return;
-    }
-
-    const client = this.clients.find(item => `${this.getClientValue(item)}` === `${clientId}`);
-    if (!client) return;
-
-    this.assignForm.patchValue({
-      clientId: this.getClientValue(client),
-      clientName: client.company_name
-    });
   }
 
   getClientValue(client: any): any {
     return client?.id ?? client?.clientUserId ?? client?.clientsId;
   }
 
-  filterProjects(event: Event): void {
-    this.projectSearchText = (event.target as HTMLInputElement).value;
-    const value = this.projectSearchText.toLowerCase().trim();
-    this.filteredProjects = value
-      ? this.projectList.filter(project =>
-        project.project_title?.toLowerCase().includes(value)
-      )
-      : this.projectList;
+  filterProducts(event: Event): void {
+    this.productSearchText = (event.target as HTMLInputElement).value;
+    const value = this.productSearchText.toLowerCase().trim();
+    this.filteredProducts = value
+      ? this.productList.filter(product => product.productName?.toLowerCase().includes(value))
+      : this.productList;
   }
 
   onProjectSelectOpened(opened: boolean): void {
     if (!opened) return;
-
-    this.projectSearchText = '';
-    this.filteredProjects = this.projectList;
-  }
-
-  onProjectSelectionChange(projectId: any): void {
-    if (projectId === null || projectId === undefined) {
-      this.assignForm.patchValue({
-        project_id: null,
-        projectName: ''
-      });
-      return;
-    }
-
-    const project = this.projectList.find(item => `${item.id}` === `${projectId}`);
-    if (!project) return;
-
-    this.assignForm.patchValue({
-      project_id: project.id,
-      projectName: project.project_title
-    });
-  }
-
-  private patchSelectedProjectName(): void {
-    const selectedProjectId = this.assignForm.get('project_id')?.value;
-    if (!selectedProjectId) return;
-
-    const selectedProject = this.projectList.find(project => `${project.id}` === `${selectedProjectId}`);
-    if (selectedProject) {
-      this.assignForm.patchValue({
-        projectName: selectedProject.project_title
-      });
-    }
+    this.productSearchText = '';
+    this.filteredProducts = this.productList;
   }
 
   private patchSelectedClientName(): void {
@@ -286,9 +259,7 @@ export class AssignTicketFormComponent {
         this.employees = res;
         this.filteredEmployees = res;
       },
-      error: (err: any) => {
-        console.error('Filter error:', err);
-      }
+      error: (err: any) => { console.error('Filter error:', err); }
     });
   }
 
@@ -298,8 +269,9 @@ export class AssignTicketFormComponent {
       employeeId: this.assignForm.get('employeeId'),
       employeeName: this.assignForm.get('employeeName'),
       clientId: this.assignForm.get('clientId'),
-      project_id: this.assignForm.get('project_id'),
-      projectName: this.assignForm.get('projectName'),
+      product: this.assignForm.get('productId'),
+      type: this.assignForm.get('type'),
+      product_version: this.assignForm.get('product_version'),
       clientName: this.assignForm.get('clientName'),
       ticket_name: this.assignForm.get('ticket_name'),
       priority: this.assignForm.get('priority'),
@@ -319,8 +291,9 @@ export class AssignTicketFormComponent {
       department: null,
       employeeId: null,
       clientId: null,
-      project_id: null,
-      projectName: '',
+      productId: null,
+      product_version: null,
+      type: '',
       clientName: '',
       employeeName: '',
       ticket_name: '',
@@ -339,11 +312,12 @@ export class AssignTicketFormComponent {
     }
 
     const formValue = this.assignForm.value;
-
     const payload = {
       clientUserId: formValue.clientId,
       clientsId: formValue.clientId,
-      project_id: formValue.project_id,
+      productId: formValue.productId,
+      version: this.normalizeSelectedVersion(formValue.product_version),
+      type: formValue.type,
       empId: formValue.employeeId,
       ticketName: formValue.ticket_name,
       priority: formValue.priority,
@@ -354,54 +328,38 @@ export class AssignTicketFormComponent {
       clientComments: formValue.comments || "",
       isreassign: true,
       deptId: formValue.department,
-      assignedFrom: this.storageService.getEmpId(),
-      updatedBy: this.storageService.getEmpId()
+      // assignedFrom: this.storageService.getEmpId(),
+      updatedBy: this.storageService.getEmpId(),
+      ...(!this.isEditMode && {
+        assignedFrom: this.storageService.getEmpId()
+      })
     };
 
-    console.log('Payload:', payload);
+    // if (!this.data) {
+    //   payload.assignedFrom = this.storageService.getEmpId();
+    // }
 
     if (this.isEditMode && this.data?.id) {
-      const updatePayload = {
-        ...payload,
-        id: this.data.id
-      };
-      console.log('Update Payload:', updatePayload);
-
+      const updatePayload = { ...payload, id: this.data.id };
       this.authService.updateTicket(updatePayload).subscribe({
         next: (res: any) => {
           this.toasterService.success(res?.message || 'Ticket assignment updated successfully');
-          this.drawerService.notifyAction({
-            source: 'ticket',
-            action: 'updated',
-            payload: res
-          });
+          this.drawerService.notifyAction({ source: 'ticket', action: 'updated', payload: res });
           this.onCancel();
         },
         error: (err: any) => {
-          console.error('Update error:', err?.error);
-          this.toasterService.error(
-            err?.error?.message || 'Failed to update ticket assignment'
-          );
+          this.toasterService.error(err?.error?.message || 'Failed to update ticket assignment');
         }
       });
     } else {
-      console.log('Create Payload:', payload);
-
       this.authService.createTicketRise(payload).subscribe({
         next: (res: any) => {
           this.toasterService.success(res?.message || 'Ticket assigned successfully');
-          this.drawerService.notifyAction({
-            source: 'ticket',
-            action: 'created',
-            payload: res
-          });
+          this.drawerService.notifyAction({ source: 'ticket', action: 'created', payload: res });
           this.onCancel();
         },
         error: (err: any) => {
-          console.error('Create error:', err?.error);
-          this.toasterService.error(
-            err?.error?.message || 'Failed to assign ticket'
-          );
+          this.toasterService.error(err?.error?.message || 'Failed to assign ticket');
         }
       });
     }
@@ -411,5 +369,70 @@ export class AssignTicketFormComponent {
     const empId = this.assignForm.get('employeeId')?.value;
     const emp = this.employees.find(e => e.id === empId || e.emp_id === empId);
     return emp?.employee_name || '';
+  }
+  onClientSelectionChange(clientId: any): void {
+    if (clientId === null || clientId === undefined) {
+      this.assignForm.patchValue({
+        clientId: null,
+        clientName: ''
+      });
+      return;
+    }
+
+    const client = this.clients.find(item => `${this.getClientValue(item)}` === `${clientId}`);
+    if (!client) return;
+
+    this.assignForm.patchValue({
+      clientId: this.getClientValue(client),
+      clientName: client.company_name
+    });
+  }
+
+  onProductSelectionChange(productId: any): void {
+    if (productId === null || productId === undefined) {
+      this.assignForm.patchValue({
+        project_id: null,
+        projectName: ''
+      });
+      return;
+    }
+
+    const project = this.productList.find(item => `${item.id}` === `${productId}`);
+    if (!project) return;
+
+    this.assignForm.patchValue({
+      project_id: project.id,
+      projectName: project.project_title
+    });
+  }
+
+  private normalizeProductsResponse(res: any): any[] {
+    const list = Array.isArray(res)
+      ? res
+      : (res?.details ?? res?.data ?? res?.products ?? res?.productList ?? []);
+
+    return Array.isArray(list) ? list : [];
+  }
+
+  private getProductVersions(product: any): string[] {
+    const versions = product?.versionList ?? product?.versions ?? [];
+
+    if (!Array.isArray(versions)) {
+      return [];
+    }
+
+    return versions
+      .map((versionItem: any) => typeof versionItem === 'string' ? versionItem : versionItem?.version)
+      .filter((version: any) => version !== null && version !== undefined && String(version).trim() !== '')
+      .map((version: any) => String(version).trim());
+  }
+
+  private normalizeSelectedVersion(value: any): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    const version = String(value).trim();
+    return version ? version : null;
   }
 }

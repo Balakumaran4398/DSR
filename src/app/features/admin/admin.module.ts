@@ -44,6 +44,7 @@ import { MailListComponent } from './components/mail-list/mail-list.component';
 import { TicketInfoComponent } from './components/Tickets/ticket-info/ticket-info.component';
 import { TicketsComponent } from './components/Tickets/tickets/tickets.component';
 import { ClientsComponent } from './components/Tickets/clients/clients.component';
+import { ProductsComponent } from './components/Tickets/products/products.component';
 @NgModule({
   declarations: [
     DashboardComponent,
@@ -86,6 +87,7 @@ import { ClientsComponent } from './components/Tickets/clients/clients.component
     TicketInfoComponent,
     TicketsComponent,
     ClientsComponent,
+    ProductsComponent,
 
   ],
   imports: [

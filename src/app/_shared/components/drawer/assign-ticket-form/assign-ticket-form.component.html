@@ -58,31 +58,76 @@
                             <mat-error *ngIf="rf.clientId?.invalid">Client is required</mat-error>
                         </mat-form-field>
                     </div>
-                    <!-- Project -->
+                    <!-- Product -->
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Project Title</label>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Product <span class="text-red-500">*</span>
+                        </label>
                         <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                            <mat-select formControlName="project_id" placeholder="Select Project"
-                                (selectionChange)="onProjectSelectionChange($event.value)"
+                            <mat-select formControlName="productId" placeholder="Select Product"
+                                (selectionChange)="onProductChange($event.value)"
                                 (openedChange)="onProjectSelectOpened($event)">
-                                <mat-select-trigger>
-                                    {{ rf.projectName?.value || 'Select Project' }}
-                                </mat-select-trigger>
-                                <div class="px-3 py-2 bg-white sticky top-0 z-10" (click)="$event.stopPropagation()"
-                                    (keydown)="$event.stopPropagation()">
+                                <!-- Search -->
+                                <div class="sticky top-0 z-10 bg-white px-3 py-2 border-b border-slate-100"
+                                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+
                                     <input type="text"
                                         class="w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none"
-                                        placeholder="Search Project" [value]="projectSearchText"
-                                        (input)="filterProjects($event)">
+                                        placeholder="Search Product" [value]="productSearchText"
+                                        (input)="filterProducts($event)">
                                 </div>
-                                <mat-option [value]="null">Select Project</mat-option>
-                                <mat-option *ngFor="let p of filteredProjects" [value]="p.id">
-                                    {{ p.project_title }}
+                                <mat-option [value]="null">Select Product</mat-option>
+                                <mat-option *ngFor="let product of filteredProducts" [value]="product.id">
+                                    {{ product.productName }}
                                 </mat-option>
-                                <mat-option *ngIf="!filteredProjects.length" disabled>No projects found</mat-option>
+                                <mat-option *ngIf="!filteredProducts.length" disabled>
+                                    No products found
+                                </mat-option>
                             </mat-select>
+                            <mat-error *ngIf="rf.product?.invalid">
+                                Product is required
+                            </mat-error>
                         </mat-form-field>
                     </div>
+
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Product Version 
+                        </label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select formControlName="product_version" placeholder="Select Version">
+                                <mat-option [value]="null">Select Version</mat-option>
+                                <mat-option *ngFor="let version of availableVersions" [value]="version">
+                                    {{ version }}
+                                </mat-option>
+                                <mat-option *ngIf="!availableVersions.length" disabled>
+                                    No versions available
+                                </mat-option>
+                            </mat-select>
+                            <mat-error *ngIf="rf.product_version?.invalid">
+                                Product Version is required
+                            </mat-error>
+                        </mat-form-field>
+                    </div>
+
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Type <span class="text-red-500">*</span>
+                        </label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select formControlName="type" placeholder="Select Type">
+                                <mat-option *ngFor="let type of types" [value]="type">
+                                    {{ type }}
+                                </mat-option>
+                            </mat-select>
+                            <mat-error *ngIf="rf.type?.invalid">
+                                Type is required
+                            </mat-error>
+                        </mat-form-field>
+                    </div>
+
 
 
                     <!-- Ticket Name (Read-only) -->
@@ -188,7 +233,7 @@
     <!-- Footer -->
     <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
         <button mat-stroked-button color="warn" (click)="onCancel()">Cancel</button>
-        <button mat-flat-button color="primary" [disabled]="assignForm.invalid && !isEditMode" (click)="onSubmit()">
+        <button mat-flat-button color="primary" [disabled]="assignForm.invalid" (click)="onSubmit()">
             {{ isEditMode ? 'Update' : 'Assign' }}
         </button>
     </div>

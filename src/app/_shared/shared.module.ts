@@ -20,6 +20,7 @@ import { MomdialogComponent } from '../features/admin/components/projects/projec
 import { SelfTicketFormComponent } from './components/drawer/self-ticket-form/self-ticket-form.component';
 import { AssignTicketFormComponent } from './components/drawer/assign-ticket-form/assign-ticket-form.component';
 import { ClientFormComponent } from './components/drawer/client-form/client-form.component';
+import { ProductFormComponent } from './components/drawer/product-form/product-form.component';
 @NgModule({
   declarations: [
     LoaderComponent,
@@ -39,6 +40,7 @@ import { ClientFormComponent } from './components/drawer/client-form/client-form
     SelfTicketFormComponent,
     AssignTicketFormComponent,
     ClientFormComponent,
+    ProductFormComponent,
   ],
   imports: [
     CommonModule,

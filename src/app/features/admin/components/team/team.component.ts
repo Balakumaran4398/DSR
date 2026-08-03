@@ -414,181 +414,286 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       .replace(/'/g, '&#39;');
   }
 
-  private openMemberSkillsDialog(rowData: any): void {
+ private openMemberSkillsDialog(rowData: any): void {
+    console.log('openMemberSkillsDialog', rowData);
     const skills = this.buildTeamSkillDetails(rowData);
     const memberName = this.getMemberDisplayName(rowData);
+
+    // Header subtitle without email
     const subtitle = [
       rowData?.position,
-      rowData?.department_name,
-      rowData?.email
+      rowData?.department_name
     ].filter(Boolean).join(' | ');
+
+    // Helper safely format dates or fallback
+    const formatDate = (dateStr: string) => {
+      if (!dateStr) return 'Not Provided';
+      try {
+        return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      } catch {
+        return dateStr;
+      }
+    };
+
+    // Determine status configuration (Green background with dark green text for active, red background with dark red text for inactive)
+    const isActive = rowData?.isactive !== false;
+    const statusBg = isActive ? '#dcfce7' : '#fee2e2';
+    const statusColor = isActive ? '#166534' : '#991b1b';
+    const statusText = isActive ? 'Active' : 'Inactive';
+    const statusDot = isActive ? '#22c55e' : '#ef4444';
+
+    // Build Profile Bio Detail Info Grid Chips (Primary Email used instead of alternate email)
+    const personalDetails = [
+      { label: 'Email Address', value: rowData?.email || 'Not Provided', icon: 'ri-mail-line' },
+      { label: 'Mobile No', value: rowData?.mobile || 'Not Provided', icon: 'ri-phone-line' },
+      { label: 'Date of Birth', value: formatDate(rowData?.date_of_birth), icon: 'ri-cake-2-line' },
+      { label: 'Gender', value: rowData?.gender ? rowData.gender.toUpperCase() : 'Not Specified', icon: 'ri-user-shared-2-line' },
+      { label: 'Blood Group', value: rowData?.blood_group || 'N/A', icon: 'ri-heart-pulse-line' },
+      { label: 'Marital Status', value: rowData?.marital_status || 'N/A', icon: 'ri-user-heart-line' },
+      { label: 'Shift Type', value: rowData?.shift_type || 'Standard', icon: 'ri-time-line' },
+      { label: 'Joining Date', value: formatDate(rowData?.joining_date), icon: 'ri-calendar-check-line' }
+    ];
+
+    const infoGridHtml = personalDetails.map(item => `
+    <div style="
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:12px 14px;
+      background:#ffffff;
+      border:1px solid #e2e8f0;
+      border-radius:16px;
+      box-shadow:0 2px 6px rgba(15,23,42,0.02);
+    ">
+      <div style="
+        width:36px;
+        height:36px;
+        border-radius:12px;
+        background:#eff6ff;
+        color:#2563eb;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:18px;
+        flex:0 0 auto;
+      ">
+        <i class="${item.icon}"></i>
+      </div>
+      <div style="min-width:0;">
+        <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em;">${item.label}</div>
+        <div style="font-size:13px; font-weight:700; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${this.escapeHtml(item.value)}">${this.escapeHtml(item.value)}</div>
+      </div>
+    </div>
+  `).join('');
+
     const skillCardsHtml = skills.length
       ? skills.map((skill, index) => `
-        <article style="
-          position:relative;
-          overflow:hidden;
-          border:2px solid #e2e8f0;
-          border-radius:22px;
-          padding:18px;
-          background:linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-          box-shadow:0 16px 34px rgba(15,23,42,0.08);
-        ">
-          <div style="
-            position:absolute;
-            inset:auto -30px -44px auto;
-            width:110px;
-            height:110px;
-            border-radius:999px;
-          "></div>
-          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; position:relative;">
-            <div style="display:flex; gap:12px; min-width:0;">
-              <div style="
-                width:44px;
-                height:44px;
-                border-radius:16px;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                color:#ffffff;
-                background:${index % 2 === 0 ? 'linear-gradient(135deg,#2563eb,#0f766e)' : 'linear-gradient(135deg,#f97316,#be123c)'};
-                box-shadow:0 12px 26px rgba(37,99,235,0.22);
-                flex:0 0 auto;
-              ">
-                <i class="${this.escapeHtml(skill.icon)}" style="font-size:22px;"></i>
-              </div>
-              <div style="min-width:0;">
-               <h3 style="margin:0; font-size:15px; line-height:1.25; color:#0f172a; font-weight:600; word-break:break-word;"> 
-                  ${this.escapeHtml(skill.name)}
-                </h3>
-                 <p style="margin:6px 0 0; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.08em;">
-                  ${this.escapeHtml(skill.category)}
-                </p>
-              </div>
-            </div>
-            <span style="
-              display:inline-flex;
+      <article style="
+        position:relative;
+        overflow:hidden;
+        border:1px solid #e2e8f0;
+        border-radius:20px;
+        padding:16px;
+        background:#ffffff;
+        box-shadow:0 10px 25px rgba(15,23,42,0.04);
+        transition:all 0.2s ease;
+      ">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; position:relative;">
+          <div style="display:flex; gap:12px; min-width:0;">
+            <div style="
+              width:42px;
+              height:42px;
+              border-radius:14px;
+              display:flex;
               align-items:center;
-              white-space:nowrap;
-              border-radius:999px;
-              padding:7px 10px;
-              background:#ecfeff;
-              color:#0e7490;
-              font-size:12px;
-              font-weight:800;
+              justify-content:center;
+              color:#ffffff;
+              background:${index % 2 === 0 ? 'linear-gradient(135deg,#2563eb,#0f766e)' : 'linear-gradient(135deg,#f97316,#be123c)'};
+              box-shadow:0 8px 20px rgba(37,99,235,0.18);
+              flex:0 0 auto;
             ">
-              ${this.escapeHtml(skill.experience)}
-            </span>
+              <i class="${this.escapeHtml(skill.icon)}" style="font-size:20px;"></i>
+            </div>
+            <div style="min-width:0;">
+             <h3 style="margin:0; font-size:14px; line-height:1.25; color:#0f172a; font-weight:700; word-break:break-word;"> 
+                ${this.escapeHtml(skill.name)}
+              </h3>
+               <p style="margin:4px 0 0; font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.06em;">
+                ${this.escapeHtml(skill.category)}
+              </p>
+            </div>
           </div>
-          
-        </article>
-      `).join('')
-      : `
-        <div style="
-          border:1px dashed #cbd5e1;
-          border-radius:24px;
-          padding:34px 24px;
-          background:#f8fafc;
-          text-align:center;
-          color:#64748b;
-        ">
-          <div style="
-            width:58px;
-            height:58px;
-            margin:0 auto 14px;
-            border-radius:20px;
-            display:flex;
+          <span style="
+            display:inline-flex;
             align-items:center;
-            justify-content:center;
-            background:#e0f2fe;
-            color:#0369a1;
+            white-space:nowrap;
+            border-radius:999px;
+            padding:5px 10px;
+            background:#ecfeff;
+            color:#0e7490;
+            font-size:11px;
+            font-weight:800;
           ">
-            <i class="ri-lightbulb-flash-line" style="font-size:28px;"></i>
-          </div>
-          <h3 style="margin:0; color:#0f172a; font-size:18px; font-weight:800;">No skills added yet</h3>
-          <p style="margin:8px 0 0; font-size:14px;">Skill details are shown here when they are available for this member.</p>
+            ${this.escapeHtml(skill.experience)}
+          </span>
         </div>
-      `;
+      </article>
+    `).join('')
+      : `
+      <div style="
+        grid-column: span 2;
+        border:1px dashed #cbd5e1;
+        border-radius:20px;
+        padding:28px 20px;
+        background:#ffffff;
+        text-align:center;
+        color:#64748b;
+      ">
+        <div style="
+          width:48px;
+          height:48px;
+          margin:0 auto 10px;
+          border-radius:16px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          background:#e0f2fe;
+          color:#0369a1;
+        ">
+          <i class="ri-lightbulb-flash-line" style="font-size:24px;"></i>
+        </div>
+        <h4 style="margin:0; color:#0f172a; font-size:16px; font-weight:800;">No skills added yet</h4>
+        <p style="margin:6px 0 0; font-size:13px;">Skill details are shown here when they are available for this member.</p>
+      </div>
+    `;
 
     Swal.fire({
       showCloseButton: false,
       showConfirmButton: false,
-      width: 880,
+      width: 900,
       padding: 0,
-      backdrop : 'rgba(0,0,0,0.4)',
+      backdrop: 'rgba(15,23,42,0.5)',
       html: `
+      <div style="
+        text-align:left;
+        background:#f8fafc;
+        border-radius:28px;
+        overflow:hidden;
+        box-shadow:0 25px 70px rgba(15,23,42,0.28);
+        border:1px solid #e2e8f0;
+        font-family:inherit;
+      ">
+        <!-- Header Banner Profile Card -->
         <div style="
-          text-align:left;
-          background:#ffffff;
-          border-radius:28px;
-          overflow:hidden;
-          box-shadow:0 30px 90px rgba(15,23,42,0.24);
-          border:1px solid #dbe3f0;
+          padding:32px;
+          background:var(--text-active);
+          color:#ffffff;
+          position:relative;
         ">
-          <div style="
-            padding:30px 34px;
-            background:var(--text-active);
-              color:#ffffff;
-            position:relative;
+          <button type="button" class="member-skills-dialog-close" style="
+            position:absolute;
+            top:20px;
+            right:20px;
+            width:38px;
+            height:38px;
+            border:none;
+            border-radius:999px;
+            background:rgba(255,255,255,0.14);
+            color:#ffffff;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            cursor:pointer;
+            transition:background 0.2s;
           ">
-            <button type="button" class="member-skills-dialog-close" style="
-              position:absolute;
-              top:18px;
-              right:18px;
-              width:40px;
-              height:40px;
-              border:none;
-              border-radius:999px;
-              background:rgba(255,255,255,0.16);
-              color:#ffffff;
-              display:flex;
-              align-items:center;
-              justify-content:center;
-              cursor:pointer;
-            ">
-              <i class="ri-close-line" style="font-size:20px;"></i>
-            </button>
-            <div style="display:flex; align-items:center; gap:16px; padding-right:54px;">
+            <i class="ri-close-line" style="font-size:20px;"></i>
+          </button>
+          
+          <div style="display:flex; align-items:center; gap:20px; padding-right:40px;">
+            ${rowData?.profile_image_url ? `
+              <img src="${this.escapeHtml(rowData.profile_image_url)}" style="
+                width:72px;
+                height:72px;
+                border-radius:22px;
+                object-fit:cover;
+                border:2px solid rgba(255,255,255,0.3);
+                box-shadow:0 8px 20px rgba(0,0,0,0.15);
+                flex:0 0 auto;
+              " />
+            ` : `
               <div style="
-                width:60px;
-                height:60px;
+                width:72px;
+                height:72px;
                 border-radius:22px;
                 background:rgba(255,255,255,0.18);
-                border:1px solid rgba(255,255,255,0.28);
+                border:2px solid rgba(255,255,255,0.28);
                 display:flex;
                 align-items:center;
                 justify-content:center;
                 color:#ffffff;
-                font-size:22px;
+                font-size:24px;
                 font-weight:900;
                 flex:0 0 auto;
               ">
                 ${this.escapeHtml(this.getInitials(memberName))}
               </div>
-              <div style="min-width:0;">
-                <h2 style="margin:6px 0 0; font-size:30px; line-height:1.15; font-weight:900; word-break:break-word;">${this.escapeHtml(memberName)}</h2>
-                <p style="margin:9px 0 0; font-size:14px; opacity:0.88; word-break:break-word;">${this.escapeHtml(subtitle || 'Team member profile')}</p>
+            `}
+            <div style="min-width:0;">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <h2 style="margin:0; font-size:26px; line-height:1.2; font-weight:900; word-break:break-word;">${this.escapeHtml(memberName)}</h2>
+                
+                <!-- Role Badge -->
+                <span style="background:rgba(255,255,255,0.2); padding:2px 10px; border-radius:999px; font-size:11px; font-weight:700;">
+                  ${this.escapeHtml(rowData?.role || '')}
+                </span>
+
+                <!-- Active / Inactive Status Badge (Solid BG with Colored Text) -->
+                <span style="display:inline-flex; align-items:center; gap:6px; background:${statusBg}; color:${statusColor}; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:800;">
+                  <span style="width:6px; height:6px; border-radius:999px; background:${statusDot}; display:inline-block;"></span>
+                  ${statusText}
+                </span>
               </div>
+              <p style="margin:6px 0 0; font-size:13px; opacity:0.85; word-break:break-word;">${this.escapeHtml(subtitle || 'Team member profile')}</p>
             </div>
           </div>
+        </div>
 
-          <div style="padding:26px 34px 34px; max-height:68vh; overflow:auto; background:#f8fafc;">
+        <!-- Scrollable Content Body -->
+        <div style="padding:28px 32px 32px; max-height:68vh; overflow-y:auto;">
+          
+          <!-- Personal Details Grid Section -->
+          <div style="margin-bottom:24px;">
+            <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:800; text-transform:uppercase; color:#475569; letter-spacing:0.06em;">
+              Personal & Professional Bio
+            </h4>
             <div style="
               display:grid;
               grid-template-columns:repeat(2,1fr);
-              gap:16px;
+              gap:12px;
+            ">
+              ${infoGridHtml}
+            </div>
+          </div>
+
+          <!-- Skills Section -->
+          <div>
+            <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:800; text-transform:uppercase; color:#475569; letter-spacing:0.06em;">
+              Expertise & Skills Matrix
+            </h4>
+            <div style="
+              display:grid;
+              grid-template-columns:repeat(2,1fr);
+              gap:12px;
             ">
               ${skillCardsHtml}
             </div>
           </div>
+
         </div>
-      `,
+      </div>
+    `,
       didOpen: (popup) => {
-        const swalPopup = popup.parentElement as HTMLElement | null;
-        // if (swalPopup) {
-        //   swalPopup.style.background = 'transparent';
-        //   swalPopup.style.boxShadow = 'none';
-        // }
-        popup.style.setProperty('--swal2-background', 'transparent', 'important'); //same as before
+        popup.style.setProperty('--swal2-background', 'transparent', 'important');
         const closeButton = popup.querySelector('.member-skills-dialog-close') as HTMLButtonElement | null;
         if (closeButton) {
           closeButton.addEventListener('click', () => Swal.close());
@@ -596,6 +701,7 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       }
     });
   }
+
 
   private buildTeamSkillDetails(rowData: any): TeamSkillDetail[] {
     const rawSkills = rowData?.skill_set || rowData?.skillset || rowData?.skills || rowData?.skill_details || rowData?.technologies || rowData?.tech_stack;

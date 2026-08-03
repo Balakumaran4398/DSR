@@ -48,7 +48,7 @@ export class DrawerService {
   }
 }
 
-export type DrawerType = 'task' | 'project' | 'member' | 'teammate' | 'release' | 'phases' | 'sub-task' | 'dsr' | 'relieve' | 'mom' | 'client' | 'ticket' |'assignticket';
+export type DrawerType = 'task' | 'project' | 'member' | 'teammate' | 'release' | 'phases' | 'sub-task' | 'dsr' | 'relieve' | 'mom' | 'client' | 'ticket' |'assignticket' |'products';
 export type DrawerTaskFormType = 'requirement' | 'bug';
 export type DrawerFormType = DrawerTaskFormType | null;
 

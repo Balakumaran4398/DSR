@@ -103,12 +103,18 @@ export class TicketsComponent {
   getAllTickets() {
     this.authService.getAllTickets(this.empId, this.userId, this.startDate, this.endDate).subscribe({
       next: (res: any[]) => {
+        const processedData = res.map(ticket => ({
+          ...ticket,
+          version: ticket.version && String(ticket.version).trim() !== '' ? ticket.version : '-'
+        }));
+ 
         this.allTickets = this.isRaisedTickets
-          ? res.filter(ticket => ticket.status !== 4)
-          : res;
-
+          ? processedData.filter(ticket => ticket.status !== 4)
+          : processedData;
+ 
+        console.log(processedData);
         this.tickets = [...this.allTickets];
-
+ 
         if (!this.table) {
           setTimeout(() => this.initializeTable(), 100);
         } else {
@@ -121,6 +127,7 @@ export class TicketsComponent {
       }
     });
   }
+ 
 
   onRangeChange(event: { startDate: Date; endDate: Date }): void {
     const nextStartDate = this.formatDateToYMD(event.startDate);
@@ -205,9 +212,23 @@ export class TicketsComponent {
           field: "company_name",
           width: 190,
         },
+ {
+          title: "Product",
+          field: "product_name",
+          width: 190, valueFormatter: (params: any) => {
+            return params.value && params.value.trim() !== '' ? params.value : '-';
+          }
+        },
         {
-          title: "Project",
-          field: "project_title",
+          title: "Product version",
+          field: "version",
+          width: 190, valueFormatter: (params: any) => {
+            return params.value && params.value.trim() !== '' ? params.value : '-';
+          }
+        },
+        {
+          title: "Product Type",
+          field: "type",
           width: 190, valueFormatter: (params: any) => {
             return params.value && params.value.trim() !== '' ? params.value : '-';
           }
@@ -793,7 +814,7 @@ export class TicketsComponent {
     if (!target) return;
 
     if (target.classList.contains('btn-edit')) {
-      if (this.role.includes('ROLE_MANAGER', 'ROLE_ADMIN')) {
+      if (this.role.includes('ROLE_MANAGER') || this.role.includes('ROLE_ADMIN')) {
         this.drawerService.open('assignticket', data);
       } else {
         this.drawerService.open('ticket', data);

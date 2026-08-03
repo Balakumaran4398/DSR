@@ -360,5 +360,23 @@ export class AuthService {
   getEmployeeListByDepartment(id: number) {
     return this.http.get<any[]>(`${BASE_URL}/ticket/getEmployeeListByDepartment/${id}`);
   }
+  // -------Products ----------------
+    //Products
+  getAllProducts(){
+    return this.http.get<any[]>(`${BASE_URL}/product/all`)
+  }
+
+  createProduct(payload : any){
+    return this.http.post(`${BASE_URL}/product/create`, payload);
+  }
+
+  deleteProduct(id : number){
+    return this.http.delete(`${BASE_URL}/product/delete/${id}`);
+  }
+
+  updateProduct(payload : any) {
+    return this.http.post(`${BASE_URL}/product/update`,payload);
+  }
+
 
 }

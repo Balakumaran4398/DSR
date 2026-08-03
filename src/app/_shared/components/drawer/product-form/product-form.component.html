@@ -1,0 +1,100 @@
+<div class="h-screen bg-white flex flex-col w-full max-w-5xl mx-auto border-l border-slate-200">
+  <div class="px-8 py-5 border-b border-slate-200 flex justify-between items-start bg-slate-50">
+    <div>
+      <div class="flex items-center gap-2 mb-5">
+        <mat-icon>business</mat-icon>
+        <h1 class="text-xl font-bold text-slate-800 m-0">
+          {{ isEditMode ? 'Update Product' : 'Create New Product' }}
+        </h1>
+      </div>
+      <p class="text-sm text-slate-500 mt-2">
+        {{ isEditMode ? 'Modify product details' : 'Add a new product' }}
+      </p>
+    </div>
+  </div>
+  <div class="flex-1 px-8 py-5 bg-white">
+    <form [formGroup]="productForm" class="flex flex-col gap-6">
+      <section>
+        <div class="flex items-center gap-2 mb-5 text-[var(--text-active)]">
+          <mat-icon>business</mat-icon>
+          <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+            Product Details
+          </h2>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-2">
+              Product Name <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <input matInput formControlName="productName" placeholder="Enter product name">
+              <mat-error *ngIf="showError('productName', 'required')">
+                Product Name is required.
+              </mat-error>
+              <mat-error *ngIf="showError('productName', 'maxlength')">
+                Product Name cannot exceed 200 characters.
+              </mat-error>
+            </mat-form-field>
+          </div>
+         
+          <div class="md:col-span-2">
+            <label class="block text-sm font-semibold text-slate-800 tracking-wide mb-2.5">
+              Versions
+            </label>
+
+            <!-- Input + Button Container -->
+            <div class="flex items-center">
+              <mat-form-field appearance="outline" class="flex-1 custom-input-field" subscriptSizing="dynamic">
+                <input matInput [ngModel]="newVersion" (ngModelChange)="onVersionInput($event)"
+                  [ngModelOptions]="{ standalone: true }" placeholder="Enter version (e.g. v1.0.0)"
+                  (keyup.enter)="addVersion()">
+              </mat-form-field>
+
+              <button mat-flat-button color="primary" type="button" (click)="addVersion()"
+                [disabled]="!newVersion.trim() || newVersionError"
+                class="!h-[54px] !px-6 !shadow-sm !shadow-blue-500/20 hover:!shadow-md transition-all">
+                <mat-icon class="!mr-1">add</mat-icon>
+                Add
+              </button>
+            </div>
+
+            <!-- Version Chips -->
+            <div *ngIf="selectedVersions.length" class="mt-3 flex flex-wrap gap-2">
+              <div *ngFor="let version of selectedVersions"
+                class="group flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white shadow-sm px-3.5 py-1.5 text-sm font-medium text-slate-700 transition-all hover:border-blue-300 hover:shadow">
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                <span class="tracking-wide">{{ version }}</span>
+                <button type="button" (click)="removeVersion(version)"
+                  class="flex items-center justify-center w-5 h-5 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                  <i class="ri-close-line text-sm"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Real-time Typing Error -->
+            <mat-error *ngIf="newVersionError" class="mt-1.5 text-xs">
+              Enter a valid version (eg: v1, v1-0, or v1.2.3) 
+            </mat-error>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Description
+            </label>
+            <mat-form-field appearance="outline" class="w-full">
+              <textarea matInput rows="4" formControlName="description"></textarea>
+            </mat-form-field>
+          </div>
+        </div>
+      </section>
+      <mat-divider></mat-divider>
+    </form>
+  </div>
+  <div class="px-8 py-4 bg-slate-50 flex justify-end gap-4 border-t border-slate-200">
+    <button mat-stroked-button color="warn" (click)="onCancel()" class="!px-8">
+      Cancel
+    </button>
+    <button mat-flat-button color="primary" (click)="onSubmit()" class="!px-8">
+      Save
+    </button>
+  </div>
+</div>

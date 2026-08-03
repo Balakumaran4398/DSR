@@ -58,7 +58,9 @@
             <ng-template [ngSwitchCase]="'assignticket'">
                 <app-assign-ticket-form [data]="data"></app-assign-ticket-form>
             </ng-template>
-
+            <ng-template [ngSwitchCase]="'products'">
+                <app-product-form [data]="data"></app-product-form>
+            </ng-template>
         </ng-container>
         <!-- </div> -->
     </div>

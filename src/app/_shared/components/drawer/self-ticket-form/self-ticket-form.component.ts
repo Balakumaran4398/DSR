@@ -21,8 +21,18 @@ export class SelfTicketFormComponent {
   projectList: any[] = [];
   filteredProjects: any[] = [];
   clientSearchText = '';
-  projectSearchText = '';
+  productList: any[] = [];
+  filteredProducts: any[] = [];
+  productSearchText = '';
   empid: any = 0;
+  availableVersions: string[] = [];
+  submitted = false;
+  types = [
+    'Client Support',
+    'Requirement',
+    'Bug',
+    'Business'
+  ];
 
   statusList: any[] = [];
   dept: any[] = [];
@@ -48,6 +58,9 @@ export class SelfTicketFormComponent {
       clientId: [null, Validators.required],
       project_id: [''],
       projectName: [''],
+      productId: [null, Validators.required],
+      product_version: [null],
+      type: ['', Validators.required],
       clientName: ['', Validators.required],
       ticket_name: ['', Validators.required],
       ticketDescription: [''],
@@ -66,29 +79,72 @@ export class SelfTicketFormComponent {
     this.getStatus();
     this.getAllDepartments();
     this.getProjects();
+    this.getAllproducts();
+  }
+
+  getAllproducts(): void {
+    this.authService.getAllProducts().subscribe({
+      next: (res: any) => {
+        const products = this.normalizeProductsResponse(res);
+        this.productList = products;
+        this.filteredProducts = products;
+
+        // Once products are fetched, if we have input data, run patchFormData
+        if (this.data) {
+          this.isEditMode = true;
+          this.patchFormData();
+        }
+      },
+      error: (err: any) => {
+        console.error('getAllproducts error', err);
+      }
+    });
+  }
+
+  private patchFormData(): void {
+    if (!this.data) return;
+
+    this.isEditMode = true;
+
+    const clientId = this.data.clientUserId || this.data.clientsId || this.data.clients_id;
+    const targetProductId = this.data.productId ?? this.data.product_id;
+
+    // Resolve and populate available versions FIRST so dropdown recognizes the value
+    const selectedProduct = this.productList.find(
+      product => String(product.id) === String(targetProductId)
+    );
+
+    if (selectedProduct) {
+      this.availableVersions = this.getProductVersions(selectedProduct);
+    }
+
+    const selectedVersion = this.normalizeSelectedVersion(this.data.version ?? this.data.product_version);
+
+    this.ticketForm.patchValue({
+      clientId: clientId || null,
+      productId: targetProductId ? Number(targetProductId) : null,
+      product_version: selectedVersion && this.availableVersions.includes(selectedVersion) ? selectedVersion : null,
+      type: this.data.type || '',
+      ticket_name: this.data.ticket_name || this.data.ticketName || '',
+      ticketDescription: this.data.description || '',
+      client_comments: this.data.reason_f_issue || this.data.reasonFIssue || '',
+      solution: this.data.solution || '',
+      status: this.data.status !== undefined ? this.data.status : 1,
+      priority: this.data.priority !== undefined ? this.data.priority : 2,
+      worked_hours: this.formatWorkedHours(this.data.worked_hours || this.data.workedHours),
+    });
+
+    // Trigger name patches if lists are already loaded
+    this.patchSelectedClientName();
+    this.patchSelectedProjectName();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['data'] && this.data) {
-
       this.isEditMode = true;
-
-      this.ticketForm.patchValue({
-        clientId: this.data.clientUserId || this.data.clientsId,
-        project_id: this.data.project_id,
-        projectName: this.data.project_title || '',
-        ticket_name: this.data.ticket_name,
-        ticketDescription: this.data.description,
-        client_comments: this.data.reason_f_issue,
-        solution: this.data.solution,
-        status: this.data.status,
-        priority: this.data.priority,
-        worked_hours: this.formatWorkedHours(this.data.worked_hours),
-        // stbModel: this.data.stb_model,
-        // stbVersion: this.data.stb_version
-      });
-      this.patchSelectedClientName();
-      this.patchSelectedProjectName();
+      if (this.productList.length > 0) {
+        this.patchFormData();
+      }
     }
   }
 
@@ -115,16 +171,18 @@ export class SelfTicketFormComponent {
       }
     });
   }
+
   getProjects(callback?: Function) {
     this.authService.getAllProjectsByEmployeeId(this.empid).subscribe({
       next: (res: any) => {
-        this.projectList = res
+        this.projectList = res;
         this.filteredProjects = res;
         this.patchSelectedProjectName();
         if (callback) callback();
       }
     });
   }
+
   getStatus(): void {
     this.authService.getStatusList().subscribe({
       next: (res: any[]) => {
@@ -178,25 +236,37 @@ export class SelfTicketFormComponent {
     return client?.id ?? client?.clientUserId ?? client?.clientsId;
   }
 
-  filterProjects(event: Event): void {
-    this.projectSearchText = (event.target as HTMLInputElement).value;
-    const value = this.projectSearchText.toLowerCase().trim();
-    this.filteredProjects = value
-      ? this.projectList.filter(project =>
-        project.project_title?.toLowerCase().includes(value)
-      )
-      : this.projectList;
+  filterProducts(event: Event): void {
+    this.productSearchText = (event.target as HTMLInputElement).value;
+    const value = this.productSearchText.toLowerCase().trim();
+    this.filteredProducts = value
+      ? this.productList.filter(product => product.productName?.toLowerCase().includes(value))
+      : this.productList;
   }
 
   onProjectSelectOpened(opened: boolean): void {
     if (!opened) return;
 
-    this.projectSearchText = '';
-    this.filteredProjects = this.projectList;
+    this.productSearchText = '';
+    this.filteredProducts = this.productList;
   }
 
-  onProjectSelectionChange(projectId: any): void {
-    if (projectId === null || projectId === undefined) {
+  onProductChange(productId: any, resetVersion = true): void {
+    const selectedProduct = this.productList.find(
+      product => String(product.id) === String(productId)
+    );
+
+    this.availableVersions = selectedProduct ? this.getProductVersions(selectedProduct) : [];
+
+    if (resetVersion) {
+      this.ticketForm.patchValue({
+        product_version: null
+      });
+    }
+  }
+
+  onProductSelectionChange(productId: any): void {
+    if (productId === null || productId === undefined) {
       this.ticketForm.patchValue({
         project_id: null,
         projectName: ''
@@ -204,7 +274,7 @@ export class SelfTicketFormComponent {
       return;
     }
 
-    const project = this.projectList.find(item => `${item.id}` === `${projectId}`);
+    const project = this.productList.find(item => `${item.id}` === `${productId}`);
     if (!project) return;
 
     this.ticketForm.patchValue({
@@ -240,8 +310,9 @@ export class SelfTicketFormComponent {
   get rf() {
     return {
       clientId: this.ticketForm.get('clientId'),
-      project_id: this.ticketForm.get('project_id'),
-      projectName: this.ticketForm.get('projectName'),
+      product: this.ticketForm.get('productId'),
+      type: this.ticketForm.get('type'),
+      product_version: this.ticketForm.get('product_version'),
       clientName: this.ticketForm.get('clientName'),
       ticket_name: this.ticketForm.get('ticket_name'),
       ticketDescription: this.ticketForm.get('ticketDescription'),
@@ -266,6 +337,9 @@ export class SelfTicketFormComponent {
       clientId: null,
       project_id: null,
       projectName: '',
+      productId: null,
+      product_version: null,
+      type: '',
       clientName: '',
       ticket_name: '',
       ticketDescription: '',
@@ -282,7 +356,8 @@ export class SelfTicketFormComponent {
   }
 
   onSubmit(): void {
-    if (!this.ticketForm.valid) {
+    this.submitted = true;
+    if (!this.ticketForm.valid || this.isWorkedHoursZero()) {
       this.ticketForm.markAllAsTouched();
       return;
     }
@@ -295,6 +370,9 @@ export class SelfTicketFormComponent {
     const payload = {
       clientUserId: formValue.clientId,
       clientsId: formValue.clientId,
+      productId: formValue.productId,
+      version: this.normalizeSelectedVersion(formValue.product_version),
+      type: formValue.type,
       project_id: formValue.project_id,
       empId: empId,
       ticketName: formValue.ticket_name,
@@ -303,19 +381,19 @@ export class SelfTicketFormComponent {
       description: formValue.ticketDescription,
       status: formValue.status,
       workedHours: formValue.worked_hours || '00:00',
-      // createdDate: new Date().toISOString(),
       reasonFIssue: formValue.client_comments || '',
       isreassign: false,
       deptId: deptId,
       solution: formValue.solution,
-      assignedFrom: empId,
       stbModel: formValue.stbModel || '',
       stbVersion: formValue.stbVersion || '',
       deptHead: 4,
       deptHeadStatus: 0,
-      // reason_f_issue : formValue.solution,
       updatedBy: this.storageService.getEmpId(),
-      path: ''
+      path: '',
+      ...(!this.isEditMode && {
+        assignedFrom: empId
+      })
     };
 
     console.log('Ticket Payload:', payload);
@@ -365,17 +443,14 @@ export class SelfTicketFormComponent {
   }
 
   formatWorkedHours(value: any): string {
-
     if (!value) {
       return '00:00';
     }
 
-    // already correct
     if (value.includes(':')) {
       return value.substring(0, 5);
     }
 
-    // API gives "9"
     const hours = Number(value);
 
     return hours < 10
@@ -389,5 +464,47 @@ export class SelfTicketFormComponent {
         this.dept = res;
       }
     });
+  }
+  isWorkedHoursZero(): boolean {
+    if (!this.submitted) return false;
+
+    const value = this.ticketForm.get('worked_hours')?.value;
+    if (!value) return true;
+
+    if (typeof value === 'string' && value.startsWith('00:00')) {
+      return true;
+    }
+
+    return Number(value) === 0;
+  }
+
+  private normalizeProductsResponse(res: any): any[] {
+    const list = Array.isArray(res)
+      ? res
+      : (res?.details ?? res?.data ?? res?.products ?? res?.productList ?? []);
+
+    return Array.isArray(list) ? list : [];
+  }
+
+  private getProductVersions(product: any): string[] {
+    const versions = product?.versionList ?? product?.versions ?? [];
+
+    if (!Array.isArray(versions)) {
+      return [];
+    }
+
+    return versions
+      .map((versionItem: any) => typeof versionItem === 'string' ? versionItem : versionItem?.version)
+      .filter((version: any) => version !== null && version !== undefined && String(version).trim() !== '')
+      .map((version: any) => String(version).trim());
+  }
+
+  private normalizeSelectedVersion(value: any): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    const version = String(value).trim();
+    return version ? version : null;
   }
 }

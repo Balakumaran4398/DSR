@@ -262,6 +262,10 @@ export class ExcelService {
   }
 
   private getReleasePerformance(release: any): string {
+    if (this.isUpcomingRelease(release)) {
+      return this.isReleaseOverdue(release) ? 'Poor' : 'Pending';
+    }
+
     if (this.isReleasePerformancePending(release)) {
       return 'Pending';
     }
@@ -297,7 +301,7 @@ export class ExcelService {
 
   private isReleasePerformancePending(release: any): boolean {
     const statusKey = String(release?.status || '').trim().toLowerCase().replace(/[-_\s]+/g, '-');
-    return statusKey === 'upcoming-release';
+    return statusKey === 'pending';
   }
 
   private getDaysUntilRelease(releasedDate: string | null | undefined): number | null {
