@@ -7,10 +7,10 @@
         <p>Open your performance sheet{{ canViewEmployees ? ' or review an employee sheet' : '' }}.</p>
       </div>
     </div>
-    <button type="button" class="refresh-button" [disabled]="loading" (click)="loadGoogleSheets()">
+    <!-- <button type="button" class="refresh-button" [disabled]="loading" (click)="loadGoogleSheets()">
       <i [class]="loading ? 'ri-loader-4-line sheet-spin' : 'ri-refresh-line'"></i>
       Refresh
-    </button>
+    </button> -->
   </header>
 
   <div class="sheet-loading" *ngIf="loading">
