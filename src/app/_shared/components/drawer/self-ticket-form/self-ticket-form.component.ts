@@ -1,5 +1,6 @@
 import { Component, inject, Input, SimpleChanges } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
+import { finalize } from 'rxjs/operators';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
@@ -27,14 +28,24 @@ export class SelfTicketFormComponent {
   empid: any = 0;
   availableVersions: string[] = [];
   submitted = false;
+  isSubmitting = false;
   types = [
-    'Client Support',
+    'Support',
     'Requirement',
     'Bug',
     'Business'
   ];
 
   statusList: any[] = [];
+  private readonly hiddenStatusNames = new Set([
+    'tobetested',
+    'approved',
+    'delayed',
+    'failed',
+    'pass',
+    'passed'
+  ]);
+  private readonly hiddenStatusIds = new Set([2, 3, 6, 9, 10]);
   dept: any[] = [];
 
   readonly priorityOptions = [
@@ -43,6 +54,26 @@ export class SelfTicketFormComponent {
     { id: 3, value: 'Low', dotClass: 'bg-green-500' }
   ];
 
+  isHardware = false;
+  categories: any[] = [
+    { id: 1, type: 'Production' },
+    { id: 2, type: 'Service' },
+    { id: 3, type: 'Ordinary' }
+  ];
+  filteredCategories: any[] = [];
+  tickets: any[] = [];
+  ticketSearchText = '';
+  filteredTickets: any[] = [];
+  categorySearchText = '';
+  hardwareEmployeeName: string | null = '';
+  modelNameList: any[] = [];
+  filteredModelNames: any[] = [];
+  modelNameSearchText = '';
+  modelCodeList: any[] = [];
+  filteredModelCodes: any[] = [];
+  modelCodeSearchText = '';
+  private modelCodeRequestSequence = 0;
+
   constructor(
     private authService: AuthService,
     private drawerService: DrawerService,
@@ -50,27 +81,52 @@ export class SelfTicketFormComponent {
     private storageService: StorageService
   ) {
     this.empid = this.storageService.getEmpId();
+    this.isHardware = this.storageService.getDept() === 'Hardware';
     this.initializeForm();
   }
+
+  // private initializeForm(): void {
+  //   this.ticketForm = this.fb.group({
+  //     clientId: [null, Validators.required],
+  //     project_id: [''],
+  //     projectName: [''],
+  //     productId: [null, Validators.required],
+  //     product_version: [null],
+  //     type: ['', Validators.required],
+  //     clientName: ['', Validators.required],
+  //     ticket_name: ['', Validators.required],
+  //     ticketDescription: [''],
+  //     client_comments: [''],
+  //     solution: [''],
+  //     status: [1, Validators.required],
+  //     priority: [2, Validators.required],
+  //     worked_hours: ['08:00', this.workedHoursValidator()],
+  //     category: [null],
+  //     // stbModel: [''],
+  //     // stbVersion: ['']
+  //   });
+  // }
 
   private initializeForm(): void {
     this.ticketForm = this.fb.group({
       clientId: [null, Validators.required],
       project_id: [''],
       projectName: [''],
-      productId: [null, Validators.required],
+      productId: [null, this.isHardware ? null : Validators.required],
       product_version: [null],
-      type: ['', Validators.required],
-      clientName: ['', Validators.required],
-      ticket_name: ['', Validators.required],
+      type: ['', this.isHardware ? null : Validators.required],
+      clientName: [''],
+      ticket_name: ['', [Validators.required, Validators.pattern(/\S/)]],
       ticketDescription: [''],
       client_comments: [''],
       solution: [''],
-      status: [1, Validators.required],
+      status: ['', Validators.required],
       priority: [2, Validators.required],
-      worked_hours: ['08:00', Validators.required],
-      // stbModel: [''],
-      // stbVersion: ['']
+      worked_hours: ['08:00', this.isHardware ? null : this.workedHoursValidator()],
+      ticketCategoryId: [null, this.isHardware ? Validators.required : null],
+      modelName: [null, this.isHardware ? Validators.required : null],
+      modelCode: [null, this.isHardware ? Validators.required : null],
+      count: [null, this.isHardware ? [Validators.required, Validators.min(1), Validators.pattern(/^[1-9]\d*$/)] : null]
     });
   }
 
@@ -80,6 +136,13 @@ export class SelfTicketFormComponent {
     this.getAllDepartments();
     this.getProjects();
     this.getAllproducts();
+    this.getStatus();
+    if (this.isHardware) {
+      this.getModelMaster();
+    }
+
+    this.hardwareEmployeeName = this.storageService.getEmpName();
+    this.filteredCategories = [...this.categories];
   }
 
   getAllproducts(): void {
@@ -97,6 +160,24 @@ export class SelfTicketFormComponent {
       },
       error: (err: any) => {
         console.error('getAllproducts error', err);
+      }
+    });
+  }
+
+  getModelMaster(): void {
+    this.authService.getModelMaster().subscribe({
+      next: (res: any) => {
+        const modelNames = this.normalizeModelMasterResponse(res);
+        this.modelNameList = modelNames;
+        this.filteredModelNames = modelNames;
+
+        if (this.data) {
+          this.patchModelFieldsFromData();
+        }
+      },
+      error: (err: any) => {
+        console.error('getModelMaster error', err);
+        this.toasterService.error('Failed to load model names');
       }
     });
   }
@@ -125,11 +206,13 @@ export class SelfTicketFormComponent {
       productId: targetProductId ? Number(targetProductId) : null,
       product_version: selectedVersion && this.availableVersions.includes(selectedVersion) ? selectedVersion : null,
       type: this.data.type || '',
+      ticketCategoryId: this.data.ticket_category_id,
+      count: this.getCountFromData(this.data),
       ticket_name: this.data.ticket_name || this.data.ticketName || '',
       ticketDescription: this.data.description || '',
       client_comments: this.data.reason_f_issue || this.data.reasonFIssue || '',
       solution: this.data.solution || '',
-      status: this.data.status !== undefined ? this.data.status : 1,
+      status: this.getVisibleStatusName(this.data.status, this.getStatusNameById(1)),
       priority: this.data.priority !== undefined ? this.data.priority : 2,
       worked_hours: this.formatWorkedHours(this.data.worked_hours || this.data.workedHours),
     });
@@ -137,6 +220,11 @@ export class SelfTicketFormComponent {
     // Trigger name patches if lists are already loaded
     this.patchSelectedClientName();
     this.patchSelectedProjectName();
+    this.patchModelFieldsFromData();
+
+    if (this.isHardware && this.data.ticket_category_id) {
+      this.getTicketsByCategory(this.data.ticket_category_id);
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -186,15 +274,59 @@ export class SelfTicketFormComponent {
   getStatus(): void {
     this.authService.getStatusList().subscribe({
       next: (res: any[]) => {
-        this.statusList = res.map((status, index) => ({
-          id: index,
-          name: status
-        }));
+        this.statusList = res
+          .map((status, index) => ({
+            id: index,
+            name: status
+          }))
+          .filter(status => this.isVisibleStatus(status.name, status.id));
+
+        if (this.data) {
+          this.isEditMode = true;
+          this.patchFormData();
+        }
       },
       error: (err: any) => {
         console.error('Get status error:', err);
       }
     });
+  }
+
+  private getVisibleStatusName(value: any, fallback = ''): string {
+    if (value === undefined || value === null || String(value).trim() === '') {
+      return fallback;
+    }
+
+    const normalizedValue = String(value).trim().toLowerCase().replace(/[^a-z]/g, '');
+    const matchedStatus = this.statusList.find(status =>
+      String(status.name ?? '').trim().toLowerCase().replace(/[^a-z]/g, '') === normalizedValue
+    );
+
+    if (matchedStatus && this.isVisibleStatus(matchedStatus.name, matchedStatus.id)) {
+      return String(matchedStatus.name);
+    }
+
+    const statusId = Number(value);
+    if (!Number.isFinite(statusId)) {
+      return fallback;
+    }
+
+    const statusName = this.statusList.find(status => Number(status.id) === statusId)?.name;
+
+    return this.isVisibleStatus(statusName, statusId) ? String(statusName) : fallback;
+  }
+
+  private getStatusNameById(id: number): string {
+    return String(this.statusList.find(status => Number(status.id) === id)?.name ?? '');
+  }
+
+  private isVisibleStatus(status: any, id?: any): boolean {
+    const normalizedStatus = String(status ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z]/g, '');
+
+    return !this.hiddenStatusIds.has(Number(id)) && !this.hiddenStatusNames.has(normalizedStatus);
   }
 
   filterClients(event: Event): void {
@@ -283,6 +415,80 @@ export class SelfTicketFormComponent {
     });
   }
 
+  filterModelNames(event: Event): void {
+    this.modelNameSearchText = (event.target as HTMLInputElement).value;
+    const value = this.modelNameSearchText.toLowerCase().trim();
+    this.filteredModelNames = value
+      ? this.modelNameList.filter(model => this.getModelNameLabel(model).toLowerCase().includes(value))
+      : this.modelNameList;
+  }
+
+  onModelNameSelectOpened(opened: boolean): void {
+    if (!opened) return;
+
+    this.modelNameSearchText = '';
+    this.filteredModelNames = this.modelNameList;
+  }
+
+  onModelNameChange(modelMasterId: any, resetModelCode = true): void {
+    this.modelCodeRequestSequence++;
+    this.modelCodeList = [];
+    this.filteredModelCodes = [];
+    this.modelCodeSearchText = '';
+
+    if (resetModelCode) {
+      this.ticketForm.patchValue({
+        modelCode: null
+      });
+    }
+
+    if (modelMasterId === null || modelMasterId === undefined || String(modelMasterId).trim() === '') {
+      return;
+    }
+
+    const requestSequence = this.modelCodeRequestSequence;
+    this.authService.getModelCodeList(modelMasterId).subscribe({
+      next: (res: any) => {
+        if (requestSequence !== this.modelCodeRequestSequence) return;
+
+        const modelCodes = this.normalizeModelCodeResponse(res);
+        this.modelCodeList = modelCodes;
+        this.filteredModelCodes = modelCodes;
+
+        if (!resetModelCode && this.data) {
+          const modelCodeValue = this.getModelCodeControlValueFromData(this.data);
+
+          if (modelCodeValue !== null) {
+            this.ticketForm.patchValue({
+              modelCode: modelCodeValue
+            });
+          }
+        }
+      },
+      error: (err: any) => {
+        if (requestSequence !== this.modelCodeRequestSequence) return;
+
+        console.error('getModelCodeList error', err);
+        this.toasterService.error('Failed to load model codes');
+      }
+    });
+  }
+
+  filterModelCodes(event: Event): void {
+    this.modelCodeSearchText = (event.target as HTMLInputElement).value;
+    const value = this.modelCodeSearchText.toLowerCase().trim();
+    this.filteredModelCodes = value
+      ? this.modelCodeList.filter(modelCode => this.getModelCodeLabel(modelCode).toLowerCase().includes(value))
+      : this.modelCodeList;
+  }
+
+  onModelCodeSelectOpened(opened: boolean): void {
+    if (!opened) return;
+
+    this.modelCodeSearchText = '';
+    this.filteredModelCodes = this.modelCodeList;
+  }
+
   private patchSelectedProjectName(): void {
     const selectedProjectId = this.ticketForm.get('project_id')?.value;
     if (!selectedProjectId) return;
@@ -321,6 +527,10 @@ export class SelfTicketFormComponent {
       solution: this.ticketForm.get('solution'),
       status: this.ticketForm.get('status'),
       worked_hours: this.ticketForm.get('worked_hours'),
+      ticketCategoryId: this.ticketForm.get('ticketCategoryId'),
+      modelName: this.ticketForm.get('modelName'),
+      modelCode: this.ticketForm.get('modelCode'),
+      count: this.ticketForm.get('count')
       // stbModel: this.ticketForm.get('stbModel'),
       // stbVersion: this.ticketForm.get('stbVersion')
     };
@@ -333,6 +543,8 @@ export class SelfTicketFormComponent {
 
   private resetForm(): void {
     this.isEditMode = false;
+    this.submitted = false;
+    this.isSubmitting = false;
     this.ticketForm.reset({
       clientId: null,
       project_id: null,
@@ -345,20 +557,31 @@ export class SelfTicketFormComponent {
       ticketDescription: '',
       client_comments: '',
       solution: '',
-      status: 1,
+      status: '',
       priority: 2,
       worked_hours: '00:00',
       stbModel: '',
-      stbVersion: ''
+      stbVersion: '',
+      ticketCategoryId: '',
+      modelName: null,
+      modelCode: null,
+      count: null
     });
+    this.modelCodeRequestSequence++;
+    this.modelCodeList = [];
+    this.filteredModelCodes = [];
+    this.modelCodeSearchText = '';
     this.ticketForm.markAsPristine();
     this.ticketForm.markAsUntouched();
   }
 
   onSubmit(): void {
+    if (this.isSubmitting) return;
+
     this.submitted = true;
     if (!this.ticketForm.valid || this.isWorkedHoursZero()) {
       this.ticketForm.markAllAsTouched();
+      this.toasterService.error('Please fill all required fields');
       return;
     }
 
@@ -366,6 +589,17 @@ export class SelfTicketFormComponent {
     const empId = this.storageService.getEmpId();
     const deptId = this.dept.find(d => d.department_name === this.storageService.getDept())?.id ?? 2;
     const companyId = this.storageService.getCompanyId();
+    const selectedModelName = this.isHardware ? this.getSelectedModelName() : '';
+    const selectedModelCode = this.isHardware ? this.getSelectedModelCode() : '';
+    const hardwarePayload = this.isHardware
+      ? {
+        count: Number(formValue.count),
+        stbModel: selectedModelName || formValue.stbModel || '',
+        stbVersion: selectedModelCode || formValue.stbVersion || '',
+        stb_model: selectedModelName || formValue.stbModel || '',
+        stb_version: selectedModelCode || formValue.stbVersion || ''
+      }
+      : {};
 
     const payload = {
       clientUserId: formValue.clientId,
@@ -377,7 +611,7 @@ export class SelfTicketFormComponent {
       empId: empId,
       ticketName: formValue.ticket_name,
       priority: formValue.priority,
-      ticketCategoryId: 3,
+      ticketCategoryId: formValue.ticketCategoryId,
       description: formValue.ticketDescription,
       status: formValue.status,
       workedHours: formValue.worked_hours || '00:00',
@@ -385,18 +619,19 @@ export class SelfTicketFormComponent {
       isreassign: false,
       deptId: deptId,
       solution: formValue.solution,
-      stbModel: formValue.stbModel || '',
-      stbVersion: formValue.stbVersion || '',
       deptHead: 4,
       deptHeadStatus: 0,
       updatedBy: this.storageService.getEmpId(),
       path: '',
       ...(!this.isEditMode && {
         assignedFrom: empId
-      })
+      }),
+      ...hardwarePayload
     };
 
     console.log('Ticket Payload:', payload);
+
+    this.isSubmitting = true;
 
     if (this.isEditMode && this.data?.id) {
       const updatePayload = {
@@ -404,7 +639,11 @@ export class SelfTicketFormComponent {
         id: this.data.id
       };
 
-      this.authService.updateTicket(updatePayload).subscribe({
+      this.authService.updateTicket(updatePayload).pipe(
+        finalize(() => {
+          this.isSubmitting = false;
+        })
+      ).subscribe({
         next: (res: any) => {
           this.toasterService.success(res?.message || 'Ticket updated successfully');
           this.drawerService.notifyAction({
@@ -422,7 +661,11 @@ export class SelfTicketFormComponent {
         }
       });
     } else {
-      this.authService.createTicket(payload).subscribe({
+      this.authService.createTicket(payload).pipe(
+        finalize(() => {
+          this.isSubmitting = false;
+        })
+      ).subscribe({
         next: (res: any) => {
           this.toasterService.success(res?.message || 'Ticket created successfully');
           this.drawerService.notifyAction({
@@ -466,6 +709,7 @@ export class SelfTicketFormComponent {
     });
   }
   isWorkedHoursZero(): boolean {
+    if (this.isHardware) return false;
     if (!this.submitted) return false;
 
     const value = this.ticketForm.get('worked_hours')?.value;
@@ -507,4 +751,234 @@ export class SelfTicketFormComponent {
     const version = String(value).trim();
     return version ? version : null;
   }
+
+  private normalizeModelMasterResponse(res: any): any[] {
+    const list = Array.isArray(res)
+      ? res
+      : (res?.details ?? res?.data ?? res?.modelMasterList ?? res?.modelMasters ?? res?.models ?? []);
+
+    return Array.isArray(list) ? list : [];
+  }
+
+  private normalizeModelCodeResponse(res: any): any[] {
+    const list = Array.isArray(res)
+      ? res
+      : (res?.details ?? res?.data ?? res?.modelCodeList ?? res?.modelCodes ?? res?.codes ?? []);
+
+    return Array.isArray(list) ? list : [];
+  }
+
+  getModelNameValue(model: any): any {
+    if (typeof model === 'string') {
+      return model;
+    }
+
+    return model?.id ?? model?.model_master_id ?? model?.modelMasterId ?? model?.value ?? this.getModelNameLabel(model);
+  }
+
+  getModelNameLabel(model: any): string {
+    if (typeof model === 'string') {
+      return model;
+    }
+
+    return String(model?.modelName ?? model?.model_name ?? model?.name ?? '');
+  }
+
+  getModelCodeValue(modelCode: any): any {
+    if (typeof modelCode === 'string') {
+      return modelCode;
+    }
+
+    return modelCode?.id
+      ?? modelCode?.model_code_id
+      ?? modelCode?.modelCodeId
+      ?? modelCode?.value
+      ?? this.getModelCodeLabel(modelCode);
+  }
+
+  getModelCodeLabel(modelCode: any): string {
+    if (typeof modelCode === 'string') {
+      return modelCode;
+    }
+
+    return String(modelCode?.model_code ?? modelCode?.modelCode ?? modelCode?.code ?? modelCode?.name ?? '');
+  }
+
+  getSelectedModelName(): string {
+    const selectedValue = this.ticketForm.get('modelName')?.value;
+    const selectedModelName = this.modelNameList.find(model =>
+      String(this.getModelNameValue(model)) === String(selectedValue)
+    );
+
+    return this.getModelNameLabel(selectedModelName) || String(selectedValue ?? '');
+  }
+
+  getSelectedModelCode(): string {
+    const selectedValue = this.ticketForm.get('modelCode')?.value;
+    const selectedModelCode = this.modelCodeList.find(modelCode =>
+      String(this.getModelCodeValue(modelCode)) === String(selectedValue)
+    );
+
+    return this.getModelCodeLabel(selectedModelCode) || String(selectedValue ?? '');
+  }
+
+  private patchModelFieldsFromData(): void {
+    if (!this.data) return;
+
+    const modelMasterId = this.getModelMasterControlValueFromData(this.data);
+    const modelCodeValue = this.getModelCodeControlValueFromData(this.data);
+
+    this.ticketForm.patchValue({
+      modelName: modelMasterId,
+      modelCode: modelCodeValue,
+      count: this.getCountFromData(this.data)
+    });
+
+    if (modelMasterId !== null) {
+      this.onModelNameChange(modelMasterId, false);
+    }
+  }
+
+  private getModelMasterControlValueFromData(data: any): any {
+    const directValue = data?.model_master_id
+      ?? data?.modelMasterId
+      ?? data?.modelNameId
+      ?? data?.model_name_id
+      ?? data?.stbModelId
+      ?? data?.stb_model_id;
+
+    if (directValue !== null && directValue !== undefined && String(directValue).trim() !== '') {
+      return directValue;
+    }
+
+    const modelName = data?.stb_model ?? data?.stbModel ?? data?.modelName ?? data?.model_name;
+    if (modelName === null || modelName === undefined || String(modelName).trim() === '') {
+      return null;
+    }
+
+    const normalizedModelName = this.normalizeComparableString(modelName);
+    const matchedModel = this.modelNameList.find(model =>
+      this.normalizeComparableString(this.getModelNameLabel(model)) === normalizedModelName
+    );
+
+    return matchedModel ? this.getModelNameValue(matchedModel) : null;
+  }
+
+  private getModelCodeControlValueFromData(data: any): any {
+    const directValue = data?.model_code_id
+      ?? data?.modelCodeId
+      ?? data?.model_code_master_id
+      ?? data?.modelCodeMasterId
+      ?? data?.stbVersionId
+      ?? data?.stb_version_id;
+
+    if (directValue !== null && directValue !== undefined && String(directValue).trim() !== '') {
+      return directValue;
+    }
+
+    const modelCode = data?.stb_version ?? data?.stbVersion ?? data?.model_code ?? data?.modelCode;
+    if (modelCode === null || modelCode === undefined || String(modelCode).trim() === '') {
+      return null;
+    }
+
+    const normalizedModelCode = this.normalizeComparableString(modelCode);
+    const matchedModelCode = this.modelCodeList.find(item =>
+      this.normalizeComparableString(this.getModelCodeLabel(item)) === normalizedModelCode
+    );
+
+    return matchedModelCode ? this.getModelCodeValue(matchedModelCode) : modelCode;
+  }
+
+  private getCountFromData(data: any): any {
+    const count = data?.count ?? data?.modelCount ?? data?.model_count ?? data?.stbCount ?? data?.stb_count;
+
+    return count === null || count === undefined || String(count).trim() === '' ? null : count;
+  }
+
+  private normalizeComparableString(value: any): string {
+    return String(value ?? '').trim().toLowerCase();
+  }
+
+  private workedHoursValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const value = control.value;
+
+      if (!value) {
+        return { required: true };
+      }
+
+      // Handles values like "00:00" or "00:00:00"
+      if (typeof value === 'string') {
+        const [hours = '0', minutes = '0'] = value.split(':');
+
+        if (+hours === 0 && +minutes === 0) {
+          return { zeroWorkedHours: true };
+        }
+      }
+
+      return null;
+    };
+  }
+
+  filterCategory(event: Event): void {
+    this.categorySearchText = (event.target as HTMLInputElement).value;
+    const value = this.categorySearchText.toLowerCase().trim();
+    this.filteredCategories = value
+      ? this.categories.filter(category =>
+        category.type?.toLowerCase().includes(value)
+      )
+      : [...this.categories];
+  }
+
+  filterTickets(event: Event): void {
+    this.ticketSearchText = (event.target as HTMLInputElement).value;
+    const value = this.ticketSearchText.toLowerCase().trim();
+    this.filteredTickets = value
+      ? this.tickets.filter(ticket =>
+        ticket?.name?.toLowerCase().includes(value)
+      )
+      : [...this.tickets];
+  }
+
+  getTicketsByCategory(id: number): void {
+    if (!id) {
+      this.tickets = [];
+      this.filteredTickets = [];
+      return;
+    }
+    this.authService.getTicketsByCategory(id).subscribe({
+      next: (res: any[]) => {
+        this.tickets = Array.isArray(res) ? res : [];
+        this.filteredTickets = [...this.tickets];
+
+        this.ticketSearchText = '';
+
+        const ticketName = this.data?.ticket_name || this.data?.ticketName;
+
+        if (ticketName) {
+          this.ticketForm.patchValue({
+            ticket_name: ticketName
+          });
+        }
+      },
+      error: (err: any) => {
+        console.error('getTicketsByCategory', err);
+      }
+    });
+  }
+
+  getCategoryName(): string {
+    const categoryId = this.ticketForm.get('ticketCategoryId')?.value;
+
+    return this.categories.find(
+      category => Number(category.id) === Number(categoryId)
+    )?.type || 'Select Category';
+  }
+  onCategorySelectOpened(opened: boolean): void {
+    if (!opened) return;
+
+    this.categorySearchText = '';
+    this.filteredCategories = [...this.categories];
+  }
+
 }

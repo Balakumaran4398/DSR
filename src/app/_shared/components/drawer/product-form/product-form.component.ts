@@ -1,5 +1,6 @@
 import { Component, Input, OnChanges, OnInit, SimpleChanges, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
@@ -20,6 +21,7 @@ export class ProductFormComponent implements OnInit, OnChanges {
 
   isEditMode = false;
   submitted = false;
+  isSubmitting = false;
 
   versions: string[] = [];
   filteredVersions: string[] = [];
@@ -172,6 +174,7 @@ export class ProductFormComponent implements OnInit, OnChanges {
   resetProductForm() {
     this.isEditMode = false;
     this.submitted = false;
+    this.isSubmitting = false;
     this.selectedVersions = [];
 
     this.productForm.reset({
@@ -190,6 +193,8 @@ export class ProductFormComponent implements OnInit, OnChanges {
   }
 
   onSubmit() {
+    if (this.isSubmitting) return;
+
     this.submitted = true;
 
     if (this.productForm.invalid) {
@@ -206,6 +211,7 @@ export class ProductFormComponent implements OnInit, OnChanges {
       productDescription: this.productForm.value.description
     };
 
+    this.isSubmitting = true;
     if (this.data) {
       this.updateProduct({
         ...payload,
@@ -219,6 +225,9 @@ export class ProductFormComponent implements OnInit, OnChanges {
   createProduct(payload: any) {
     console.log('createProduct', payload);
     this.authService.createProduct(payload)
+      .pipe(finalize(() => {
+        this.isSubmitting = false;
+      }))
       .subscribe({
         next: (res: any) => {
           this.toasterService.success(res?.message);
@@ -245,7 +254,11 @@ export class ProductFormComponent implements OnInit, OnChanges {
 
   updateProduct(payload: any) {
     console.log('update product', payload);
-    this.authService.updateProduct(payload).subscribe({
+    this.authService.updateProduct(payload)
+      .pipe(finalize(() => {
+        this.isSubmitting = false;
+      }))
+      .subscribe({
       next: (res: any) => {
         this.toasterService.success(res?.message);
         this.drawerService.notifyAction({

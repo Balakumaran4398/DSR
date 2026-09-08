@@ -1,9 +1,10 @@
 import { Component, ElementRef, HostListener, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { FormControl } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { Employee } from '../projects/project-info/release-manager/release-manager.component';
-import { map, Observable, startWith } from 'rxjs';
+import { finalize, map, Observable, startWith } from 'rxjs';
 import { PdfService } from 'src/app/_core/services/pdf.service';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
 interface Task {
@@ -11,6 +12,7 @@ interface Task {
   subtaskid: number;
   employee_name: string;
   project_title: string;
+  version: string;
   date: string;
   start_date: string;
   end_date: string;
@@ -39,7 +41,7 @@ export class TaskOverviewComponent implements OnInit {
   filteredOptions!: Observable<Employee[]>;
   viewMode: 'card' | 'table' = 'card';
 
-  constructor(private authService: AuthService, private storageService: StorageService, private pdfService: PdfService) {
+  constructor(private authService: AuthService, private storageService: StorageService, private pdfService: PdfService, private route: ActivatedRoute) {
     this.empId = storageService.getEmpId();
     this.getEmployeeList();
   }
@@ -57,6 +59,8 @@ export class TaskOverviewComponent implements OnInit {
   @ViewChild('taskTableDiv', { static: false }) taskTableDiv!: ElementRef;
   taskTable: any;
   taskData: any[] = [];
+  taskLoading = false;
+  pdfExporting = false;
   ngOnInit() {
     // const today = new Date();
 
@@ -69,11 +73,12 @@ export class TaskOverviewComponent implements OnInit {
     this.checkViewport();
     window.addEventListener('resize', () => this.checkViewport());
 
+    this.applyNavigationDateRange();
     this.filterTask();
- 
+
   }
- 
-  
+
+
   // // Getter to filter tasks dynamically
   // get filteredTasks(): Task[] {
   //   return this.tasks.filter(task => {
@@ -164,6 +169,8 @@ export class TaskOverviewComponent implements OnInit {
   }
 
   filterTask() {
+    this.taskLoading = true;
+    this.setTaskTableInlineLoading(true, 'Loading tasks...');
     this.authService
       .getDsrOverviewByEmpIdNdFromToDateNdUserId(
         this.selectedEmployee.id,
@@ -171,13 +178,27 @@ export class TaskOverviewComponent implements OnInit {
         this.formatDateToYMD(this.filterEndDate),
         this.empId
       )
-      .subscribe((res: any) => {
-        this.tasks = res || [];
-        this.taskData = [...this.tasks];
-        if (this.taskTable) {
-          this.taskTable.setData(this.taskData);
+      .pipe(finalize(() => {
+        this.taskLoading = false;
+        this.setTaskTableInlineLoading(false);
+      }))
+      .subscribe({
+        next: (res: any) => {
+          this.tasks = res || [];
+          this.taskData = [...this.tasks];
+          if (this.taskTable) {
+            this.taskTable.setData(this.taskData);
+          }
+          this.selectedTask = this.tasks.length > 0 ? this.tasks[0] : null;
+        },
+        error: () => {
+          this.tasks = [];
+          this.taskData = [];
+          if (this.taskTable) {
+            this.taskTable.setData(this.taskData);
+          }
+          this.selectedTask = null;
         }
-        this.selectedTask = this.tasks.length > 0 ? this.tasks[0] : null;
       });
   }
 
@@ -224,6 +245,34 @@ export class TaskOverviewComponent implements OnInit {
     const day = String(d.getDate()).padStart(2, '0');
 
     return `${year}-${month}-${day}`;
+  }
+
+  private applyNavigationDateRange(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const startDate = params.get('fromdate') || params.get('startDate');
+    const endDate = params.get('todate') || params.get('endDate');
+    const parsedStartDate = this.parseDateLocal(startDate);
+    const parsedEndDate = this.parseDateLocal(endDate);
+
+    if (!parsedStartDate || !parsedEndDate) {
+      return;
+    }
+
+    this.filterStartDate = parsedStartDate;
+    this.filterEndDate = parsedEndDate;
+  }
+
+  private parseDateLocal(value: string | null): Date | null {
+    if (!value) return null;
+
+    const ymdMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (ymdMatch) {
+      const [, year, month, day] = ymdMatch;
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
 
@@ -278,11 +327,20 @@ export class TaskOverviewComponent implements OnInit {
     return value !== null && value !== '';
   }
   generateDSRPdf() {
+    if (this.pdfExporting || !this.canDownloadPdf) return;
+
+    this.pdfExporting = true;
     const employee = this.selectedEmployee?.id === 0
       ? { ...this.selectedEmployee, employee_name: 'All Employee' }
       : this.selectedEmployee;
 
-    this.pdfService.generatePDF(employee, this.filterStartDate, this.filterEndDate, this.taskData);
+    setTimeout(() => {
+      try {
+        this.pdfService.generatePDF(employee, this.filterStartDate, this.filterEndDate, this.taskData);
+      } finally {
+        this.pdfExporting = false;
+      }
+    }, 0);
   }
   private getDateRangeLabel(): string {
     if (!this.filterStartDate || !this.filterEndDate) return '';
@@ -332,7 +390,7 @@ export class TaskOverviewComponent implements OnInit {
     return `${startLabel} – ${endLabel}`;
   }
 
-  get canDownloadPdf(): boolean {  
+  get canDownloadPdf(): boolean {
     const hasEmployeeSelection = this.myControl.value === 0 || !!this.myControl.value;
 
     return (
@@ -348,34 +406,38 @@ export class TaskOverviewComponent implements OnInit {
     this.viewMode = 'table';
     setTimeout(() => {
       if (!this.taskTableDiv) return;
-  
+
       if (this.taskTable) {
         this.taskTable.destroy();
         this.taskTable = null;
       }
-  
+
       this.initializeTaskTable();
     }, 0);
 
   }
-  
+
   openCardView() {
     this.viewMode = 'card';
+    this.setTaskTableInlineLoading(false);
   }
   onSearch(event: any) {
     const value = event.target.value?.toLowerCase().trim();
-  
+
     if (!this.taskTable) return;
-  
+
     if (!value) {
       this.taskTable.clearFilter();
       return;
     }
-  
+
     this.taskTable.setFilter((data: any) => {
       return (
         data.employee_name?.toLowerCase().includes(value) ||
         data.project_title?.toLowerCase().includes(value) ||
+        data.version?.toLowerCase().includes(value) ||
+        data.start_date?.toLowerCase().includes(value) ||
+        data.end_date?.toLowerCase().includes(value) ||
         data.task?.toLowerCase().includes(value) ||
         data.date?.toLowerCase().includes(value) ||
         data.worked_hours?.toString().includes(value) ||
@@ -383,8 +445,8 @@ export class TaskOverviewComponent implements OnInit {
       );
     });
   }
-  
-  
+
+
   initializeTaskTable() {
     this.taskTable = new Tabulator(this.taskTableDiv.nativeElement, {
       data: this.taskData,
@@ -395,7 +457,7 @@ export class TaskOverviewComponent implements OnInit {
       movableColumns: true,
       placeholder: "<div class='py-10 text-slate-500'>No tasks available</div>",
       columns: [
-  
+
         {
           title: "Employee",
           field: "employee_name",
@@ -405,25 +467,54 @@ export class TaskOverviewComponent implements OnInit {
               ${cell.getValue() || '-'}
             </span>`
         },
-  
+
         {
           title: "Project",
           field: "project_title",
+          minWidth: 150,
           formatter: (cell: any) =>
             `<span class="text-slate-600">
               ${cell.getValue() || '-'}
             </span>`
         },
-  
+
         {
+          title: "Version",
+          field: "version",
+          width: 110,
+          formatter: (cell: any) =>
+            `<span class="text-slate-600">
+              ${cell.getValue() || '-'} </span>`
+        },
+         {
           title: "Task",
           field: "task",
+          minWidth: 220,
           formatter: (cell: any) =>
             `<span class="text-slate-600">
               ${cell.getValue() || '-'}
+              ${cell.getValue() || '-'}
             </span>`
         },
-  
+ {
+          title: "Start Date",
+          field: "start_date",
+          width: 130,
+          formatter: (cell: any) =>
+            `<span class="text-slate-500">
+              ${cell.getValue() || '-'}
+            </span>`
+        },
+
+        {
+          title: "End Date",
+          field: "end_date",
+          width: 130,
+          formatter: (cell: any) =>
+            `<span class="text-slate-500">
+              ${cell.getValue() || '-'}
+            </span>`
+        },
         {
           title: "Date",
           field: "date",
@@ -433,7 +524,7 @@ export class TaskOverviewComponent implements OnInit {
               ${cell.getValue() || '-'}
             </span>`
         },
-  
+
         {
           title: "Hours",
           field: "worked_hours",
@@ -443,13 +534,13 @@ export class TaskOverviewComponent implements OnInit {
               ${cell.getValue() || 0} hrs
             </span>`
         },
-  
+
         {
           title: "Progress",
           field: "completion_percentage",
           formatter: (cell: any) => {
             const value = cell.getValue() || 0;
-  
+
             return `
               <div class="flex items-center gap-3">
                 <div class="w-28 bg-slate-200 rounded-full h-2">
@@ -466,8 +557,33 @@ export class TaskOverviewComponent implements OnInit {
         }
       ],
     });
+    if (this.taskLoading) {
+      this.setTaskTableInlineLoading(true, 'Loading tasks...');
+    }
     attachTabulatorPaginationPersistence(this.taskTable, buildTabulatorPaginationKey('task-overview-table'));
   }
-  
-    
+
+  private setTaskTableInlineLoading(loading: boolean, label = 'Loading data...'): void {
+    const host = this.taskTableDiv?.nativeElement as HTMLElement | undefined;
+    if (!host) return;
+
+    let loader = host.querySelector<HTMLElement>(':scope > .app-table-inline-loader');
+    if (!loading) {
+      loader?.remove();
+      return;
+    }
+
+    if (!loader) {
+      loader = document.createElement('div');
+      loader.className = 'app-table-inline-loader';
+      host.appendChild(loader);
+    }
+
+    loader.innerHTML = `
+      <div class="app-local-loading">
+        <i class="ri-loader-4-line app-spin"></i>
+        <span>${label}</span>
+      </div>
+    `;
+  }
 }

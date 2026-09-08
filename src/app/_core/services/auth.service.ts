@@ -1,45 +1,224 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
 
 import { Router } from '@angular/router';
 import { StorageService } from './storage.service';
 import { URL } from 'src/app/api.base';
-import { Observable } from 'rxjs';
+import { BehaviorSubject, catchError, concat, defer, EMPTY, Observable, of, Subscription, throwError } from 'rxjs';
+import { finalize, tap } from 'rxjs/operators';
+import { NotificationDateRange, NotificationDateRangeService } from './notification-date-range.service';
 
 const AUTH_URL = URL.AUTH_URL();
 const BASE_URL = URL.BASE_URL();
+const LOADER_SHOW_HEADER = 'X-Show-Loader';
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
 
+  private readonly apiCachePrefix = 'dsr-api-cache:v1:';
+
   constructor(
     private http: HttpClient,
     private storageService: StorageService,
-    private router: Router
+    private router: Router,
+    private notificationDateRangeService: NotificationDateRangeService
   ) { }
+
+  private readonly notificationDataSubject = new BehaviorSubject<any | null>(null);
+  readonly notificationData$ = this.notificationDataSubject.asObservable();
+  private readonly notificationLoadingSubject = new BehaviorSubject<boolean>(false);
+  readonly notificationLoading$ = this.notificationLoadingSubject.asObservable();
+  private notificationRequest?: Subscription;
+  private notificationRequestKey: string | null = null;
+  private notificationLoadedKey: string | null = null;
+  private notificationRequestVersion = 0;
+  private notificationLoadingRequests = 0;
 
   // -----------------------------
   // LOGIN
   // -----------------------------
   signin(payload: { username: string; password: string }) {
-    return this.http.post(`${AUTH_URL}/signin`, payload);
+    return this.http.post(`${AUTH_URL}/signin`, payload, {
+      // headers: new HttpHeaders({ [LOADER_SHOW_HEADER]: 'true' })
+    });
   }
 
   // -----------------------------
   // LOGOUT (NO API CALL)
   // -----------------------------
   logout(): void {
+    this.resetNotificationCount();
+    this.clearPersistentApiCache();
     this.storageService.logout();
     this.router.navigate(['/login']);
+  }
+
+  loadNotificationCount(range: NotificationDateRange = this.notificationDateRangeService.currentRange): void {
+    this.requestNotificationCount(range, false);
+  }
+
+  refreshNotificationCount(range: NotificationDateRange): void {
+    this.requestNotificationCount(range, true);
+  }
+
+  resetNotificationCount(): void {
+    this.notificationRequestVersion++;
+    this.notificationRequest?.unsubscribe();
+    this.notificationRequest = undefined;
+    this.notificationRequestKey = null;
+    this.notificationLoadedKey = null;
+    this.notificationDataSubject.next(null);
+    this.notificationLoadingRequests = 0;
+    this.notificationLoadingSubject.next(false);
+    this.notificationDateRangeService.resetToCurrentMonth();
+  }
+
+  private requestNotificationCount(range: NotificationDateRange, force: boolean): void {
+    const empId = this.storageService.getEmpId();
+    const requestKey = `${empId ?? ''}|${range.startDate}|${range.endDate}`;
+
+    if (!force && (requestKey === this.notificationLoadedKey || requestKey === this.notificationRequestKey)) {
+      return;
+    }
+
+    if (this.notificationRequest) {
+      this.notificationRequest.unsubscribe();
+      this.notificationRequest = undefined;
+      this.endNotificationLoading();
+    }
+    const requestVersion = ++this.notificationRequestVersion;
+    this.notificationRequestKey = requestKey;
+    this.beginNotificationLoading();
+
+    this.notificationRequest = this.getNotificationCountRequest(empId, range.startDate, range.endDate, true, () => {
+      // Mark the key only after the background request has returned successfully.
+      if (requestVersion === this.notificationRequestVersion) {
+        this.notificationLoadedKey = requestKey;
+      }
+    }).subscribe({
+      next: (response: any) => {
+        if (requestVersion !== this.notificationRequestVersion) return;
+
+        this.notificationDataSubject.next(response);
+      },
+      error: (error: any) => {
+        if (requestVersion !== this.notificationRequestVersion) return;
+
+        this.endNotificationLoading();
+        this.notificationRequest = undefined;
+        this.notificationRequestKey = null;
+        console.error('getNotificationCount error', error);
+      },
+      complete: () => {
+        if (requestVersion !== this.notificationRequestVersion) return;
+
+        this.endNotificationLoading();
+        this.notificationRequest = undefined;
+        this.notificationRequestKey = null;
+      }
+    });
+  }
+
+  private beginNotificationLoading(): void {
+    this.notificationLoadingRequests++;
+    this.notificationLoadingSubject.next(true);
+  }
+
+  private endNotificationLoading(): void {
+    this.notificationLoadingRequests = Math.max(0, this.notificationLoadingRequests - 1);
+    this.notificationLoadingSubject.next(this.notificationLoadingRequests > 0);
+  }
+
+  private getCachedAndRefresh<T>(
+    cacheKey: string,
+    requestFactory: (hasCachedResponse: boolean) => Observable<T>,
+    onFreshResponse?: (response: T) => void
+  ): Observable<T> {
+    const cached = this.readPersistentCache<T>(cacheKey);
+    const cachedResponse$ = cached.found ? of(cached.value as T) : EMPTY;
+    const freshResponse$ = requestFactory(cached.found).pipe(
+      tap(response => {
+        this.writePersistentCache(cacheKey, response);
+        onFreshResponse?.(response);
+      }),
+      catchError(error => cached.found ? EMPTY : throwError(() => error))
+    );
+
+    return concat(cachedResponse$, freshResponse$);
+  }
+
+  private createCacheKey(name: string, params: unknown[]): string {
+    return `${this.apiCachePrefix}${name}:${encodeURIComponent(JSON.stringify(params))}`;
+  }
+
+  private readPersistentCache<T>(cacheKey: string): { found: boolean; value?: T } {
+    try {
+      if (typeof localStorage === 'undefined') {
+        return { found: false };
+      }
+
+      const raw = localStorage.getItem(cacheKey);
+      if (!raw) {
+        return { found: false };
+      }
+
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Object.prototype.hasOwnProperty.call(parsed, 'value')) {
+        return { found: false };
+      }
+
+      return { found: true, value: parsed.value as T };
+    } catch {
+      return { found: false };
+    }
+  }
+
+  private writePersistentCache<T>(cacheKey: string, value: T): void {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(cacheKey, JSON.stringify({ value }));
+      }
+    } catch {
+      // Caching is an enhancement; an unavailable or full storage must not break the API response.
+    }
+  }
+
+  private clearPersistentApiCache(): void {
+    try {
+      if (typeof localStorage === 'undefined') {
+        return;
+      }
+
+      const cacheKeys: string[] = [];
+      for (let index = 0; index < localStorage.length; index++) {
+        const key = localStorage.key(index);
+        if (key?.startsWith(this.apiCachePrefix)) {
+          cacheKeys.push(key);
+        }
+      }
+
+      cacheKeys.forEach(key => localStorage.removeItem(key));
+    } catch {
+      // Ignore storage cleanup failures during logout.
+    }
   }
 
   getAllShifts() {
     return this.http.get(`${BASE_URL}/common/getallshifts`);
   }
   getAllDepartments(): Observable<any> {
-    return this.http.get<any[]>(`${BASE_URL}/department/getalldepartments`);
+    const cacheKey = this.createCacheKey('all-departments', []);
+    const url = `${BASE_URL}/department/getalldepartments`;
+
+    return this.getCachedAndRefresh(cacheKey, hasCachedResponse => {
+      const options = hasCachedResponse
+        ? { headers: new HttpHeaders({ 'X-Skip-Loader': 'true' }) }
+        : {};
+
+      return this.http.get<any[]>(url, options);
+    });
   }
   getDesignationByDepartment(department_id: any) {
     return this.http.get(`${BASE_URL}/department/designationbydepartment?department_id=${department_id}`);
@@ -86,7 +265,16 @@ export class AuthService {
   }
 
   getEmployeeList(): Observable<any[]> {
-    return this.http.get<any[]>(`${BASE_URL}/user/getemployeelist`);
+    const cacheKey = this.createCacheKey('employee-list', []);
+    const url = `${BASE_URL}/user/getemployeelist`;
+
+    return this.getCachedAndRefresh(cacheKey, hasCachedResponse => {
+      const options = hasCachedResponse
+        ? { headers: new HttpHeaders({ 'X-Skip-Loader': 'true' }) }
+        : {};
+
+      return this.http.get<any[]>(url, options);
+    });
   }
 
   getAllProjectsByEmployeeId(employee_id: any) {
@@ -129,16 +317,52 @@ export class AuthService {
   }
 
   getReleaseOverviewByEmp(payload: any) {
-    return this.http.get(`${BASE_URL}/release/releaseoverview?employee_id=${payload.employee_id}&projectid=${payload.projectid}&fromdate=${payload.fromdate}&todate=${payload.todate}`)
+    const departmentId = payload?.department_id ?? payload?.departmentId ?? payload?.dept_id ?? payload?.deptId ?? '';
+    const departmentQuery = `${departmentId}`.trim()
+      ? `&department_id=${encodeURIComponent(departmentId)}`
+      : '';
+    const managerName = payload?.manager_name ?? payload?.managerName ?? payload?.manager ?? '';
+    const managerQuery = `${managerName}`.trim()
+      ? `&manager_name=${encodeURIComponent(managerName)}`
+      : '';
+    const selectedEmployeeId = payload?.selected_emp_id ?? payload?.selectedEmpId ?? payload?.selected_employee_id ?? payload?.selectedEmployeeId ?? 0;
+    const selectedEmployeeQuery = `&selected_emp_id=${encodeURIComponent(`${selectedEmployeeId || 0}`)}`;
+
+    return this.http.get(`${BASE_URL}/release/releaseoverview?employee_id=${payload.employee_id}${selectedEmployeeQuery}&projectid=${payload.projectid}&fromdate=${payload.fromdate}&todate=${payload.todate}${departmentQuery}${managerQuery}`)
   }
   getReleaseOverviewListByEmp(payload: any) {
-    return this.http.get(`${BASE_URL}/release/releaseoverviewList?employee_id=${payload.employee_id}&projectid=${payload.projectid}&fromdate=${payload.fromdate}&todate=${payload.todate}`)
+    const departmentId = payload?.department_id ?? payload?.departmentId ?? payload?.dept_id ?? payload?.deptId ?? '';
+    const departmentQuery = `${departmentId}`.trim()
+      ? `&department_id=${encodeURIComponent(departmentId)}`
+      : '';
+    const managerName = payload?.manager_name ?? payload?.managerName ?? payload?.manager ?? '';
+    const managerQuery = `${managerName}`.trim()
+      ? `&manager_name=${encodeURIComponent(managerName)}`
+      : '';
+    const selectedEmployeeId = payload?.selected_emp_id ?? payload?.selectedEmpId ?? payload?.selected_employee_id ?? payload?.selectedEmployeeId ?? 0;
+    const selectedEmployeeQuery = `&selected_emp_id=${encodeURIComponent(`${selectedEmployeeId || 0}`)}`;
+
+    return this.http.get(`${BASE_URL}/release/releaseoverviewList?employee_id=${payload.employee_id}${selectedEmployeeQuery}&projectid=${payload.projectid}&fromdate=${payload.fromdate}&todate=${payload.todate}${departmentQuery}${managerQuery}`)
   }
 
   getNotsendTasks(payload: any) {
     return this.http.get(
       `${BASE_URL}/common/getnotsenddsr?employee_id=${payload.employee_id}&selected_employee_id=${payload.selected_employee_id}&fromdate=${payload.fromdate}&todate=${payload.todate}`
     )
+  }
+
+  getBestEmployee(payload: { employee_id: any; department_id: any; fromdate: string; todate: string; top?: number }): Observable<any> {
+    const params = new HttpParams()
+      .set('employee_id', `${payload.employee_id ?? ''}`)
+      .set('department_id', `${payload.department_id ?? ''}`)
+      .set('fromdate', payload.fromdate)
+      .set('todate', payload.todate)
+      .set('top', `${payload.top ?? 3}`);
+
+    return this.http.get(`${BASE_URL}/common/getbestemployee`, {
+      params,
+      headers: new HttpHeaders({ 'X-Skip-Loader': 'true' })
+    });
   }
 
   deleteTask(username: string, task_id: number) {
@@ -155,7 +379,26 @@ export class AuthService {
   }
 
   getStatusList(): Observable<any> {
-    return this.http.get(`${BASE_URL}/common/getstatuslist`);
+    const cacheKey = this.createCacheKey('status-list', []);
+    const url = `${BASE_URL}/common/getstatuslist`;
+
+    return this.getCachedAndRefresh(cacheKey, hasCachedResponse => {
+      const options = hasCachedResponse
+        ? { headers: new HttpHeaders({ 'X-Skip-Loader': 'true' }) }
+        : {};
+
+      return this.http.get(url, options);
+    });
+  }
+
+  getModelMaster(): Observable<any> {
+    return this.http.get(`${BASE_URL}/common/getmodelmaster`);
+  }
+
+  getModelCodeList(modelMasterId: any): Observable<any> {
+    const params = new HttpParams().set('model_master_id', `${modelMasterId}`);
+
+    return this.http.get(`${BASE_URL}/common/modelcodelist`, { params });
   }
 
   getSubtasks(taskid: any) {
@@ -236,8 +479,26 @@ export class AuthService {
     return this.http.get<string[]>(`${BASE_URL}/release/versionsbyproject`, { params: { projectid: project_id } });
   }
   // Dashboard ==========
-  getDashboardDetailsByEmployeeId(employee_id: any, project_id: any) {
-    return this.http.get(`${BASE_URL}/common/dashboarddetails?employee_id=${employee_id}&project_id=${project_id}`);
+  // getDashboardDetailsByEmployeeId(employee_id: any, project_id: any) {
+  //   return this.http.get(`${BASE_URL}/common/dashboarddetails?employee_id=${employee_id}&project_id=${project_id}`);
+  // }
+  getDashboardDetailsByEmployeeId(employee_id: any, project_id: any, fromDate: any = '', toDate: any = '', departmentId: any = '', managerName: any = '') {
+    const departmentQuery = `${departmentId ?? ''}`.trim()
+      ? `&department_id=${encodeURIComponent(departmentId)}`
+      : '';
+    const managerQuery = `${managerName ?? ''}`.trim()
+      ? `&manager_name=${encodeURIComponent(managerName)}`
+      : '';
+    const cacheKey = this.createCacheKey('dashboarddetails', [employee_id, project_id, fromDate, toDate, departmentId, managerName]);
+    const url = `${BASE_URL}/common/dashboarddetails?employee_id=${employee_id}&project_id=${project_id}&fromDate=${fromDate}&toDate=${toDate}${departmentQuery}${managerQuery}`;
+
+    return this.getCachedAndRefresh(cacheKey, hasCachedResponse => {
+      const options = hasCachedResponse
+        ? { headers: new HttpHeaders({ 'X-Skip-Loader': 'true' }) }
+        : {};
+
+      return this.http.get(url, options);
+    });
   }
   getActivityLogs(type: any, id: any, tag: any) {
     return this.http.get(`${BASE_URL}/common/gettasklog?type=${type}&id=${id}&tag=${tag}`);
@@ -313,7 +574,7 @@ export class AuthService {
 
 
 
-  getAllMails(empId: number, userId: number,fromdate:any,todate:any): Observable<any[]> {
+  getAllMails(empId: number, userId: number, fromdate: any, todate: any): Observable<any[]> {
     return this.http.get<any[]>(`${BASE_URL}/release/getAllMails?empid=${empId}&user_id=${userId}&fromdate=${fromdate}&todate=${todate}`);
   }
 
@@ -330,7 +591,16 @@ export class AuthService {
   }
 
   getAllClients(): Observable<any[]> {
-    return this.http.get<any[]>(`${BASE_URL}/client/allClient`);
+    const cacheKey = this.createCacheKey('all-clients', []);
+    const url = `${BASE_URL}/client/allClient`;
+
+    return this.getCachedAndRefresh(cacheKey, hasCachedResponse => {
+      const options = hasCachedResponse
+        ? { headers: new HttpHeaders({ 'X-Skip-Loader': 'true' }) }
+        : {};
+
+      return this.http.get<any[]>(url, options);
+    });
   }
 
   deleteClient(id: number) {
@@ -338,7 +608,20 @@ export class AuthService {
   }
 
   getAllTickets(empId: number, userId: number, fromDate: string, toDate: string): Observable<any[]> {
-    return this.http.get<any[]>(`${BASE_URL}/ticket/allTickets?empid=${empId}&userId=${userId}&fromDate=${fromDate}&toDate=${toDate}`);
+    const cacheKey = this.createCacheKey('all-tickets', [empId, userId, fromDate, toDate]);
+    const url = `${BASE_URL}/ticket/allTickets?empid=${empId}&userId=${userId}&fromDate=${fromDate}&toDate=${toDate}`;
+
+    return this.getCachedAndRefresh(cacheKey, hasCachedResponse => {
+      const options = hasCachedResponse
+        ? { headers: new HttpHeaders({ 'X-Skip-Loader': 'true' }) }
+        : {};
+
+      return this.http.get<any[]>(url, options);
+    });
+  }
+
+  getTicketReportByDept(deptId: any, fromDate: string, toDate: string): Observable<any> {
+    return this.http.get<any>(`${BASE_URL}/ticket/ticketReportByDept?deptId=${deptId}&fromDate=${fromDate}&toDate=${toDate}`);
   }
 
   createTicket(payload: any): Observable<any> {
@@ -361,22 +644,73 @@ export class AuthService {
     return this.http.get<any[]>(`${BASE_URL}/ticket/getEmployeeListByDepartment/${id}`);
   }
   // -------Products ----------------
-    //Products
-  getAllProducts(){
-    return this.http.get<any[]>(`${BASE_URL}/product/all`)
+  //Products
+  getAllProducts() {
+    const cacheKey = this.createCacheKey('all-products', []);
+    const url = `${BASE_URL}/product/all`;
+
+    return this.getCachedAndRefresh(cacheKey, hasCachedResponse => {
+      const options = hasCachedResponse
+        ? { headers: new HttpHeaders({ 'X-Skip-Loader': 'true' }) }
+        : {};
+
+      return this.http.get<any[]>(url, options);
+    });
   }
 
-  createProduct(payload : any){
+  createProduct(payload: any) {
     return this.http.post(`${BASE_URL}/product/create`, payload);
   }
 
-  deleteProduct(id : number){
+  deleteProduct(id: number) {
     return this.http.delete(`${BASE_URL}/product/delete/${id}`);
   }
 
-  updateProduct(payload : any) {
-    return this.http.post(`${BASE_URL}/product/update`,payload);
+  updateProduct(payload: any) {
+    return this.http.post(`${BASE_URL}/product/update`, payload);
   }
 
+  getNotificationCount(empId: string | null, fromDate: string, toDate: string, skipLoader = false) {
+    return defer(() => {
+      this.beginNotificationLoading();
+      return this.getNotificationCountRequest(empId, fromDate, toDate, skipLoader).pipe(
+        finalize(() => this.endNotificationLoading())
+      );
+    });
+  }
+
+  getGoogleSheetLinksByEmployeeId(employeeId: string | number): Observable<any> {
+    const params = new HttpParams().set('employeeid', `${employeeId}`);
+    return this.http.get(`${BASE_URL}/common/googlesheetlinkid`, { params });
+  }
+
+  getAllGoogleSheetLinks(): Observable<any> {
+    return this.http.get(`${BASE_URL}/common/googlesheetlinksall`);
+  }
+
+  private getNotificationCountRequest(
+    empId: string | null,
+    fromDate: string,
+    toDate: string,
+    skipLoader = false,
+    onFreshResponse?: () => void
+  ) {
+    const cacheKey = this.createCacheKey('notification-count', [empId, fromDate, toDate]);
+    const url = `${BASE_URL}/common/getNotificationCount?empid=${empId}&fromDate=${fromDate}&toDate=${toDate}`;
+
+    return this.getCachedAndRefresh(cacheKey, hasCachedResponse => {
+      const options = (skipLoader || hasCachedResponse)
+        ? { headers: new HttpHeaders({ 'X-Skip-Loader': 'true' }) }
+        : {};
+
+      return this.http.get(url, options);
+    }, () => onFreshResponse?.());
+  }
+  getProjectById(id : any) {
+    return this.http.get(`${BASE_URL}/project/getProjectById?project_id=${id}`)
+  }
+  getTicketsByCategory(ticketCategoryId: any): Observable<any> {
+    return this.http.get<any>(`${BASE_URL}/ticket/getTicketCategoryData/${ticketCategoryId}`);
+  }
 
 }

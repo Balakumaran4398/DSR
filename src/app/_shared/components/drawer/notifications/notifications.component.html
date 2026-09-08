@@ -1,0 +1,304 @@
+<div class="space-y-4 font-sans text-slate-800">
+  <div
+    class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs relative">
+    <div>
+      <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Activity Summary</div>
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 mt-0.5 flex items-center gap-2">
+        Notifications
+        <span
+          class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/60">
+          {{ total }} items
+        </span>
+      </h2>
+    </div>
+
+    <div class="flex items-center gap-2 relative mr-5">
+      <div class="relative">
+        <button type="button" (click)="isDropdownOpen = !isDropdownOpen"
+          class="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 transition-all">
+          <span class="w-2 h-2 rounded-full" [style.background-color]="'var(--brand-color)'"></span>
+          <span>{{ getSelectedLabel() }}</span>
+          <svg class="h-3.5 w-3.5 text-slate-400 transition-transform duration-200" [class.rotate-180]="isDropdownOpen"
+            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <div *ngIf="isDropdownOpen" #customPopup (click)="$event.stopPropagation()"
+          class="absolute right-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-40 py-1.5 w-36 overflow-hidden">
+          <button type="button" (click)="selectPreset('weekly')"
+            class="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors">Weekly</button>
+          <button type="button" (click)="selectPreset('bi-weekly')"
+            class="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors">Bi-Weekly</button>
+          <button type="button" (click)="selectPreset('monthly')"
+            class="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors">This
+            Month</button>
+        </div>
+        <div *ngIf="isDropdownOpen" (click)="isDropdownOpen = false" class="fixed inset-0 z-30"></div>
+      </div>
+
+      <button type="button" (click)="$event.stopPropagation(); selectPreset('custom')"
+        [style.background-color]="selectedPreset === 'custom' ? 'var(--brand-color)' : ''"
+        [style.border-color]="selectedPreset === 'custom' ? 'var(--brand-color)' : ''"
+        [class.text-white]="selectedPreset === 'custom'"
+        class="inline-flex items-center justify-center p-2 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 transition-all text-xs font-semibold"
+        title="Custom Date Range">
+        <svg class="h-4 w-4" [class.text-white]="selectedPreset === 'custom'"
+          [class.text-slate-500]="selectedPreset !== 'custom'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </button>
+
+      <div *ngIf="isCustomOpen" #customPopup (click)="$event.stopPropagation()"
+        class="absolute right-0 top-full mt-2 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xl z-50 flex flex-col gap-3 w-80">
+        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Custom Date Filter</div>
+        <mat-form-field appearance="outline" class="text-sm custom-date-range w-full" subscriptSizing="dynamic">
+          <mat-date-range-input [rangePicker]="picker">
+            <input matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate" class="text-xs" />
+            <input matEndDate placeholder="End Date" [(ngModel)]="filterEndDate" class="text-xs" />
+          </mat-date-range-input>
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-date-range-picker #picker></mat-date-range-picker>
+        </mat-form-field>
+        <button type="button" (click)="applyCustomFilter()" [disabled]="!filterStartDate || !filterEndDate"
+          [style.background-color]="'var(--brand-color)'"
+          class="w-full py-2.5 text-[var(--bg-body)] text-xs font-semibold rounded-xl hover:opacity-95 transition-opacity disabled:opacity-50">
+          Apply Filter Range
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="space-y-4 font-sans text-slate-800">
+
+    <!-- Main Accordion/Sections Container -->
+    <div class="grid grid-cols-1 gap-3">
+
+      <div
+        class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden transition-all shadow-xs hover:border-orange-200">
+        <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
+          (click)="toggleExpand()">
+          <div class="flex items-center gap-3">
+            <div
+              class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm border border-amber-100">
+              {{ issues }}
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Active Issues</h3>
+              <p class="text-xs text-slate-600">Bugs and requirements requiring attention</p>
+            </div>
+          </div>
+          <div
+            class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 transition-transform duration-300"
+            [class.rotate-180]="isExpanded">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Smooth Primary Expand Container -->
+        <div class="grid transition-all duration-300 ease-in-out"
+          [style.grid-template-rows]="isExpanded ? '1fr' : '0fr'">
+          <div class="overflow-hidden">
+            <div class="px-4 pb-4 pt-1 border-t border-slate-100 space-y-2">
+              <div *ngIf="projectsWithIssues.length === 0" class="text-xs text-slate-400 py-4 text-center">
+                No project issues available.
+              </div>
+
+              <div *ngFor="let proj of projectsWithIssues"
+                class="rounded-xl border border-slate-100 bg-slate-50/40 overflow-hidden">
+                <div
+                  class="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-100/60 transition-colors"
+                  (click)="navigateToProject(proj.project_id)">
+                  <span class="text-xs font-bold text-slate-800">{{ proj.project_title }}</span>
+                  <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[10px]">
+                      {{ proj.issue_count }}
+                    </span>
+                    <button *ngIf="proj.issue_count > 0" type="button"
+                      (click)="toggleProjectExpand(proj.project_id, $event)"
+                      class="p-1 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors">
+                      <svg class="h-3.5 w-3.5 transition-transform duration-200"
+                        [class.rotate-180]="expandedProjects[proj.project_id]" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Smooth Sub-Expand with max 7 items height & scroll -->
+                <div class="grid transition-all duration-300 ease-in-out"
+                  [style.grid-template-rows]="expandedProjects[proj.project_id] ? '1fr' : '0fr'">
+                  <div class="overflow-hidden">
+                    <div class="bg-white p-2 border-t border-slate-100">
+                      <div class="max-h-[250px] overflow-y-auto pr-1 space-y-1 custom-scrollbar">
+                        <div *ngFor="let issue of proj.issues; let i = index"
+                          (click)="navigateToIssue(proj.project_id, issue.issue_id)"
+                          class="flex items-center justify-between text-xs py-2 px-3 rounded-lg hover:bg-slate-50 text-slate-600 transition-all cursor-pointer font-medium group">
+                          <div class="flex items-center gap-2.5 truncate">
+                            <span class="text-slate-600 font-mono text-[10px]">{{ i + 1 }}</span>
+                            <span class="truncate">{{ issue.issue_title }}</span>
+                          </div>
+                          <svg class="h-3.5 w-3.5 text-slate-300 group-hover:translate-x-0.5 transition-transform"
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Release Card Group -->
+      <div
+        class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden transition-all shadow-xs hover:border-indigo-200">
+        <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
+          (click)="toggleReleaseExpand()">
+          <div class="flex items-center gap-3">
+            <div
+              class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm border border-indigo-100">
+              {{ release }}
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Project Releases</h3>
+              <p class="text-xs text-slate-600">Deployed versions and build updates</p>
+            </div>
+          </div>
+          <div
+            class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 transition-transform duration-300"
+            [class.rotate-180]="isReleaseExpanded">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="grid transition-all duration-300 ease-in-out"
+          [style.grid-template-rows]="isReleaseExpanded ? '1fr' : '0fr'">
+          <div class="overflow-hidden">
+            <div class="px-4 pb-4 pt-1 border-t border-slate-100 space-y-2">
+              <div *ngIf="projectsWithReleases.length === 0" class="text-xs text-slate-400 py-4 text-center">
+                No releases available.
+              </div>
+
+              <div *ngFor="let proj of projectsWithReleases"
+                class="rounded-xl border border-slate-100 bg-slate-50/40 overflow-hidden">
+                <div
+                  class="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-100/60 transition-colors"
+                  (click)="navigateToProject(proj.project_id, 'release')">
+                  <span class="text-xs font-bold text-slate-800">{{ proj.project_title }}</span>
+                  <span class="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-bold text-[10px]">
+                    {{ proj.release_count }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ticket Card Group -->
+      <div
+        class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden transition-all shadow-xs hover:border-rose-200">
+        <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
+          (click)="toggleTicketExpand()">
+          <div class="flex items-center gap-3">
+            <div
+              class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-sm border border-rose-100">
+              {{ ticket_count }}
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Tickets</h3>
+              <p class="text-xs text-slate-600">Assigned tickets</p>
+            </div>
+          </div>
+          <div
+            class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 transition-transform duration-300"
+            [class.rotate-180]="isTicketExpanded">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Smooth Ticket Expand with max 7 items height & scroll -->
+        <div class="grid transition-all duration-300 ease-in-out"
+          [style.grid-template-rows]="isTicketExpanded ? '1fr' : '0fr'">
+          <div class="overflow-hidden">
+            <div class="px-4 pb-4 pt-1 border-t border-slate-100">
+              <div *ngIf="tickets.length === 0" class="text-xs text-slate-400 py-4 text-center">
+                No tickets available.
+              </div>
+              <div class="max-h-[250px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                <div *ngFor="let ticket of tickets"
+                  class="rounded-xl border border-slate-100 bg-slate-50/40 overflow-hidden">
+                  <div
+                    class="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-100/60 transition-colors"
+                    (click)="navigateToTicket(ticket)">
+                    <span class="text-xs font-bold text-slate-800">{{ ticket.ticket_title }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- 4. Not sent DSR Card Group -->
+      <div
+        class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden transition-all shadow-xs hover:border-emerald-200">
+        <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
+          (click)="toggleDsrExpand()">
+          <div class="flex items-center gap-3">
+            <div
+              class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm border border-emerald-100">
+              {{ dsrCount }}
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Not sent DSR</h3>
+              <p class="text-xs text-slate-600">Missing daily status update</p>
+            </div>
+          </div>
+          <div
+            class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 transition-transform duration-300"
+            [class.rotate-180]="isDsrExpanded">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="grid transition-all duration-300 ease-in-out"
+          [style.grid-template-rows]="isDsrExpanded ? '1fr' : '0fr'">
+          <div class="overflow-hidden">
+            <div class="px-4 pb-4 pt-1 border-t border-slate-100">
+              <div *ngIf="dsr.length === 0" class="text-xs text-slate-400 py-4 text-center">
+                Everyone submitted their daily report.
+              </div>
+              <div class="max-h-[250px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                <div *ngFor="let d of dsr" class="rounded-xl border border-slate-100 bg-slate-50/40 overflow-hidden">
+                  <div
+                    class="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-100/60 transition-colors"
+                    (click)="navigateTodsr()">
+                    <span class="text-xs font-bold text-slate-800">{{ d.employee_name }}</span>
+                    <span class="text-xs font-bold text-slate-800">{{ d.date }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>

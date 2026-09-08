@@ -1,5 +1,5 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
-import { Subject, takeUntil } from 'rxjs';
+import { finalize, Subject, Subscription, takeUntil } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
@@ -19,12 +19,17 @@ export class ClientsComponent {
   @ViewChild('tableDiv') tableDiv!: ElementRef;
   private table: any;
   private destroy$ = new Subject<void>();
+  private clientRequest?: Subscription;
+  private clientRequestVersion = 0;
+  private tableInitTimer?: ReturnType<typeof setTimeout>;
   searchTerm: any = '';
   clients: any[] = []
   selectedCount = 0;
   showBar = false;
   showMoveMenu = false;
   role : any = '';
+  clientsLoading = false;
+  deletingClientId: number | null = null;
 
   constructor(
     private drawerService: DrawerService,
@@ -56,22 +61,78 @@ export class ClientsComponent {
 
 
   getAllClients() {
-    this.authService.getAllClients().subscribe({
-      next: (res: any[]) => {
-        this.clients = res;
-        console.log(res);
-        setTimeout(() => {
-          this.initializeTable();
-        }, 100);
-      },
-      error: (err: any) => {
-        console.log('getAllclientsError', err);
-      }
-    });
+    const requestVersion = ++this.clientRequestVersion;
+    this.clientRequest?.unsubscribe();
+
+    this.clientsLoading = true;
+    this.clientRequest = this.authService.getAllClients()
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          if (requestVersion === this.clientRequestVersion) {
+            this.clientsLoading = false;
+            this.clientRequest = undefined;
+          }
+        })
+      )
+      .subscribe({
+        next: (res: any[]) => {
+          if (requestVersion !== this.clientRequestVersion) return;
+
+          this.clients = this.normalizeClientsResponse(res);
+          this.renderTable();
+        },
+        error: (err: any) => {
+          if (requestVersion !== this.clientRequestVersion) return;
+
+          this.clients = [];
+          this.renderTable();
+          console.log('getAllclientsError', err);
+        },
+        complete: () => {
+          if (requestVersion === this.clientRequestVersion) {
+            this.clientRequest = undefined;
+          }
+        }
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.clientRequest?.unsubscribe();
+    if (this.tableInitTimer) {
+      clearTimeout(this.tableInitTimer);
+    }
+    if (this.table) {
+      this.table.destroy();
+    }
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private renderTable(): void {
+    if (!this.tableDiv?.nativeElement) {
+      return;
+    }
+
+    if (this.table) {
+      this.table.setData(this.clients);
+      this.table.redraw(true);
+      return;
+    }
+
+    if (this.tableInitTimer) {
+      clearTimeout(this.tableInitTimer);
+    }
+
+    this.tableInitTimer = setTimeout(() => {
+      this.initializeTable();
+    }, 100);
   }
 
   initializeTable() {
-
+    if (this.table) {
+      this.table.destroy();
+    }
     this.table = new Tabulator(this.tableDiv.nativeElement, {
       data: this.clients,
       layout: "fitData",
@@ -205,19 +266,7 @@ export class ClientsComponent {
           hozAlign: "right",
           frozen: true,
           headerSort: false,
-          formatter: () =>
-            // <button class="text-slate-400 hover:text-amber-600 transition-colors btn-relieve" title="Relieve Employee">
-            // <i class="ri-user-unfollow-line text-lg pointer-events-none"></i>
-            // </button>
-            `<div class="flex items-center justify-center gap-3 w-full h-full">
-            <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit">
-              <i class="ri-pencil-line text-lg pointer-events-none"></i>
-            </button>
-            <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete" title="Delete">
-              <i class="ri-delete-bin-line text-lg pointer-events-none"></i>
-            </button>
-          </div>
-        `,
+          formatter: (cell: any) => this.actionFormatter(cell),
           cellClick: (e: any, cell: any) =>
             this.handleActionClick(e, cell),
           cssClass: "sticky-col-right"
@@ -239,8 +288,31 @@ export class ClientsComponent {
     );
   }
 
+  private normalizeClientsResponse(res: any): any[] {
+    if (Array.isArray(res)) {
+      return res;
+    }
+
+    return Array.isArray(res?.data) ? res.data : (Array.isArray(res?.clients) ? res.clients : []);
+  }
+
   openClient(type: any) {
     this.drawerService.open(type)
+  }
+
+  actionFormatter(cell: any): string {
+    const data = cell.getData?.() ?? {};
+    const clientId = Number(data?.id);
+    const isDeleting = this.deletingClientId === clientId;
+
+    return `<div class="flex items-center justify-center gap-3 w-full h-full">
+      <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit" ${isDeleting ? 'disabled' : ''}>
+        <i class="ri-pencil-line text-lg pointer-events-none"></i>
+      </button>
+      <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete ${isDeleting ? 'tabulator-action-button--loading' : ''}" title="${isDeleting ? 'Deleting...' : 'Delete'}" ${isDeleting ? 'disabled' : ''}>
+        <i class="${isDeleting ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-delete-bin-line text-lg'} pointer-events-none"></i>
+      </button>
+    </div>`;
   }
 
   onSearch(event: Event): void {
@@ -274,6 +346,7 @@ export class ClientsComponent {
     e.stopPropagation();
     const target = e.target.closest('button');
     if (!target) return;
+    if (target.disabled) return;
 
     const row = cell.getRow();
     const data = row.getData();
@@ -292,7 +365,14 @@ export class ClientsComponent {
         confirmButtonText: "Yes, delete it!"
       }).then((result:any) => {
         if (result.isConfirmed) {
-          this.authService.deleteClient(data.id).subscribe({
+          this.deletingClientId = Number(data.id);
+          this.refreshTableActions();
+          this.authService.deleteClient(data.id)
+            .pipe(finalize(() => {
+              this.deletingClientId = null;
+              this.refreshTableActions();
+            }))
+            .subscribe({
             next: (res: any) => {
               this.toasterService.success(res?.message);
               this.getAllClients();
@@ -307,5 +387,12 @@ export class ClientsComponent {
       });
     }
   }
-}
 
+  private refreshTableActions(): void {
+    try {
+      this.table?.redraw?.(true);
+    } catch {
+      // ignore redraw timing during table rebuilds
+    }
+  }
+}

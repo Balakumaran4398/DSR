@@ -1,0 +1,37 @@
+:host {
+  display: block;
+  color: var(--text-main);
+}
+
+:host .min-h-screen,
+:host .bg-gray-50,
+:host .bg-slate-50 {
+  background-color: var(--bg-body) !important;
+}
+
+:host .bg-white {
+  background-color: var(--bg-card) !important;
+}
+
+:host .border-gray-200,
+:host .border-slate-100 {
+  border-color: var(--border-card) !important;
+}
+
+:host h1 {
+  --tw-text-opacity: 1;
+  color: rgb(15 23 42 / var(--tw-text-opacity, 1));
+
+}
+
+:host p {
+  color: var(--text-muted) !important;
+}
+
+:host button {
+  color: var(--text-soft);
+}
+
+:host button:hover {
+  color: var(--text-active);
+}

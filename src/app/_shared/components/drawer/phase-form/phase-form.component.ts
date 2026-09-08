@@ -1,5 +1,6 @@
 import { Component, Input, SimpleChanges } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
+import { finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
@@ -21,6 +22,7 @@ export class PhaseFormComponent {
   empid: any = 0;
   projectid: any = 0;
   projectDetails: any;
+  isSubmitting = false;
   constructor(private authService: AuthService, private toasterService: ToasterService, private drawerService: DrawerService, private storageService: StorageService) {
     this.empid = this.storageService.getEmpId();
     const stored = localStorage.getItem('projectDetails');
@@ -67,12 +69,15 @@ export class PhaseFormComponent {
 
 
   onSubmit() {
+    if (this.isSubmitting) return;
+
     console.log('taskForm Data:', this.phaseForm.value);
     
     if (!this.phaseForm.valid) {
       this.phaseForm.markAllAsTouched();
       return;
     }
+    this.isSubmitting = true;
     const raw = this.phaseForm.value;
     const payload = {
       ...raw,
@@ -84,7 +89,11 @@ export class PhaseFormComponent {
       // this.data = { ...this.data, ...payload }
       // this.data.username = this.storageService.getUsername();
       const updatePayload = {...this.data,   ...payload    };
-      this.authService.updatePhase(updatePayload).subscribe({
+      this.authService.updatePhase(updatePayload)
+        .pipe(finalize(() => {
+          this.isSubmitting = false;
+        }))
+        .subscribe({
         next: ((res: any) => {
           this.toasterService.success(res?.message);
           this.drawerService.notifyAction({
@@ -100,7 +109,11 @@ export class PhaseFormComponent {
       })
     } else {
       // this.data.username = this.storageService.getUsername();
-      this.authService.createPhase(payload).subscribe({
+      this.authService.createPhase(payload)
+        .pipe(finalize(() => {
+          this.isSubmitting = false;
+        }))
+        .subscribe({
         next: ((res: any) => {
           this.toasterService.success(res?.message);
           this.drawerService.notifyAction({

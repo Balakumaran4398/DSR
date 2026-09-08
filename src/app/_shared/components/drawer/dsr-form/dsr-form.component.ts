@@ -284,7 +284,11 @@ export class DsrFormComponent
     const payload = this.selectedDsr ? { ...this.selectedDsr, ...formVal } : formVal;
 
     if (this.editId) {
-      this.saveTaskDsr(this.buildTaskDsrPayload(payload));
+      if (this.isTaskEntryMode) {
+        this.saveTaskDsr(this.buildTaskDsrPayload(payload));
+      } else {
+        this.saveSubtaskDsr(this.buildSubtaskDsrPayload(payload));
+      }
       return;
     }
 
@@ -293,7 +297,22 @@ export class DsrFormComponent
       return;
     }
 
-    this.saveSubtaskDsr(payload);
+    this.saveSubtaskDsr(this.buildSubtaskDsrPayload(payload));
+  }
+
+  private buildSubtaskDsrPayload(payload: Partial<DsrLogEntry> & { username?: string }): Partial<DsrLogEntry> {
+    const selectedSubtask = this.getSelectedSubtask();
+
+    return {
+      ...payload,
+      taskid: selectedSubtask?.taskid
+        ?? selectedSubtask?.task_id
+        ?? payload.taskid
+        ?? this.data?.taskid
+        ?? this.data?.task_id
+        ?? this.taskid,
+      task: payload.task ?? selectedSubtask?.task ?? this.data?.task ?? ''
+    };
   }
 
   private buildTaskDsrPayload(payload: Partial<DsrLogEntry> & { username?: string }): Partial<DsrTaskLogEntry> {
@@ -311,6 +330,11 @@ export class DsrFormComponent
       taskid,
       task: payload.task ?? selectedTask?.task ?? this.data?.task ?? ''
     };
+  }
+
+  private getSelectedSubtask(): any | null {
+    const selectedSubtaskId = this.taskForm.get('subtaskid')?.value;
+    return this.subtasks.find((item: any) => item?.id == selectedSubtaskId) ?? null;
   }
 
   edit(item: DsrLogEntry): void {
@@ -366,16 +390,7 @@ export class DsrFormComponent
     });
   }
 
-  // private updateDsr(payload: Partial<DsrLogEntry>): void {
-  //   this.authService.updatedsr(payload).subscribe({
-  //     next: (res: DsrApiMessage) => {
-  //       this.handleSaveSuccess(res, this.isTaskEntryMode ? 'dsr' : 'sub-task', 'updated');
-  //     },
-  //     error: (err) => {
-  //       this.toasterService.error(err?.error?.message || 'Failed to update DSR');
-  //     }
-  //   });
-  // }
+
 
   private handleSaveSuccess(res: DsrApiMessage, source: 'sub-task' | 'dsr', action: 'created' | 'updated'): void {
     this.toasterService.success(res?.message || (action === 'updated' ? 'DSR updated successfully' : 'DSR saved successfully'));
@@ -492,316 +507,3 @@ export class DsrFormComponent
     ];
   }
 }
-
-
-
-
-
-
-
-// import { Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
-// import { FormControl, FormGroup, Validators } from '@angular/forms';
-// import { ActivatedRoute } from '@angular/router';
-// import { AuthService } from 'src/app/_core/services/auth.service';
-// import { DrawerService } from 'src/app/_core/services/drawer.service';
-// import { StorageService } from 'src/app/_core/services/storage.service';
-// import { ToasterService } from 'src/app/_core/services/toaster.service';
-// import Swal from 'sweetalert2';
-
-// interface DsrDrawerTask {
-//   id: number;
-//   projectid?: number | string;
-//   project_id?: number | string;
-//   projectId?: number | string;
-//   completion_percentage?: number;
-// }
-
-// interface DsrTaskItem {
-//   id: number;
-//   task: string;
-//   completion_percentage?: number;
-// }
-
-// interface DsrLogEntry {
-//   id: number;
-//   subtaskid: number;
-//   task: string;
-//   comments: string;
-//   worked_hours: string;
-//   date: string;
-//   completion_percentage: number;
-// }
-
-// interface DsrApiMessage {
-//   message?: string;
-// }
-
-// @Component({
-//   selector: 'app-dsr-form',
-//   templateUrl: './dsr-form.component.html',
-//   styleUrls: ['./dsr-form.component.scss']
-// })
-// export class DsrFormComponent
-//   implements OnInit, OnChanges {
-//   @Input() data: DsrDrawerTask | null = null;
-//   taskForm: FormGroup;
-//   taskList: DsrTaskItem[] = [];
-//   selectedDsr: DsrLogEntry | null = null;
-//   logEntries: DsrLogEntry[] = [];
-//   editId: number | null = null;
-//   initialDate = new Date();
-//   fromdate: string | null = null;
-//   todate: string | null = null;
-//   projectid: number | string = 0;
-//   empid: number | string | null = null;
-//   type: string = 'requirement';
-//   subtasks: any[] = [];
-//   taskid: any;
-//   task: any;
-//   constructor(private storageService: StorageService, private authService: AuthService, private route: ActivatedRoute, private toasterService: ToasterService, private drawerService: DrawerService) {
-//     this.task = this.storageService.getTaskItem();
-//     this.taskid = this.resolveTaskId();
-//     this.taskForm = new FormGroup({
-//       subtaskid: new FormControl(this.data?.id, Validators.required),
-//       worked_hours: new FormControl('08:00:00', Validators.required),
-//       comments: new FormControl('', Validators.required),
-//       completion_percentage: new FormControl(0, Validators.required),
-//       date: new FormControl(this.initialDate, Validators.required),
-//       username: new FormControl(storageService.getUsername())
-//     });
-//     this.projectid = this.resolveProjectId();
-//     this.empid = this.storageService.getEmpId();
-//   }
-//   ngOnChanges(changes: SimpleChanges): void {
-//     if (changes['data']) {
-//       if (this.data) {
-//         this.projectid = this.resolveProjectId();
-//         this.taskForm.reset({
-//           date: this.initialDate,
-//           worked_hours: '08:00:00',
-//           completion_percentage: this.data?.completion_percentage,
-//           subtaskid: this.data?.id,
-//           comments: '',
-//           username: this.storageService.getUsername()
-//         });
-//         this.taskForm.markAsUntouched();
-//         this.loadFormOpenData();
-//       }
-//     }
-//   }
-//   ngOnInit() {
-//     this.taskForm.get('subtaskid')?.setValue(this.data?.id);
-//     this.projectid = this.resolveProjectId();
-//     this.taskid = this.resolveTaskId();
-//     this.loadFormOpenData();
-//   }
-
-//   private resolveProjectId(): number | string {
-//     return this.data?.projectid
-//       ?? this.data?.project_id
-//       ?? this.data?.projectId
-//       ?? this.route.snapshot.paramMap.get('projectid')
-//       ?? this.route.parent?.snapshot.paramMap.get('projectid')
-//       ?? 0;
-//   }
-
-//   private resolveTaskId(): number | string {
-//     return this.task?.id
-//       ?? this.route.snapshot.paramMap.get('taskid')
-//       ?? this.route.parent?.snapshot.paramMap.get('taskid')
-//       ?? 0;
-//   }
-
-//   private loadFormOpenData(): void {
-//     this.taskForm.get('subtaskid')?.setValue(this.data?.id)
-//     this.taskForm.get('completion_percentage')?.setValue(this.data?.completion_percentage)
-//     this.fromdate = this.formatDateToYMD(this.initialDate);
-//     this.todate = this.formatDateToYMD(this.initialDate);
-//     this.getTasksByProjectIdNdEmployeeId();
-//     this.getDsrDetailsBySubtaskId();
-//     this.getSubtasks();
-//   }
-
-//   formatLabel(value: number): string {
-//     return `${value}%`;
-//   }
-
-//   get totalTime(): string {
-//     let totalMinutes = 0;
-//     this.logEntries.forEach(entry => {
-//       const [h, m] = entry.worked_hours.split(':').map(Number);
-//       totalMinutes += (h * 60) + m;
-//     });
-
-//     const h = Math.floor(totalMinutes / 60);
-//     const m = totalMinutes % 60;
-//     return `${h}h ${m}m`;
-//   }
-
-//   getProgressColor(): string {
-//     const val = this.taskForm.get('completion_percentage')?.value || 0;
-//     if (val === 100) return '#10b981'; // emerald-500
-//     if (val >= 50) return '#f59e0b'; // amber-500
-//     return '#ef4444'; // red-500
-//   }
-
-//   getStatus(percentage: number): string {
-//     if (percentage === 100) return 'green'; // Done
-//     if (percentage > 0 && percentage < 100) return 'amber'; // Pending/In Progress
-//     return 'red'; // On Track / Started
-//   }
-
-//   setCompletion(val: number): void {
-//     this.taskForm.patchValue({ completion_percentage: val });
-//   }
-
-//   getDsrDetailsBySubtaskId(e?: { value?: number | string }): void {
-//     const subtaskId = e?.value ?? this.taskForm.get('subtaskid')?.value ?? this.data?.id;
-//     if (!subtaskId) {
-//       this.logEntries = [];
-//       return;
-//     }
-
-//     this.authService.getDsrDetailsBySubtaskId(subtaskId).subscribe({
-//       next: (value: any) => {
-//         this.logEntries = Array.isArray(value) ? value as DsrLogEntry[] : [];
-//       }
-//     })
-//   }
-
-
-//   resetForm(): void {
-//     this.taskForm.reset({
-//       date: this.initialDate,
-//       worked_hours: '08:00:00',
-//       completion_percentage: 0,
-//       subtaskid: this.data?.id,
-//       comments: '',
-//       username: this.storageService.getUsername()
-//     });
-//     this.taskForm.markAsUntouched();
-//     this.getDsrDetailsBySubtaskId();
-//     this.editId = null;
-//   }
-//   submit(): void {
-//     if (this.taskForm.invalid) return;
-//     this.taskForm.get('date')?.setValue(this.storageService.toLocalDate(this.taskForm.get('date')?.value));
-//     const formVal = this.taskForm.getRawValue();
-//     const payload = {
-//       ...formVal,
-//       subtaskid: this.taskid || formVal.subtaskid
-//     };
-//     console.log("764784365743687   =", payload.subtaskid);
-
-//     if (this.editId) {
-//       const updatedPayload = this.selectedDsr ? { ...this.selectedDsr, ...payload } : payload;
-//       this.createDailyStatus(updatedPayload);
-//     } else {
-//       this.createDailyStatus(payload)
-//     }
-//   }
-
-//   edit(item: DsrLogEntry): void {
-//     this.selectedDsr = item;
-//     this.editId = item.id;
-//     this.taskForm.patchValue({
-//       subtaskid: this.taskid || item.subtaskid,
-//       worked_hours: item.worked_hours,
-//       comments: item.comments,
-//       completion_percentage: item.completion_percentage,
-//       date: new Date(item.date),
-//       username: this.storageService.getUsername()
-//     });
-//   }
-
-//   delete(id: number): void {
-//     Swal.fire({
-//       title: "Are you sure?",
-//       text: "You won't be able to revert this!",
-//       icon: "warning",
-//       showCancelButton: true,
-//       confirmButtonColor: "#3085d6",
-//       cancelButtonColor: "#d33",
-//       confirmButtonText: "Yes, delete it!"
-//     }).then((result) => {
-//       if (result.isConfirmed) {
-//         this.authService.deleteDsr(this.storageService.getUsername(), id).subscribe({
-//           next: (res: DsrApiMessage) => {
-//             this.toasterService.success(res?.message || 'DSR deleted successfully');
-//             this.logEntries = this.logEntries.filter((d) => d.id !== id);
-//             if (this.editId === id) {
-//               this.editId = null;
-//             }
-//           },
-//           error: (err) => {
-//             this.toasterService.error(err?.error?.message || 'Failed to delete DSR')
-//           }
-//         })
-//       }
-//     });
-//   }
-//   createDailyStatus(payload: Partial<DsrLogEntry>): void {
-//     this.authService.createDailyStatus(payload).subscribe({
-//       // this.authService.createdailyDSR(payload).subscribe({
-//       next: (res: DsrApiMessage) => {
-//         this.toasterService.success(res?.message || 'DSR saved successfully');
-//         this.drawerService.notifyAction({
-//           source: 'sub-task',
-//           action: 'created',
-//           payload: res
-//         });
-//         this.drawerService.close();
-//         this.resetForm();
-//       },
-//       error: (err) => {
-//         this.toasterService.error(err?.error?.message || 'Failed to save DSR');
-//       }
-//     });
-//   }
-//   formatDateToYMD(date: Date | string | null): string {
-//     if (!date) return 'null';
-//     const d = new Date(date);
-//     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-//       d.getDate()
-//     ).padStart(2, '0')}`;
-//   }
-//   getSubtasks() {
-//     this.authService.getSubtasks(this.task?.id).subscribe({
-//       next: (res: any) => {
-//         this.subtasks = res;
-//         console.log("Subtask List =", this.subtasks);
-//         this.taskid = this.subtasks[0]?.id;
-//         console.log("TASK   = ", this.taskid);
-
-//       }
-//     });
-//   }
-
-//   getTasksByProjectIdNdEmployeeId(): void {
-//     if (!this.projectid) {
-//       this.taskList = [];
-//       this.toasterService.error('Project id is missing');
-//       return;
-//     }
-
-//     if (!this.empid) {
-//       this.taskList = [];
-//       this.toasterService.error('Employee id is missing');
-//       return;
-//     }
-
-//     if (this.fromdate && this.todate) {
-//       this.authService.getTasksByProjectIdNdEmployeeId(this.projectid, this.empid, 0, this.type, this.fromdate, this.todate).subscribe((res: DsrTaskItem[] | { data?: DsrTaskItem[]; tasks?: DsrTaskItem[] }) => {
-//         this.taskList = Array.isArray(res) ? res : (res?.data ?? res?.tasks ?? []);
-//         const selectedTaskId = this.taskForm.get('subtaskid')?.value;
-//         const hasSelectedTask = this.taskList.some((item) => item?.id == selectedTaskId);
-
-//         if (!hasSelectedTask && this.taskList.length > 0) {
-//           this.taskForm.get('subtaskid')?.setValue(this.taskList[0].id);
-//           this.taskForm.get('completion_percentage')?.setValue(this.taskList[0].completion_percentage ?? 0);
-//           this.getDsrDetailsBySubtaskId({ value: this.taskList[0].id });
-//         }
-//       })
-//     }
-//   }
-// }

@@ -588,7 +588,7 @@
 .gantt .bar-label {
     fill: var(--g-text-dark) !important;
     dominant-baseline: central;
-    font-family: Helvetica, sans-serif;
+    font-family: 'Roboto', sans-serif;
     font-size: 13px;
     font-weight: 400;
 }

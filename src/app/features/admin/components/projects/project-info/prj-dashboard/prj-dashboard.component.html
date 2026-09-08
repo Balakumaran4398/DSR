@@ -1,6 +1,53 @@
-<div class="w-full  mx-auto">
+<div class="w-full mx-auto project-dashboard">
+  <div class="dashboard-filter-bar">
+    <div class="applied-range" aria-live="polite">
+      <span>Showing</span>
+      <strong>{{ currentDateRangeLabel }}</strong>
+    </div>
 
+    <div class="custom-filter-container">
+      <div class="preset-buttons" role="group" aria-label="Dashboard date range">
+        <button type="button" class="preset-button" [class.preset-button--active]="selectedPreset === 'weekly'"
+          (click)="selectPreset('weekly')">Weekly</button>
+        <button type="button" class="preset-button" [class.preset-button--active]="selectedPreset === 'bi-weekly'"
+          (click)="selectPreset('bi-weekly')">Bi-Weekly</button>
+        <button type="button" class="preset-button" [class.preset-button--active]="selectedPreset === 'monthly'"
+          (click)="selectPreset('monthly')">This Month</button>
+        <button type="button" class="preset-button" [class.preset-button--active]="selectedPreset === 'custom'"
+          [attr.aria-expanded]="isCustomOpen" (click)="selectPreset('custom')">Custom</button>
+      </div>
 
+      <div *ngIf="isCustomOpen" class="custom-filter-popup">
+        <mat-form-field appearance="outline" class="custom-date-range w-full" subscriptSizing="dynamic">
+          <mat-date-range-input [rangePicker]="picker">
+            <input matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate" />
+            <input matEndDate placeholder="End Date" [(ngModel)]="filterEndDate" />
+          </mat-date-range-input>
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-date-range-picker #picker></mat-date-range-picker>
+        </mat-form-field>
+
+        <button type="button" class="apply-filter-button" (click)="applyCustomFilter()"
+          [disabled]="!filterStartDate || !filterEndDate">
+          Apply Filter
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="dashboard-state" aria-live="polite">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading dashboard details...</span>
+  </div>
+
+  <div *ngIf="!loading && loadError" class="dashboard-state dashboard-state--error" role="alert">
+    <i class="ri-error-warning-line"></i>
+    <strong>Dashboard details could not be loaded</strong>
+    <span>{{ loadError }}</span>
+    <button type="button" (click)="retryLoad()">Retry</button>
+  </div>
+
+  <ng-container *ngIf="!loading && !loadError">
     <!-- Categorized Stats Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
@@ -78,7 +125,7 @@
                 <div class="px-6 py-2 border-b border-slate-200 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800">
                         <span class="accent-bar" style="background-color: var(--danger);"></span>
-                        Overdue Items - {{dashboardData?.overdue_items?.length}}
+                        Overdue Items - {{ dashboardData?.overdue_items?.length || 0 }}
                     </h3>
                     <div class="relative">
                         <button (click)="toggleMenu($event, 3)"
@@ -115,7 +162,7 @@
                 <div class="px-6 py-2 border-b border-slate-200 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800">
                         <span class="accent-bar" style="background-color: var(--danger);"></span>
-                        Due Today - {{dashboardData?.today_due?.length}}
+                        Due Today - {{ dashboardData?.today_due?.length || 0 }}
                     </h3>
                     <div class="relative">
                         <button (click)="toggleMenu($event, 4)"
@@ -161,7 +208,7 @@
                 <div class="px-6 py-2 border-b border-slate-200 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 ">
                         <span class="accent-bar bg-blue"></span>
-                        Tasks - {{dashboardData?.task_list?.length}}
+                        Tasks - {{ dashboardData?.task_list?.length || 0 }}
                     </h3>
                     <div class="relative">
                         <button (click)="toggleMenu($event, 1)"
@@ -199,7 +246,7 @@
                 <div class="px-6 py-2 border-b border-slate-200 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 ">
                         <span class="accent-bar" style="background-color: #f59e0b;"></span>
-                        Issues - {{dashboardData?.bug_list?.length}}
+                        Issues - {{ dashboardData?.bug_list?.length || 0 }}
                     </h3>
                     <div class="relative">
                         <button (click)="toggleMenu($event, 2)"
@@ -234,4 +281,5 @@
 
 
     </div>
+  </ng-container>
 </div>

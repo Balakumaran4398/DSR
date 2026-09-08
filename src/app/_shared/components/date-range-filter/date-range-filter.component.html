@@ -1,5 +1,6 @@
 <!-- NAVIGATOR COMPONENT START -->
-<div class="relative z-20 inline-flex w-full items-center p-1 rounded-lg bg-white shadow-sm transition-all duration-300 border border-slate-200"
+<div cdkOverlayOrigin #rangeTrigger="cdkOverlayOrigin"
+    class="relative z-20 inline-flex w-full items-center rounded-lg bg-white shadow-sm transition-all duration-300 border border-slate-200"
     [ngClass]="{
     'border-color': isOpen
   }">
@@ -16,7 +17,7 @@
 
     <!-- Main Display (Click to open dropdown) -->
     <div (click)="toggleDropdown()"
-        class="flex items-center gap-3 px-5 py-2 cursor-pointer rounded-full hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 group select-none min-w-[240px] justify-center mx-1">
+        class="flex min-w-0 w-full sm:min-w-[240px] items-center gap-3 py-2 cursor-pointer rounded-full hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 group select-none justify-center mx-1">
 
         <svg xmlns="http://www.w3.org/2000/svg"
             class="h-5 w-5 text-slate-400 group-hover:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24"
@@ -51,9 +52,14 @@
         </svg>
     </button>
 
-    <!-- Dropdown Panel -->
-    <div *ngIf="isOpen"
-        class="absolute top-full right-0 mt-3  bg-white rounded-xl shadow-xl border border-slate-100 p-5 w-80 animate-in fade-in zoom-in-95 duration-200 origin-top-right ring-1 ring-slate-900/5">
+</div>
+
+<!-- Dropdown Panel -->
+<ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="rangeTrigger"
+    [cdkConnectedOverlayOpen]="isOpen" [cdkConnectedOverlayPositions]="overlayPositions"
+    [cdkConnectedOverlayHasBackdrop]="true" cdkConnectedOverlayBackdropClass="date-range-overlay-backdrop"
+    [cdkConnectedOverlayViewportMargin]="8" (backdropClick)="closeDropdown()" (detach)="closeDropdown()">
+    <div class="date-range-panel bg-white rounded-xl shadow-xl border border-slate-100 p-5 w-80 max-w-[calc(100vw-1rem)] animate-in fade-in zoom-in-95 duration-200 origin-top-right ring-1 ring-slate-900/5">
 
         <!-- Presets Grid -->
         <div class="grid grid-cols-2 gap-2 mb-4">
@@ -97,8 +103,4 @@
             </button>
         </div>
     </div>
-
-    <!-- Backdrop for closing dropdown -->
-    <div *ngIf="isOpen" (click)="isOpen = false" class="fixed inset-0 z-[-1] cursor-default"></div>
-
-</div>
+</ng-template>

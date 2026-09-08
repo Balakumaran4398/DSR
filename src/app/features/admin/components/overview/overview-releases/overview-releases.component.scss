@@ -1,10 +1,51 @@
 :host {
     display: block;
+    color: var(--text-main);
 }
 
 .overview-release-page {
     height: 100%;
+    background: var(--bg-body) !important;
+    color: var(--text-main) !important;
 }
+
+:host h1,
+:host h2,
+:host h3,
+:host h4 {
+    color: var(--text-main) !important;
+}
+
+:host .bg-white,
+:host .bg-slate-50,
+:host .bg-slate-100\/50 {
+    background-color: var(--bg-card) !important;
+}
+
+:host .border,
+:host .border-slate-100,
+:host .border-slate-200,
+:host .border-gray-200 {
+    border-color: var(--border-card) !important;
+}
+
+:host button[aria-selected='true'] {
+    background: var(--text-active) !important;
+    color: var(--text-on-active) !important;
+    border-color: var(--text-active) !important;
+}
+
+:host button[aria-selected='false'] {
+    background: var(--bg-card) !important;
+    color: var(--text-soft) !important;
+    border-color: var(--border-card) !important;
+}
+
+:host button[aria-selected='false']:hover {
+    background: var(--bg-elevated) !important;
+    color: var(--text-active) !important;
+}
+
 .release_table{
     height: 40pc;
     overflow: scroll
@@ -29,31 +70,31 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: var(--border-card);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: var(--text-muted);
 }
 
 .pdf-enabled {
-    background-color: #fff;
-    border-color: #e2e8f0;
+    background-color: var(--bg-card);
+    border-color: var(--border-card);
     color: var(--text-active);
     cursor: pointer;
 }
 
 .pdf-disabled {
-    background-color: #fff;
-    border-color: #e2e8f0;
-    color: #9ca3af;
+    background-color: var(--bg-elevated);
+    border-color: var(--border-card);
+    color: var(--text-muted);
     cursor: not-allowed;
     opacity: 0.7;
 }
 
 .excel-enabled {
-    background-color: #fff;
-    border-color: #e2e8f0;
+    background-color: var(--bg-card);
+    border-color: var(--border-card);
     color: #15803d;
     cursor: pointer;
 }
@@ -85,7 +126,7 @@
     padding: 0.125rem 0.5rem;
     border-radius: 0.375rem;
     border: 1px solid transparent;
-    font-family: monospace;
+    font-family: 'Roboto', sans-serif;
     font-size: 0.75rem;
     font-weight: 700;
     line-height: 1rem;
@@ -93,26 +134,169 @@
 
 .release-date-pill--danger {
     color: var(--danger);
-    background: #fef2f2;
-    border-color: #fecaca;
+    background: color-mix(in srgb, var(--danger) 14%, var(--bg-card));
+    border-color: color-mix(in srgb, var(--danger) 32%, var(--border-card));
 }
 
 .release-date-pill--warning {
     color: var(--warning);
-    background: #fffbeb;
-    border-color: #fde68a;
+    background: color-mix(in srgb, var(--warning) 14%, var(--bg-card));
+    border-color: color-mix(in srgb, var(--warning) 32%, var(--border-card));
 }
 
 .release-date-pill--high-warning {
     color: #ea580c;
-    background: #fff7ed;
-    border-color: #fed7aa;
+    background: color-mix(in srgb, #ea580c 14%, var(--bg-card));
+    border-color: color-mix(in srgb, #ea580c 32%, var(--border-card));
 }
 
 .release-date-pill--info {
     color: var(--info);
-    background: #eff6ff;
-    border-color: #bfdbfe;
+    background: color-mix(in srgb, var(--info) 14%, var(--bg-card));
+    border-color: color-mix(in srgb, var(--info) 32%, var(--border-card));
+}
+
+:host ::ng-deep .release-status-pill {
+    --release-status-color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid color-mix(in srgb, var(--release-status-color) 32%, var(--border-card));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--release-status-color) 13%, var(--bg-card));
+    color: var(--release-status-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+:host ::ng-deep .release-status--success {
+    --release-status-color: #059669;
+}
+
+:host ::ng-deep .release-status--progress {
+    --release-status-color: #2563eb;
+}
+
+:host ::ng-deep .release-status--warning {
+    --release-status-color: #d97706;
+}
+
+:host ::ng-deep .release-status--danger {
+    --release-status-color: #dc2626;
+}
+
+:host ::ng-deep .release-status--muted {
+    --release-status-color: var(--text-muted);
+}
+
+:host ::ng-deep .release-performance-pill {
+    --release-performance-color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 6rem;
+    max-width: 100%;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid color-mix(in srgb, var(--release-performance-color) 32%, var(--border-card));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--release-performance-color) 13%, var(--bg-card));
+    color: var(--release-performance-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+:host ::ng-deep .release-performance--excellent {
+    --release-performance-color: #059669;
+}
+
+:host ::ng-deep .release-performance--very-good {
+    --release-performance-color: #7c3aed;
+}
+
+:host ::ng-deep .release-performance--good {
+    --release-performance-color: #2563eb;
+}
+
+:host ::ng-deep .release-performance--poor {
+    --release-performance-color: #dc2626;
+}
+
+:host ::ng-deep .release-performance--pending,
+:host ::ng-deep .release-performance--muted {
+    --release-performance-color: var(--text-muted);
+}
+
+:host-context(.dark-mode) ::ng-deep .release-status--success,
+:host-context(.dark-mode.theme-black) ::ng-deep .release-status--success {
+    --release-status-color: #10b981;
+}
+
+:host-context(.dark-mode) ::ng-deep .release-status--progress,
+:host-context(.dark-mode.theme-black) ::ng-deep .release-status--progress {
+    --release-status-color: #60a5fa;
+}
+
+:host-context(.dark-mode) ::ng-deep .release-status--warning,
+:host-context(.dark-mode.theme-black) ::ng-deep .release-status--warning {
+    --release-status-color: #fbbf24;
+}
+
+:host-context(.dark-mode) ::ng-deep .release-status--danger,
+:host-context(.dark-mode.theme-black) ::ng-deep .release-status--danger {
+    --release-status-color: #f87171;
+}
+
+:host-context(.dark-mode) ::ng-deep .release-performance--excellent,
+:host-context(.dark-mode.theme-black) ::ng-deep .release-performance--excellent {
+    --release-performance-color: #10b981;
+}
+
+:host-context(.dark-mode) ::ng-deep .release-performance--very-good,
+:host-context(.dark-mode.theme-black) ::ng-deep .release-performance--very-good {
+    --release-performance-color: #a78bfa;
+}
+
+:host-context(.dark-mode) ::ng-deep .release-performance--good,
+:host-context(.dark-mode.theme-black) ::ng-deep .release-performance--good {
+    --release-performance-color: #60a5fa;
+}
+
+:host-context(.dark-mode) ::ng-deep .release-performance--poor,
+:host-context(.dark-mode.theme-black) ::ng-deep .release-performance--poor {
+    --release-performance-color: #f87171;
+}
+
+:host ::ng-deep .tabulator-tableholder {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+    .overview-release-page {
+        height: auto !important;
+        min-height: 100vh;
+        overflow: visible !important;
+    }
+
+    .overview-release-page > .flex-1,
+    .overview-release-page .h-full {
+        min-height: auto;
+    }
+
+    .overview-release-page .custom-scrollbar {
+        min-height: 28rem;
+    }
 }
 
 // .release-date-badge--overdue {

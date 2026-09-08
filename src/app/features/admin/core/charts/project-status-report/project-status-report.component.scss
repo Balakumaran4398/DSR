@@ -13,6 +13,8 @@
   border-radius: 10px;
   display: flex;
   flex-direction: column;
+  background: var(--bg-body);
+  color: var(--text-main);
 }
 
 .status-dialog-body {
@@ -26,6 +28,8 @@
   width: 100%;
   min-width: 0;
   overflow: hidden;
+  border-color: var(--border-card) !important;
+  background: var(--bg-card) !important;
 }
 
 .status-dialog-table {
@@ -71,37 +75,136 @@
 
 :host ::ng-deep .status-dialog-table .tabulator-row.psr-row-pass,
 :host ::ng-deep .status-inline-table .tabulator-row.psr-row-pass {
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.13), #fff 34%);
+  background: linear-gradient(90deg, color-mix(in srgb, #10b981 13%, var(--bg-card)), var(--bg-card) 34%);
   box-shadow: inset 4px 0 0 #10b981;
 }
 
 :host ::ng-deep .status-dialog-table .tabulator-row.psr-row-progress,
 :host ::ng-deep .status-inline-table .tabulator-row.psr-row-progress {
-  background: linear-gradient(90deg, rgba(59, 130, 246, 0.13), #fff 34%);
+  background: linear-gradient(90deg, color-mix(in srgb, #3b82f6 13%, var(--bg-card)), var(--bg-card) 34%);
   box-shadow: inset 4px 0 0 #3b82f6;
 }
 
 :host ::ng-deep .status-dialog-table .tabulator-row.psr-row-hold,
 :host ::ng-deep .status-inline-table .tabulator-row.psr-row-hold {
-  background: linear-gradient(90deg, rgba(245, 158, 11, 0.16), #fff 34%);
+  background: linear-gradient(90deg, color-mix(in srgb, #f59e0b 16%, var(--bg-card)), var(--bg-card) 34%);
   box-shadow: inset 4px 0 0 #f59e0b;
 }
 
 :host ::ng-deep .status-dialog-table .tabulator-row.psr-row-danger,
 :host ::ng-deep .status-inline-table .tabulator-row.psr-row-danger {
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.13), #fff 34%);
+  background: linear-gradient(90deg, color-mix(in srgb, #ef4444 13%, var(--bg-card)), var(--bg-card) 34%);
   box-shadow: inset 4px 0 0 #ef4444;
 }
 
 :host ::ng-deep .status-dialog-table .tabulator-row.psr-row-muted,
 :host ::ng-deep .status-inline-table .tabulator-row.psr-row-muted {
-  background: linear-gradient(90deg, rgba(100, 116, 139, 0.11), #fff 34%);
+  background: linear-gradient(90deg, color-mix(in srgb, #64748b 11%, var(--bg-card)), var(--bg-card) 34%);
   box-shadow: inset 4px 0 0 #94a3b8;
 }
 
 :host ::ng-deep .status-dialog-table .tabulator-row:hover,
 :host ::ng-deep .status-inline-table .tabulator-row:hover {
-  background-color: #f8fafc;
+  background-color: var(--table-row-hover-bg);
+}
+
+:host ::ng-deep .status-dialog-table .tabulator-row .tabulator-cell.psr-type-cell,
+:host ::ng-deep .status-inline-table .tabulator-row .tabulator-cell.psr-type-cell {
+  background: color-mix(in srgb, var(--text-active) 4%, var(--table-row-bg, var(--bg-card)));
+  transition: background 0.18s ease;
+}
+
+:host ::ng-deep .status-dialog-table .tabulator-row:hover .tabulator-cell.psr-type-cell,
+:host ::ng-deep .status-inline-table .tabulator-row:hover .tabulator-cell.psr-type-cell {
+  background: color-mix(in srgb, var(--text-active) 9%, var(--table-row-hover-bg, var(--bg-hover)));
+}
+
+:host ::ng-deep .psr-type-pill {
+  --psr-type-color: var(--text-muted);
+  --psr-type-bg: color-mix(in srgb, var(--psr-type-color) 12%, var(--bg-card));
+  --psr-type-border: color-mix(in srgb, var(--psr-type-color) 30%, var(--border-card));
+  --psr-type-glow: color-mix(in srgb, var(--psr-type-color) 16%, transparent);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  min-height: 1.85rem;
+  padding: 0.32rem 0.72rem;
+  border: 1px solid var(--psr-type-border);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.56), transparent 58%),
+    var(--psr-type-bg);
+  color: var(--psr-type-color);
+  box-shadow: 0 0.5rem 1.2rem var(--psr-type-glow);
+  font-size: 0.72rem;
+  font-weight: 850;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+:host ::ng-deep .psr-type-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0.65rem 1.35rem var(--psr-type-glow);
+}
+
+:host ::ng-deep .psr-type-pill i {
+  flex: 0 0 auto;
+  font-size: 0.88rem;
+}
+
+:host ::ng-deep .psr-type-pill span {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  text-overflow: ellipsis;
+}
+
+:host ::ng-deep .psr-type--internal {
+  --psr-type-color: #BE123C;
+}
+
+:host ::ng-deep .psr-type--external {
+  --psr-type-color: #0369A1;
+}
+
+:host ::ng-deep .psr-type--muted {
+  --psr-type-color: #64748B;
+}
+
+:host-context(.dark-mode) ::ng-deep .status-dialog-table .tabulator-row .tabulator-cell.psr-type-cell,
+:host-context(.dark-mode) ::ng-deep .status-inline-table .tabulator-row .tabulator-cell.psr-type-cell {
+  background: color-mix(in srgb, var(--text-active) 8%, var(--table-row-bg, var(--bg-card)));
+}
+
+:host-context(.dark-mode) ::ng-deep .status-dialog-table .tabulator-row:hover .tabulator-cell.psr-type-cell,
+:host-context(.dark-mode) ::ng-deep .status-inline-table .tabulator-row:hover .tabulator-cell.psr-type-cell {
+  background: color-mix(in srgb, var(--text-active) 13%, var(--table-row-hover-bg, var(--bg-hover)));
+}
+
+:host-context(.dark-mode) ::ng-deep .psr-type-pill {
+  --psr-type-bg: color-mix(in srgb, var(--psr-type-color) 17%, var(--bg-card));
+  --psr-type-border: color-mix(in srgb, var(--psr-type-color) 38%, var(--border-card));
+  --psr-type-glow: color-mix(in srgb, var(--psr-type-color) 14%, transparent);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.07), transparent 56%),
+    var(--psr-type-bg);
+}
+
+:host-context(.dark-mode) ::ng-deep .psr-type--internal {
+  --psr-type-color: #FB7185;
+}
+
+:host-context(.dark-mode) ::ng-deep .psr-type--external {
+  --psr-type-color: #38BDF8;
+}
+
+:host-context(.dark-mode) ::ng-deep .psr-type--muted {
+  --psr-type-color: #94A3B8;
 }
 
 :host ::ng-deep .psr-status-pill {

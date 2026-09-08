@@ -1,11 +1,12 @@
 import { Component, ElementRef, Input, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { filter } from 'rxjs';
+import { filter, finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { TransientViewStateService } from 'src/app/_core/services/transient-view-state.service';
+import { formatStatusPill } from 'src/app/_core/utils/status-pill.util';
 declare const Tabulator: any;
 declare const luxon: any;
 
@@ -49,6 +50,8 @@ export class PhasesComponent {
   searchTerm = '';
   initialStartDate: string | null = null;
   initialEndDate: string | null = null;
+  tableLoading = false;
+  updatingPhaseId: number | null = null;
   constructor(private authService: AuthService, private route: ActivatedRoute, private toasterService: ToasterService, private storageService: StorageService, private drawerService: DrawerService, private transientViewStateService: TransientViewStateService) {
     this.projectid = this.route.snapshot.paramMap.get('projectid');
     this.empid = this.storageService.getEmpId();
@@ -80,9 +83,11 @@ export class PhasesComponent {
 
   initializeTable() {
     this.rebuildEmployeeIndex();
+    const freezeColumns = !this.isCompactViewport();
     this.table = new Tabulator(this.tableDiv.nativeElement, {
       data: this.tableData,
-      layout: "fitColumns",
+      layout: "fitDataStretch",
+      responsiveLayout: false,
       pagination: "local",
       paginationSize: 10,
       paginationCounter: "rows",
@@ -111,27 +116,27 @@ export class PhasesComponent {
           field: "phase_title",
           widthGrow: 2,
           minWidth: 350,
-          frozen: true, // Freeze the Project column
-          editor: "input",
-          formatter: (cell: any) => {
-            const data = cell.getData();
-            return `
-                <div class="flex items-center justify-between w-full group relative pr-8">
-                    <div class="flex  gap-2">
-                        <div class="text-[var(--text-active)] text-lg font-semibold">
-                            <i class="ri-folder-3-line"></i>
-                        </div>
-                        <div class="flex flex-col">
-                            <span class="font-medium text-gray-900 text-m leading-relaxed break-words">${data.phase_title}</span>
-                        </div>
-                    </div>
-                    <button class="absolute access-btn right-0 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white border border-gray-200 shadow-sm px-2.5 py-1 rounded-md hover:bg-gray-50 text-[var(--text-active)] hover:text-[var(--text-active)]-700 focus:outline-none z-10 flex items-center gap-1.5 transform translate-x-2 group-hover:translate-x-0" >
-                        <span class="text-[10px] font-semibold uppercase tracking-wide">Open</span>
-                        <i class="ri-arrow-right-up-line text-xs"></i>
-                    </button>
-                </div>
-                `;
-          },
+          // frozen: freezeColumns, // Freeze the Project column on desktop only
+          // editor: "input",
+          // formatter: (cell: any) => {
+          //   const data = cell.getData();
+          //   return `
+          //       <div class="flex items-center justify-between w-full group relative pr-8">
+          //           <div class="flex  gap-2">
+          //               <div class="text-[var(--text-active)] text-lg font-semibold">
+          //                   <i class="ri-folder-3-line"></i>
+          //               </div>
+          //               <div class="flex flex-col">
+          //                   <span class="font-medium text-gray-900 text-m leading-relaxed break-words">${data.phase_title}</span>
+          //               </div>
+          //           </div>
+          //           <button class="absolute access-btn right-0 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white border border-gray-200 shadow-sm px-2.5 py-1 rounded-md hover:bg-gray-50 text-[var(--text-active)] hover:text-[var(--text-active)]-700 focus:outline-none z-10 flex items-center gap-1.5 transform translate-x-2 group-hover:translate-x-0" >
+          //               <span class="text-[10px] font-semibold uppercase tracking-wide">Open</span>
+          //               <i class="ri-arrow-right-up-line text-xs"></i>
+          //           </button>
+          //       </div>
+          //       `;
+          // },
         },
         {
           title: "Owner",
@@ -179,6 +184,7 @@ export class PhasesComponent {
           field: "status",
           editor: "list",
           minWidth: 150,
+          cssClass: "app-status-cell",
           editorParams: {
             values: this.statusList,
             autocomplete: true,
@@ -186,21 +192,7 @@ export class PhasesComponent {
             clearable: true
           },
           formatter: (cell: any) => {
-            const val = cell.getValue();
-
-            // Simple color logic
-            let colorClass = "bg-gray-100 text-gray-700";
-            if (["Active", "On-Track", "Approved", "Completed", "Invoiced", "Open"].includes(val)) {
-              colorClass = "bg-emerald-100 text-emerald-700";
-            } else if (["In-Progress", "In-Review", "In-Testing", "Planning"].includes(val)) {
-              colorClass = "bg-blue-100 text-blue-700";
-            } else if (["On-Hold", "To-be-Tested"].includes(val)) {
-              colorClass = "bg-amber-100 text-amber-700";
-            } else if (["Delayed", "Cancelled", "Rejected", "Closed"].includes(val)) {
-              colorClass = "bg-red-100 text-red-700";
-            }
-
-            return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${val}</span>`;
+            return formatStatusPill(cell.getValue());
           }
         },
         { title: "Start Date", field: "start_date", width: 120 },
@@ -253,41 +245,33 @@ export class PhasesComponent {
           minWidth: 180,
           formatter: (cell: any) => {
             const data = cell.getData();
-            const total = data.tasks_done + data.tasks_pending;
-            const pct = total === 0 ? 0 : Math.round((data.tasks_done / total) * 100);
+            const done = Number(data.tasks_done) || 0;
+            const pending = Number(data.tasks_pending) || 0;
+            const total = done + pending;
+            const pct = total === 0 ? 0 : Math.round((done / total) * 100);
 
-            // Color logic
-            let colorClass = "text-blue-600";
-            let strokeClass = "text-blue-600";
-
+            let progressClass = "phase-progress--active";
             if (pct === 100) {
-              colorClass = "text-emerald-500";
-              strokeClass = "text-emerald-500";
+              progressClass = "phase-progress--complete";
             } else if (pct < 30) {
-              colorClass = "text-amber-500";
-              strokeClass = "text-amber-500";
+              progressClass = "phase-progress--warning";
             }
 
-            // SVG parameters for 36x36 viewBox, radius 14
-            // Circumference = 2 * PI * 14 ~= 87.96
-            const radius = 14;
             const circumference = 100;
             const offset = circumference - (pct / 100) * circumference;
 
             return `
-                <div class="flex items-center gap-3 w-full">
-                    <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
-                        <!-- Background Circle -->
+                <div class="phase-progress ${progressClass}">
+                    <div class="phase-progress__ring">
                         <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                            <path class="text-gray-200" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" />
-                            <!-- Progress Circle -->
-                            <path class="${strokeClass} transition-all duration-1000 ease-out" stroke-dasharray="${circumference}, ${circumference}" stroke-dashoffset="${offset}" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+                            <path class="phase-progress__track" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" />
+                            <path class="phase-progress__value" stroke-dasharray="${circumference}, ${circumference}" stroke-dashoffset="${offset}" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
                         </svg>
-                        <div class="absolute text-[10px] font-bold text-gray-700">${pct}%</div>
+                        <div class="phase-progress__percent">${pct}%</div>
                     </div>
-                    <div class="flex flex-col min-w-0">
-                        <span class="text-xs font-semibold text-gray-700 truncate">${data.tasks_done}/${total} Tasks</span>
-                        <span class="text-[10px] text-gray-400 font-medium truncate">Completed</span>
+                    <div class="phase-progress__copy">
+                        <span>${done}/${total} Tasks</span>
+                        <small>Completed</small>
                     </div>
                 </div>
                 `;
@@ -311,8 +295,8 @@ export class PhasesComponent {
           width: 100,
           hozAlign: "center",
           headerSort: false,
-          frozen: true,
-          formatter: this.actionFormatter,
+          frozen: freezeColumns,
+          formatter: (cell: any) => this.actionFormatter(cell),
           cellClick: (e: any, cell: any) => this.handleActionClick(e, cell),
           cssClass: "sticky-col-right",
         }
@@ -357,12 +341,16 @@ export class PhasesComponent {
     });
   }
   actionFormatter(cell: any) {
+    const data = cell.getData?.() ?? {};
+    const phaseId = Number(data?.id);
+    const isUpdating = this.updatingPhaseId === phaseId;
+
     return `
       <div class="flex items-center justify-center gap-3 w-full h-full">
-        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit">
-          <i class="ri-pencil-line text-lg pointer-events-none"></i>
+        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit ${isUpdating ? 'tabulator-action-button--loading' : ''}" title="${isUpdating ? 'Updating...' : 'Edit'}" ${isUpdating ? 'disabled' : ''}>
+          <i class="${isUpdating ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-pencil-line text-lg'} pointer-events-none"></i>
         </button>
-        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete" title="Delete">
+        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete" title="Delete" ${isUpdating ? 'disabled' : ''}>
           <i class="ri-delete-bin-line text-lg pointer-events-none"></i>
         </button>
       </div>
@@ -373,6 +361,7 @@ export class PhasesComponent {
     e.stopPropagation();
     const target = e.target.closest('button');
     if (!target) return;
+    if (target.disabled) return;
 
     const row = cell.getRow();
     const data = row.getData();
@@ -411,27 +400,7 @@ export class PhasesComponent {
 
   // --- Formatters ---
   statusFormatter(cell: any) {
-    const value = cell.getValue(); // This will be true/false
-    let classes = "";
-    let dotColor = "";
-    let label = "";
-
-    if (value === true) {
-      classes = "bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20";
-      dotColor = "bg-emerald-500";
-      label = "Active";
-    } else {
-      classes = "bg-red-50 text-red-700 border-red-200 ring-red-600/20"; // Changed inactive to red for visibility
-      dotColor = "bg-red-500";
-      label = "Inactive";
-    }
-
-    return `
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${classes}">
-            <span class="w-1.5 h-1.5 rounded-full ${dotColor}"></span>
-            ${label}
-        </span>
-    `;
+    return formatStatusPill(cell.getValue());
   }
 
 
@@ -520,7 +489,12 @@ export class PhasesComponent {
     });
   }
   getPhasesByProjectId(e: any) {
-    this.authService.getPhaseByProjectId(e?.target?.value).subscribe({
+    this.tableLoading = true;
+    this.authService.getPhaseByProjectId(e?.target?.value)
+      .pipe(finalize(() => {
+        this.tableLoading = false;
+      }))
+      .subscribe({
       next: (res: any) => {
         this.phaseList = res
         this.tableData = res;
@@ -535,6 +509,15 @@ export class PhasesComponent {
         if (!this.pendingStateRestore && !this.isRestoringTableState) {
           this.saveViewState();
         }
+      },
+      error: (err: any) => {
+        this.phaseList = [];
+        this.tableData = [];
+        if (this.table) {
+          this.safeReplaceData(this.table, this.tableData);
+          this.applySearchFilter();
+        }
+        this.toasterService.error(err?.error?.message || 'Unable to load phases.');
       }
     });
   }
@@ -628,7 +611,14 @@ export class PhasesComponent {
 
   updatePhase() {
     this.selectPhase.username = this.storageService.getUsername();
-    this.authService.updatePhase(this.selectPhase).subscribe({
+    this.updatingPhaseId = Number(this.selectPhase?.id);
+    this.refreshVisibleRows();
+    this.authService.updatePhase(this.selectPhase)
+      .pipe(finalize(() => {
+        this.updatingPhaseId = null;
+        this.refreshVisibleRows();
+      }))
+      .subscribe({
       next: ((res: any) => {
         this.toasterService.success(res?.message);
         this.loadData({ target: { value: this.projectid } });
@@ -637,6 +627,14 @@ export class PhasesComponent {
         this.toasterService.error(err?.error?.message);
       }
     })
+  }
+
+  private refreshVisibleRows(): void {
+    try {
+      this.table?.redraw?.(true);
+    } catch {
+      // ignore redraw timing during table rebuilds
+    }
   }
 
   onRangeChange(event: { startDate: Date; endDate: Date }) {
@@ -771,6 +769,10 @@ export class PhasesComponent {
       page: Number(this.table?.getPage?.() || 1) || 1,
       pageSize: Number(this.table?.getPageSize?.() || 15) || 15
     });
+  }
+
+  private isCompactViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
   }
 
 }

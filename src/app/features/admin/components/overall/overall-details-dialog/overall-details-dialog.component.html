@@ -1,0 +1,96 @@
+<div class="overall-details-dialog">
+  <div class="overall-details-dialog__header">
+    <div class="overall-details-dialog__title">
+      <span>
+        <i [class]="data.icon || 'ri-table-line'"></i>
+      </span>
+      <div>
+        <h3>{{ data.title || 'Details' }}</h3>
+        <p>{{ rows.length || 0 }} Records</p>
+      </div>
+    </div>
+
+    <button type="button" class="overall-details-dialog__close" title="Close" (click)="matDialog.closeAll()">
+      <i class="ri-close-line"></i>
+    </button>
+  </div>
+
+  <div class="overall-details-dialog__body">
+    <div
+      class="overall-details-table-wrap"
+      [class.overall-details-table-wrap--scrolling]="scrollbarVisible"
+      
+      (scroll)="showTableScrollbar()">
+      <table class="overall-details-table">
+        <thead>
+          <tr>
+            <th *ngFor="let column of columns; trackBy: trackByColumn">
+              <button
+                type="button"
+                class="overall-details-sort-button"
+                [title]="'Sort by ' + column.label"
+                (click)="sortByColumn(column)">
+                <span>{{ column.label }}</span>
+                <i [class]="getSortIcon(column)"></i>
+              </button>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of pagedRows; trackBy: trackByRow">
+            <td
+              *ngFor="let column of columns; trackBy: trackByColumn"
+              [class.overall-details-table__status-cell]="column.type === 'status'">
+              <span
+                *ngIf="column.type === 'status'; else plainCell"
+                class="app-status-pill overall-details-status"
+                [ngClass]="getStatusClass(row, column)"
+                [class.overall-details-status--inactive]="!isActiveStatus(row, column)">
+                <span class="app-status-pill__dot"></span>
+                <span class="app-status-pill__label">{{ getCellValue(row, column) }}</span>
+              </span>
+              <ng-template #plainCell>{{ getCellValue(row, column) }}</ng-template>
+            </td>
+          </tr>
+          <tr *ngIf="!rows.length">
+            <td [attr.colspan]="columns.length || 1" class="overall-details-empty">
+              No records found.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="overall-details-footer">
+      <span>
+        Showing {{ showingFrom }}-{{ showingTo }} of {{ rows.length }} records
+      </span>
+      <span class="overall-details-page-size">10 rows/page</span>
+      <div class="overall-details-pagination" aria-label="Details pagination">
+        <button
+          type="button"
+          title="Previous page"
+          aria-label="Previous page"
+          [disabled]="pageIndex === 0"
+          (click)="goToPage(pageIndex - 1)">
+          <i class="ri-arrow-left-s-line"></i>
+        </button>
+        <button
+          *ngFor="let page of pageNumbers; trackBy: trackByNumber"
+          type="button"
+          [class.overall-details-pagination__page--active]="pageIndex === page - 1"
+          (click)="goToPage(page - 1)">
+          {{ page }}
+        </button>
+        <button
+          type="button"
+          title="Next page"
+          aria-label="Next page"
+          [disabled]="pageIndex >= totalPages - 1"
+          (click)="goToPage(pageIndex + 1)">
+          <i class="ri-arrow-right-s-line"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

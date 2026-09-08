@@ -57,3 +57,90 @@
       box-shadow: 0 0 0 3px rgba(79, 46, 229, 0.1);
     }
 }
+
+:host ::ng-deep .release-status-pill {
+    --release-status-color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid color-mix(in srgb, var(--release-status-color) 32%, var(--border-card));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--release-status-color) 13%, var(--bg-card));
+    color: var(--release-status-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+:host ::ng-deep .release-status--success {
+    --release-status-color: #059669;
+}
+
+:host ::ng-deep .release-status--progress {
+    --release-status-color: #2563eb;
+}
+
+:host ::ng-deep .release-status--warning {
+    --release-status-color: #d97706;
+}
+
+:host ::ng-deep .release-status--danger {
+    --release-status-color: #dc2626;
+}
+
+:host ::ng-deep .release-status--muted {
+    --release-status-color: var(--text-muted);
+}
+
+:host-context(.dark-mode) ::ng-deep .release-status--success,
+:host-context(.dark-mode.theme-black) ::ng-deep .release-status--success {
+    --release-status-color: #10b981;
+}
+
+:host-context(.dark-mode) ::ng-deep .release-status--progress,
+:host-context(.dark-mode.theme-black) ::ng-deep .release-status--progress {
+    --release-status-color: #60a5fa;
+}
+
+:host-context(.dark-mode) ::ng-deep .release-status--warning,
+:host-context(.dark-mode.theme-black) ::ng-deep .release-status--warning {
+    --release-status-color: #fbbf24;
+}
+
+:host-context(.dark-mode) ::ng-deep .release-status--danger,
+:host-context(.dark-mode.theme-black) ::ng-deep .release-status--danger {
+    --release-status-color: #f87171;
+}
+
+:host ::ng-deep .tabulator-tableholder {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+    :host > div {
+        height: auto !important;
+        min-height: 100vh;
+        overflow: visible !important;
+    }
+
+    :host .flex-1,
+    :host .h-full {
+        min-height: auto;
+    }
+
+    :host .custom-scrollbar {
+        min-height: 28rem;
+    }
+
+    :host .release-type-select {
+        background-color: var(--bg-card);
+        color: var(--text-main);
+        border-color: var(--border-card);
+    }
+}

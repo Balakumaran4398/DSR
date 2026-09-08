@@ -1,0 +1,273 @@
+<section class="home-analytics">
+  <header class="home-analytics__header">
+    <div class="home-analytics__title">
+      <div>
+        <h1>Project Analytics</h1>
+        <div class="home-analytics__meta">
+          <span>{{ currentDateLabel }}</span>
+          <span>Live overview</span>
+          <span>All departments</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-analytics__actions">
+      <span class="home-live-pill" [class.home-live-pill--loading]="dashboardLoading || ticketsLoading">
+        <span></span>
+        {{ dashboardLoading || ticketsLoading ? 'Refreshing' : 'Live' }}
+      </span>
+      <button
+        *ngFor="let range of rangeOptions"
+        type="button"
+        class="home-range-button"
+        [class.home-range-button--active]="selectedRange === range"
+        [attr.aria-busy]="ticketsLoading && selectedRange === range"
+        (click)="setRange(range)">
+        <i *ngIf="ticketsLoading && selectedRange === range" class="ri-loader-4-line home-spin-icon"></i>
+        {{ range }}
+      </button>
+    </div>
+  </header>
+
+  <div class="home-metric-grid">
+    <button
+      *ngFor="let metric of metrics; trackBy: trackByLabel"
+      type="button"
+      class="home-metric"
+      [ngClass]="'home-metric--' + metric.tone"
+      [class.home-metric--loading]="dashboardLoading && !hasDashboardData()"
+      [attr.aria-busy]="dashboardLoading"
+      (click)="navigateTo(metric.route)">
+      <div class="home-metric__top">
+        <span>{{ metric.label }}</span>
+        <i [class]="dashboardLoading && hasDashboardData() ? 'ri-loader-4-line home-spin-icon' : metric.icon"></i>
+      </div>
+      <ng-container *ngIf="!dashboardLoading || hasDashboardData(); else metricSkeleton">
+        <strong>{{ metric.value | number }}</strong>
+        <div class="home-metric__bottom">
+          <span>{{ metric.subLabel }}</span>
+          <div class="home-spark-bars">
+            <span
+              *ngFor="let bar of sparkBars; trackBy: trackByValue"
+              [style.height.%]="bar">
+            </span>
+          </div>
+        </div>
+      </ng-container>
+      <ng-template #metricSkeleton>
+        <span class="home-skeleton home-skeleton--metric-value"></span>
+        <span class="home-skeleton home-skeleton--metric-line"></span>
+      </ng-template>
+    </button>
+  </div>
+
+  <div class="home-board-grid">
+    <section class="home-panel home-ticket-panel">
+      <h2>
+        Tickets
+        <span *ngIf="ticketsLoading" class="home-refresh-pill">
+          <i class="ri-loader-4-line home-spin-icon"></i>
+          {{ ticketsLoaded ? 'Refreshing' : 'Loading' }}
+        </span>
+      </h2>
+      <p class="home-panel__subline">Total</p>
+      <div class="home-donut-wrap">
+        <div class="home-donut" [style.background]="ticketDonutStyle">
+          <div></div>
+        </div>
+      </div>
+      <div class="home-legend-list">
+        <div class="home-legend home-legend--amber">
+          <span></span>
+          <label>Open Tickets</label>
+          <strong>{{ openTickets | number }}</strong>
+        </div>
+        <div class="home-legend home-legend--emerald">
+          <span></span>
+          <label>Closed Tickets</label>
+          <strong>{{ closedTickets | number }}</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-panel home-pipeline-panel">
+      <h2>
+        Release Pipeline
+        <span *ngIf="dashboardLoading" class="home-refresh-pill">
+          <i class="ri-loader-4-line home-spin-icon"></i>
+          {{ hasDashboardData() ? 'Refreshing' : 'Loading' }}
+        </span>
+      </h2>
+      <div class="home-pipeline">
+        <div
+          *ngFor="let item of releasePipeline; trackBy: trackByLabel"
+          class="home-pipeline__row">
+          <span>{{ item.label }}</span>
+          <div class="home-pipeline__track">
+            <div
+              class="home-pipeline__bar"
+              [ngClass]="'home-pipeline__bar--' + item.tone"
+              [style.width.%]="getPipelineWidth(item.count)">
+            </div>
+          </div>
+          <strong>{{ item.count | number }}</strong>
+        </div>
+      </div>
+      <div class="home-pipeline-tags">
+        <span
+          *ngFor="let item of releasePipeline; trackBy: trackByLabel"
+          [ngClass]="'home-pipeline-tag--' + item.tone">
+          {{ item.count | number }} {{ item.label }}
+        </span>
+      </div>
+    </section>
+
+    <section class="home-panel home-completed-panel">
+      <h2>Completed Projects</h2>
+      <p class="home-panel__subline">New</p>
+      <div class="home-donut-wrap">
+        <div class="home-donut home-donut--completed" [style.background]="completedDonutStyle">
+          <div></div>
+        </div>
+      </div>
+      <div class="home-legend-list">
+        <div class="home-legend home-legend--emerald">
+          <span></span>
+          <label>Internal Pass</label>
+          <strong>{{ internalPassReleases | number }}</strong>
+        </div>
+        <div class="home-legend home-legend--cyan">
+          <span></span>
+          <label>External Pass</label>
+          <strong>{{ externalPassReleases | number }}</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- <section class="home-panel home-radar-panel">
+      <h2>Health Radar</h2>
+      <div class="home-radar">
+        <svg viewBox="0 0 220 180" role="img" aria-label="Project health radar">
+          <g class="home-radar__grid">
+            <polygon points="110,24 171,58 158,132 110,158 62,132 49,58"></polygon>
+            <polygon points="110,52 145,72 138,115 110,130 82,115 75,72"></polygon>
+            <polygon points="110,80 122,87 119,99 110,106 101,99 98,87"></polygon>
+            <line x1="110" y1="24" x2="110" y2="158"></line>
+            <line x1="49" y1="58" x2="171" y2="132"></line>
+            <line x1="171" y1="58" x2="49" y2="132"></line>
+          </g>
+          <polygon class="home-radar__area" points="110,34 149,70 142,123 110,140 73,119 64,72"></polygon>
+          <polyline class="home-radar__line" points="110,34 149,70 142,123 110,140 73,119 64,72 110,34"></polyline>
+          <g class="home-radar__labels">
+            <text x="110" y="14" text-anchor="middle">Delivery</text>
+            <text x="178" y="57" text-anchor="start">Quality</text>
+            <text x="168" y="154" text-anchor="middle">Velocity</text>
+            <text x="52" y="154" text-anchor="middle">Coverage</text>
+            <text x="18" y="57" text-anchor="start">Stability</text>
+          </g>
+        </svg>
+      </div>
+    </section> -->
+  </div>
+
+  <div class="home-trend-grid">
+    <section class="home-panel home-trend-panel">
+      <div class="home-panel__header-row">
+        <div>
+          <h2>Tasks - Monthly</h2>
+          <p class="home-panel__subline">Open vs Closed - 6-month view</p>
+        </div>
+        <div class="home-trend-legend">
+          <span class="home-trend-legend__open">Open {{ openTasks | number }}</span>
+          <span class="home-trend-legend__closed">Closed {{ closedTasks | number }}</span>
+        </div>
+      </div>
+
+      <div class="home-trend-chart">
+        <div
+          *ngFor="let item of taskTrend; trackBy: trackByMonth"
+          class="home-trend-column">
+          <div class="home-trend-column__bars">
+            <span class="home-trend-bar home-trend-bar--open" [style.height.%]="item.openHeight"></span>
+            <span class="home-trend-bar home-trend-bar--closed" [style.height.%]="item.closedHeight"></span>
+          </div>
+          <label>{{ item.month }}</label>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-panel home-trend-panel home-trend-panel--issues">
+      <div class="home-panel__header-row">
+        <div>
+          <h2>Issues - Monthly</h2>
+          <p class="home-panel__subline">Open vs Closed - 6-month view</p>
+        </div>
+        <div class="home-trend-legend">
+          <span class="home-trend-legend__warning">Open {{ openIssues | number }}</span>
+          <span class="home-trend-legend__danger">Closed {{ closedIssues | number }}</span>
+        </div>
+      </div>
+
+      <div class="home-trend-chart">
+        <div
+          *ngFor="let item of issueTrend; trackBy: trackByMonth"
+          class="home-trend-column">
+          <div class="home-trend-column__bars">
+            <span class="home-trend-bar home-trend-bar--warning" [style.height.%]="item.openHeight"></span>
+            <span class="home-trend-bar home-trend-bar--danger" [style.height.%]="item.closedHeight"></span>
+          </div>
+          <label>{{ item.month }}</label>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="home-panel home-growth-panel">
+    <div class="home-panel__header-row">
+      <div>
+        <h2>Staff & Projects - Growth Trend</h2>
+      </div>
+      <div class="home-line-legend">
+        <span class="home-line-legend__staff">Staff</span>
+        <span class="home-line-legend__projects">Projects</span>
+      </div>
+    </div>
+
+    <div class="home-line-chart">
+      <div class="home-line-chart__axis">
+        <span>60</span>
+        <span>45</span>
+        <span>30</span>
+        <span>15</span>
+        <span>0</span>
+      </div>
+      <div class="home-line-chart__plot">
+        <svg viewBox="0 0 700 160" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="homeStaffFill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.24"></stop>
+              <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"></stop>
+            </linearGradient>
+            <linearGradient id="homeProjectsFill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#818cf8" stop-opacity="0.22"></stop>
+              <stop offset="100%" stop-color="#818cf8" stop-opacity="0"></stop>
+            </linearGradient>
+          </defs>
+          <polygon class="home-line-chart__fill home-line-chart__fill--staff" [attr.points]="growthStaffAreaPoints"></polygon>
+          <polygon class="home-line-chart__fill home-line-chart__fill--projects" [attr.points]="growthProjectAreaPoints"></polygon>
+          <polyline class="home-line-chart__line home-line-chart__line--staff" [attr.points]="growthStaffPoints"></polyline>
+          <polyline class="home-line-chart__line home-line-chart__line--projects" [attr.points]="growthProjectPoints"></polyline>
+          <circle *ngFor="let point of growthStaffSvgPoints; trackBy: trackByGrowthPoint" class="home-line-chart__dot home-line-chart__dot--staff" [attr.cx]="point.x" [attr.cy]="point.y" r="3"></circle>
+          <circle *ngFor="let point of growthProjectSvgPoints; trackBy: trackByGrowthPoint" class="home-line-chart__dot home-line-chart__dot--projects" [attr.cx]="point.x" [attr.cy]="point.y" r="3"></circle>
+        </svg>
+        <div class="home-line-chart__labels">
+          <span *ngFor="let item of growthTrend; trackBy: trackByQuarter">{{ item.quarter }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="home-analytics__footer">
+    Project Analytics - Auto-refreshed - {{ currentDateLabel }}
+  </footer>
+</section>

@@ -7,9 +7,10 @@
   padding: 1.8rem;
   border-radius: 1.8rem;
   background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.32), transparent 28%),
-    linear-gradient(145deg, #ffffff 0%, #f8fafc 48%, #eef2ff 100%);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--text-active) 16%, transparent), transparent 28%),
+    linear-gradient(145deg, var(--bg-card) 0%, var(--bg-elevated) 52%, var(--bg-active) 100%);
   overflow: hidden;
+  color: var(--text-main);
 }
 
 .skill-dialog__close {
@@ -22,8 +23,8 @@
   place-items: center;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.86);
-  color: #475569;
+  background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+  color: var(--text-soft);
   cursor: pointer;
 }
 
@@ -54,13 +55,13 @@
 
 .skill-dialog__hero h2 {
   margin: 0.55rem 0 0;
-  color: #0f172a;
-  font: 700 1.65rem 'Outfit', sans-serif;
+  color: var(--text-main);
+  font: 700 1.65rem 'Roboto', sans-serif;
 }
 
 .skill-dialog__hero p {
   margin: 0.55rem 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   line-height: 1.7;
 }
 
@@ -72,7 +73,7 @@
 .skill-dialog__field label {
   display: inline-block;
   margin-bottom: 0.5rem;
-  color: #334155;
+  color: var(--text-soft);
   font-size: 0.86rem;
   font-weight: 700;
 }
@@ -83,14 +84,14 @@
   gap: 0.75rem;
   padding: 0.95rem 1rem;
   border-radius: 1rem;
-  border: 1px solid rgba(203, 213, 225, 0.92);
-  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--form-border);
+  background: var(--form-bg);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .skill-dialog__input-wrap:focus-within {
-  border-color: color-mix(in srgb, var(--text-active) 45%, white);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--bg-active) 80%, white);
+  border-color: var(--text-active);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--text-active) 18%, transparent);
 }
 
 .skill-dialog__input-wrap i {
@@ -103,7 +104,7 @@
   border: 0;
   outline: none;
   background: transparent;
-  color: #0f172a;
+  color: var(--text-main);
   font-size: 0.95rem;
 }
 
@@ -132,8 +133,8 @@
 }
 
 .skill-dialog__btn--ghost {
-  background: #e2e8f0;
-  color: #334155;
+  background: var(--bg-elevated);
+  color: var(--text-soft);
 }
 
 .skill-dialog__btn--primary {

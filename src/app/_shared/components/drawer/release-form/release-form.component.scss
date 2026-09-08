@@ -1,0 +1,7 @@
+/* Target the button when it is disabled */
+button[mat-flat-button][disabled], 
+button.mat-mdc-unelevated-button[disabled] {
+  filter: blur(0.4px); /* Creates a very subtle blur effect */
+  opacity: 0.65;      /* Standard muted opacity for disabled elements */
+  cursor: not-allowed;
+}

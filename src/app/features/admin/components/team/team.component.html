@@ -2,7 +2,15 @@
     <div class="flex flex-col gap-4 mb-4
            sm:flex-row sm:items-center sm:justify-between">
         <!-- Title Section -->
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
+            <button *ngIf="showOverallBackButton" type="button" class="inline-flex h-9 items-center justify-center gap-2
+               rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold
+               text-slate-700 shadow-sm transition
+               hover:border-[var(--text-active)] hover:text-[var(--text-active)]"
+               (click)="backToOverall()">
+                <i class="ri-arrow-left-line text-base"></i>
+                <span>Back</span>
+            </button>
             <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
                flex items-center justify-center text-white shadow-sm shrink-0">
                 <i class="ri-team-line text-xl"></i>
@@ -49,9 +57,15 @@
     </div>
 
     <!-- Table Card -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden app-loading-host">
         <!-- The Grid -->
         <div #tableDiv></div>
+        <div *ngIf="teamTableLoading" class="app-local-loading-overlay">
+            <div class="app-local-loading">
+                <i class="ri-loader-4-line app-spin"></i>
+                <span>Loading team...</span>
+            </div>
+        </div>
     </div>
 </div>
 

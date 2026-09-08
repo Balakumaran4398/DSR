@@ -1,3 +1,44 @@
+:host {
+    display: block;
+    color: var(--text-main);
+}
+
+:host > div {
+    background: var(--bg-body) !important;
+    color: var(--text-main);
+}
+
+:host h1 {
+    --tw-text-opacity: 1;
+    color: rgb(15 23 42 / var(--tw-text-opacity, 1));
+}
+
+:host p {
+    color: var(--text-muted) !important;
+}
+
+:host button[aria-selected='true'] {
+    background: var(--text-active) !important;
+    color: var(--text-on-active) !important;
+    border-color: var(--text-active) !important;
+}
+
+:host button[aria-selected='false'] {
+    background: var(--bg-card) !important;
+    color: var(--text-soft) !important;
+    border-color: var(--border-card) !important;
+}
+
+:host button[aria-selected='false']:hover {
+    background: var(--bg-elevated) !important;
+    color: var(--text-active) !important;
+}
+
+:host ::ng-deep app-overview-task,
+:host ::ng-deep app-overview-releases {
+    color: var(--text-main);
+}
+
 .custom-scrollbar::-webkit-scrollbar {
     height: 8px;
 }
@@ -7,9 +48,9 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: var(--border-card);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: var(--text-muted);
 }

@@ -1,10 +1,14 @@
 import { Component, Input, OnInit, SimpleChanges } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
+import { finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
+
 export type ReleaseStatus = 'Upcoming-Release' | 'On-Hold' | 'Open' | 'In-Progress' | 'To-be-Tested' | 'In-Review' | 'Rejected' | 'Pass' | 'Failed';
+export type ReleaseType = 'Internal' | 'External';
+
 @Component({
   selector: 'app-release-form',
   templateUrl: './release-form.component.html',
@@ -12,8 +16,12 @@ export type ReleaseStatus = 'Upcoming-Release' | 'On-Hold' | 'Open' | 'In-Progre
 })
 export class ReleaseFormComponent implements OnInit {
   isEditMode = false;
-  statusList = ['Upcoming-Release', 'To-be-Tested', 'On-Hold', 'In-Progress', 'Rejected', 'Pass', 'Failed'];
+  statusList = ['Upcoming-Release', 'Open', 'To-be-Tested', 'On-Hold', 'In-Progress', 'Rejected', 'Pass', 'Failed'];
   private readonly closedStatuses: ReleaseStatus[] = ['Pass', 'Rejected', 'Failed'];
+  private readonly qcStartDateStatuses: ReleaseStatus[] = ['In-Progress', 'Pass', 'Failed'];
+  private readonly qcStartRequiredStatuses: ReleaseStatus[] = ['In-Progress', 'Pass', 'Failed'];
+  private readonly qcEndDateStatuses: ReleaseStatus[] = ['In-Progress', 'Pass', 'Failed'];
+  private readonly qcEndRequiredStatuses: ReleaseStatus[] = ['In-Progress'];
   private lastManualStatus: ReleaseStatus = 'Upcoming-Release';
   projectList: any = [];
   versionList: any[] = [];
@@ -22,8 +30,9 @@ export class ReleaseFormComponent implements OnInit {
   parentReleaseMailData: any[] = [];
   parentReleaseMailContent = '';
   projectDetails: any;
-  employeeList: any = [];
-  @Input() data: any
+  employeeList: any[] = [];
+  employeeFilterControl = new FormControl('');
+  @Input() data: any;
   releaseForm: FormGroup;
   empid: any = 0;
   userRole: any;
@@ -39,13 +48,24 @@ export class ReleaseFormComponent implements OnInit {
   selectedFiles: File[] = [];
   selectedFileName = '';
   todayDate = this.getTodayDate();
-  constructor(private authService: AuthService, private toasterService: ToasterService, private drawerService: DrawerService, private storageService: StorageService) {
+  filteredEmployees: any[] = [];
+  minDate: Date = new Date(new Date().setHours(0, 0, 0, 0));
+  private isInitialized = false;
+  submitting = false;
+
+  constructor(
+    private authService: AuthService,
+    private toasterService: ToasterService,
+    private drawerService: DrawerService,
+    private storageService: StorageService
+  ) {
     this.empid = this.storageService.getEmpId();
     this.userRole = this.storageService.getRoleNames();
     this.canModifyExistingReleaseDates = this.storageService.roles.isAdmin || this.storageService.roles.isManager;
     const stored = localStorage.getItem('projectDetails');
     this.projectDetails = stored ? JSON.parse(stored) : null;
-    this.projectid = this.projectDetails?.id
+    this.projectid = this.projectDetails?.id;
+
     this.releaseForm = new FormGroup({
       id: new FormControl(0),
       title: new FormControl('', Validators.required),
@@ -60,8 +80,10 @@ export class ReleaseFormComponent implements OnInit {
         Validators.required
       ),
       closed_date: new FormControl(
-        { value: '', disabled: !this.canModifyReleaseDates },
+        { value: '', disabled: !this.canModifyReleaseDates }
       ),
+      qc_testing_start_date: new FormControl(''),
+      qc_testing_end_date: new FormControl(''),
       assigned_to: new FormControl<number | null>(this.empid, Validators.required),
       assigned_from: new FormControl<number | null>(this.empid),
       status: new FormControl<ReleaseStatus>('Upcoming-Release', { nonNullable: true, validators: Validators.required }),
@@ -74,16 +96,45 @@ export class ReleaseFormComponent implements OnInit {
       username: new FormControl(storageService.getUsername()),
       parent_version: new FormControl(''),
       client: new FormControl(''),
+      remarks: new FormControl('')
     });
 
+    this.employeeFilterControl.valueChanges.subscribe(value => {
+      this.applyEmployeeFilter(value);
+    });
   }
 
   get showParentReleaseMailContent(): boolean {
-    return this.releaseForm.get('release_type')?.value === 'External' && !!this.parentReleaseMailContent.trim();
+    return this.isExternalRelease() && !!this.parentReleaseMailContent.trim();
   }
 
   get isRejectedStatus(): boolean {
     return this.releaseForm.get('status')?.value === 'Rejected';
+  }
+
+  get isInProgress(): boolean {
+    return this.releaseForm.get('status')?.value === 'In-Progress';
+  }
+
+  get showQcReleaseDate(): boolean {
+    const status = this.releaseForm.get('status')?.value;
+    return !this.isExternalRelease() && (this.shouldShowQcTestingStartDate(status) || this.shouldShowQcTestingEndDate(status));
+  }
+
+  get showQcTestingStartDate(): boolean {
+    return !this.isExternalRelease() && this.shouldShowQcTestingStartDate(this.releaseForm.get('status')?.value);
+  }
+
+  get showQcTestingEndDate(): boolean {
+    return !this.isExternalRelease() && this.shouldShowQcTestingEndDate(this.releaseForm.get('status')?.value);
+  }
+
+  get isQcStartDateRequired(): boolean {
+    return !this.isExternalRelease() && this.isQcTestingStartRequired(this.releaseForm.get('status')?.value);
+  }
+
+  get isQcEndDateRequired(): boolean {
+    return !this.isExternalRelease() && this.isQcTestingEndRequired(this.releaseForm.get('status')?.value);
   }
 
   get canModifyReleaseDates(): boolean {
@@ -98,7 +149,6 @@ export class ReleaseFormComponent implements OnInit {
     if (this.selectedFiles.length) {
       return this.selectedFiles.map(file => file.name);
     }
-
     return this.selectedFileName
       .split(',')
       .map(fileName => fileName.trim())
@@ -106,10 +156,8 @@ export class ReleaseFormComponent implements OnInit {
   }
 
   ngOnInit() {
-
     this.isAdmin = this.storageService.roles?.isAdmin || false;
     this.isOverdue = this.data?.isOverdue || false;
-
 
     this.releaseForm.get('ismail')?.valueChanges.subscribe(checked => {
       this.toggleCommunicationControls(!!checked);
@@ -122,12 +170,19 @@ export class ReleaseFormComponent implements OnInit {
       }
       this.toggleReasonValidator(status === 'Rejected');
       this.syncClosedDateWithStatus(status as ReleaseStatus | null);
+      this.syncQcTestingDatesWithStatus(status as ReleaseStatus | null);
     });
 
     this.releaseForm.get('release_type')?.valueChanges.subscribe(type => {
+      const releaseTypeControl = this.releaseForm.get('release_type');
+      const normalizedType = this.normalizeReleaseType(type);
+      if (type !== normalizedType) {
+        releaseTypeControl?.setValue(normalizedType, { emitEvent: false });
+      }
+
       const parentControl = this.releaseForm.get('parent_version');
       const clientControl = this.releaseForm.get('client');
-      if (type === 'External') {
+      if (normalizedType === 'External') {
         parentControl?.setValidators([Validators.required]);
         clientControl?.setValidators([Validators.required]);
         this.getAllClients();
@@ -141,11 +196,14 @@ export class ReleaseFormComponent implements OnInit {
       }
       parentControl?.updateValueAndValidity();
       clientControl?.updateValueAndValidity();
+      this.syncClosedDateWithStatus(this.releaseForm.get('status')?.value);
+      this.syncQcTestingDatesWithStatus(this.releaseForm.get('status')?.value);
     });
 
     this.releaseForm.get('parent_version')?.valueChanges.subscribe(version => {
       this.loadParentReleaseMailData(version);
     });
+
     this.releaseForm.get('version')?.valueChanges.subscribe(value => {
       if (!value) return;
       const normalized = value.replace(/^V/, 'v');
@@ -155,20 +213,23 @@ export class ReleaseFormComponent implements OnInit {
         });
       }
     });
-    this.loadData({ value: this.projectid });
+
+    // Consolidated initialization to prevent duplicate redundant API requests
+    this.getProjects();
     this.getAllClients();
+    this.isInitialized = true;
     this.applyInputData();
+
     this.toggleReasonValidator(this.isRejectedStatus);
     this.syncClosedDateWithStatus(this.releaseForm.get('status')?.value);
+    this.syncQcTestingDatesWithStatus(this.releaseForm.get('status')?.value);
   }
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-
     if (!input.files || input.files.length === 0) {
       return;
     }
-
     this.selectedFiles = Array.from(input.files);
     this.selectedFileName = this.selectedFiles.map(file => file.name).join(',');
     this.releaseForm.patchValue({
@@ -209,7 +270,6 @@ export class ReleaseFormComponent implements OnInit {
     );
   }
 
-
   toggleEditMode() {
     if (this.isEditMode) {
       this.patchReleaseForm(this.data);
@@ -217,12 +277,16 @@ export class ReleaseFormComponent implements OnInit {
   }
 
   async onSubmit() {
+    if (this.submitting) return;
+
     if (this.releaseForm.valid) {
+      this.submitting = true;
       const raw = this.releaseForm.getRawValue();
       let payload: any;
       try {
         payload = await this.buildReleaseRequestPayload(raw);
       } catch {
+        this.submitting = false;
         this.toasterService.error('Unable to process the selected attachments.');
         return;
       }
@@ -235,12 +299,15 @@ export class ReleaseFormComponent implements OnInit {
           delete updatePayload.file_type;
         }
         this.data = updatePayload;
-        this.authService.updateRelease(updatePayload).subscribe({
+        this.authService.updateRelease(updatePayload)
+          .pipe(finalize(() => {
+            this.submitting = false;
+          }))
+          .subscribe({
           next: (res: any) => {
             if (res.mail_status === 'FAILED' && this.releaseForm.get('ismail')?.value === true) {
               this.toasterService.warning(
-                `Release not updated, emails not sent
-                 ${res.failed_recipients}`,
+                `Release not updated, emails not sent\n${res.failed_recipients}`,
                 `Failed:`
               );
               this.drawerService.notifyAction({
@@ -249,8 +316,7 @@ export class ReleaseFormComponent implements OnInit {
                 payload: res
               });
               this.onCancel();
-            }
-            else {
+            } else {
               this.toasterService.success(res?.message);
               this.drawerService.notifyAction({
                 source: 'release',
@@ -259,18 +325,22 @@ export class ReleaseFormComponent implements OnInit {
               });
               this.onCancel();
             }
-          }, error: (err) => {
+          },
+          error: (err) => {
             this.toasterService.error(err?.error?.message);
           }
-        })
+        });
       } else {
         this.releaseForm.value.username = this.storageService.getUsername();
-        this.authService.createRelease(payload).subscribe({
+        this.authService.createRelease(payload)
+          .pipe(finalize(() => {
+            this.submitting = false;
+          }))
+          .subscribe({
           next: (res: any) => {
             if (res.mail_status === 'FAILED' && this.releaseForm.get('ismail')?.value === true) {
               this.toasterService.warning(
-                `Release Created, but email not sent
-                 ${res.failed_recipients}`,
+                `Release Created, but email not sent\n${res.failed_recipients}`,
                 `Failed:`
               );
               this.drawerService.notifyAction({
@@ -288,10 +358,11 @@ export class ReleaseFormComponent implements OnInit {
               });
               this.onCancel();
             }
-          }, error: (err) => {
+          },
+          error: (err) => {
             this.toasterService.error(err?.error?.message);
           }
-        })
+        });
       }
     } else {
       this.releaseForm.markAllAsTouched();
@@ -302,8 +373,9 @@ export class ReleaseFormComponent implements OnInit {
     this.resetForCreateMode();
     this.drawerService.close();
   }
+
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['data']) {
+    if (changes['data'] && this.isInitialized) {
       this.applyInputData();
     }
   }
@@ -327,12 +399,6 @@ export class ReleaseFormComponent implements OnInit {
     if (this.hasEditData()) {
       this.isEditMode = true;
       this.patchReleaseForm(this.data);
-      const projectId = this.data?.projectid ?? this.data?.projectId;
-      if (projectId) {
-        this.projectid = projectId;
-        this.getEmployees({ value: projectId });
-        this.getVersions(projectId);
-      }
     } else {
       this.resetForCreateMode();
     }
@@ -355,6 +421,9 @@ export class ReleaseFormComponent implements OnInit {
         control.disable({ emitEvent: false });
       }
     });
+
+    this.releaseForm.get('qc_testing_start_date')?.enable({ emitEvent: false });
+    this.releaseForm.get('qc_testing_end_date')?.enable({ emitEvent: false });
   }
 
   private resetForCreateMode(): void {
@@ -367,24 +436,29 @@ export class ReleaseFormComponent implements OnInit {
       status: 'Upcoming-Release',
       release_type: 'Internal',
       ismail: false,
+      isQC: false,
       planned_date: this.getTodayDate(),
       released_date: this.getTodayDate(),
       closed_date: '',
+      qc_testing_start_date: '',
+      qc_testing_end_date: '',
       projectid: this.projectid,
-      assigned_to: this.empid,
+      assigned_to: null,
       assigned_from: this.empid,
       mail_content: '',
       file_url: '',
       file_name: '',
       parent_version: '',
       client: "",
-      username: this.storageService.getUsername()
+      username: this.storageService.getUsername(),
+      remarks: ''
     });
     this.lastManualStatus = 'Upcoming-Release';
     this.selectedFiles = [];
     this.selectedFileName = '';
     this.toggleCommunicationControls(false);
     this.syncClosedDateWithStatus(this.releaseForm.get('status')?.value);
+    this.syncQcTestingDatesWithStatus(this.releaseForm.get('status')?.value);
     this.applyReleaseDatePermissions();
     this.releaseForm.markAsPristine();
     this.releaseForm.markAsUntouched();
@@ -393,7 +467,8 @@ export class ReleaseFormComponent implements OnInit {
   private patchReleaseForm(data: any): void {
     if (!data) return;
 
-    const patchedStatus = (data.status ?? 'Upcoming-Release') as ReleaseStatus;
+    const patchedStatus = this.normalizeReleaseStatus(data.status);
+    const patchedReleaseType = this.getReleaseTypeFromData(data);
     if (patchedStatus !== 'To-be-Tested') {
       this.lastManualStatus = patchedStatus;
     }
@@ -408,25 +483,32 @@ export class ReleaseFormComponent implements OnInit {
       reject_reason: data.reject_reason ?? '',
       projectid: data.projectid ?? data.projectId ?? this.projectid,
       version: data.version ?? '',
-      planned_date: data.planned_date ,
-      released_date: data.released_date ,
+      planned_date: data.planned_date,
+      released_date: data.released_date,
       closed_date: data.closed_date ?? '',
-      assigned_to: data.assigned_to ?? this.empid,
+      qc_testing_start_date: data.qc_testing_start_date ?? '',
+      qc_testing_end_date: data.qc_testing_end_date ?? '',
+      assigned_to: data.assigned_to ?? data.assignedTo ?? null,
       assigned_from: data.assigned_from ?? this.empid,
       status: patchedStatus,
       mail_content: data.mail_content ?? data.message ?? '',
       file_url: data.file_url ?? data.file_path ?? data.filepath ?? '',
       file_name: fileNames,
       ismail: data.ismail ?? false,
-      release_type: data.release_type ?? 'Internal',
+      isQC: data.isQC ?? false,
+      release_type: patchedReleaseType,
       username: this.storageService.getUsername(),
-      parent_version: data.parent_version ?? '',
-      client: this.parseClientListForForm(data.client),
+      parent_version: data.parent_version ?? data.parentVersion ?? '',
+      client: this.parseClientListForForm(
+        data.client ?? data.clients ?? data.client_id ?? data.client_ids ?? data.clientId ?? data.clientIds
+      ),
+      remarks: data.remarks ?? ''
     });
     this.selectedFiles = [];
     this.selectedFileName = fileNames;
     this.toggleCommunicationControls(this.isCommunicationEnabled);
     this.syncClosedDateWithStatus(patchedStatus);
+    this.syncQcTestingDatesWithStatus(patchedStatus);
     this.applyReleaseDatePermissions();
     this.releaseForm.markAsPristine();
     this.releaseForm.markAsUntouched();
@@ -450,14 +532,17 @@ export class ReleaseFormComponent implements OnInit {
       }
       statusControl.setValue('To-be-Tested', { emitEvent: false });
       this.syncClosedDateWithStatus('To-be-Tested');
+      this.syncQcTestingDatesWithStatus('To-be-Tested');
       return;
     }
 
     if (currentStatus === 'To-be-Tested') {
       statusControl.setValue(this.lastManualStatus || 'Upcoming-Release', { emitEvent: false });
       this.syncClosedDateWithStatus(this.lastManualStatus || 'Upcoming-Release');
+      this.syncQcTestingDatesWithStatus(this.lastManualStatus || 'Upcoming-Release');
     }
   }
+
   private toggleReasonValidator(isRejected: boolean): void {
     const reasonControl = this.releaseForm.get('reject_reason');
     if (!reasonControl) {
@@ -491,6 +576,60 @@ export class ReleaseFormComponent implements OnInit {
     }
 
     closedDateControl.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private syncQcTestingDatesWithStatus(status: ReleaseStatus | null | undefined): void {
+    const qcStartDateControl = this.releaseForm.get('qc_testing_start_date');
+    const qcEndDateControl = this.releaseForm.get('qc_testing_end_date');
+    if (!qcStartDateControl || !qcEndDateControl) {
+      return;
+    }
+
+    if (this.isExternalRelease()) {
+      qcStartDateControl.clearValidators();
+      qcStartDateControl.setValue('', { emitEvent: false });
+      qcEndDateControl.clearValidators();
+      qcEndDateControl.setValue('', { emitEvent: false });
+      qcStartDateControl.updateValueAndValidity({ emitEvent: false });
+      qcEndDateControl.updateValueAndValidity({ emitEvent: false });
+      return;
+    }
+
+    if (this.shouldShowQcTestingStartDate(status)) {
+      qcStartDateControl.setValidators(this.isQcTestingStartRequired(status) ? [Validators.required] : []);
+    } else {
+      qcStartDateControl.clearValidators();
+    }
+
+    if (this.shouldShowQcTestingEndDate(status)) {
+      qcEndDateControl.setValidators(this.isQcTestingEndRequired(status) ? [Validators.required] : []);
+
+      if ((status === 'Pass' || status === 'Failed') && !qcEndDateControl.value) {
+        qcEndDateControl.setValue(this.getTodayDate(), { emitEvent: false });
+      }
+    } else {
+      qcEndDateControl.clearValidators();
+      qcEndDateControl.setValue('', { emitEvent: false });
+    }
+
+    qcStartDateControl.updateValueAndValidity({ emitEvent: false });
+    qcEndDateControl.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private shouldShowQcTestingStartDate(status: ReleaseStatus | null | undefined): boolean {
+    return this.qcStartDateStatuses.includes(status as ReleaseStatus);
+  }
+
+  private shouldShowQcTestingEndDate(status: ReleaseStatus | null | undefined): boolean {
+    return this.qcEndDateStatuses.includes(status as ReleaseStatus);
+  }
+
+  private isQcTestingStartRequired(status: ReleaseStatus | null | undefined): boolean {
+    return this.qcStartRequiredStatuses.includes(status as ReleaseStatus);
+  }
+
+  private isQcTestingEndRequired(status: ReleaseStatus | null | undefined): boolean {
+    return this.qcEndRequiredStatuses.includes(status as ReleaseStatus);
   }
 
   private loadParentReleaseMailData(version: string | null | undefined): void {
@@ -563,18 +702,32 @@ export class ReleaseFormComponent implements OnInit {
 
   private async buildReleaseRequestPayload(raw: any): Promise<any> {
     const { file_url, file_name, file_type, ...requestPayload } = raw;
-    const closedDate = this.isClosedStatus(raw.status)
+    const status = this.normalizeReleaseStatus(raw.status);
+    const releaseType = this.normalizeReleaseType(raw.release_type);
+    requestPayload.status = status;
+    requestPayload.release_type = releaseType;
+
+    const closedDate = this.isClosedStatus(status)
       ? raw.closed_date || this.getTodayDate()
       : null;
+    const qcTestingStartDate = this.getQcTestingStartDateForPayload(raw, releaseType);
+    const qcTestingEndDate = this.getQcTestingEndDateForPayload(raw, releaseType, status);
+    const statusChangedDate = this.getStatusChangedDateForPayload(status, qcTestingEndDate, releaseType);
 
     const payload: any = {
       ...requestPayload,
-      client: this.formatClientListForPayload(raw.client),
+      client: releaseType === 'External' ? this.formatClientListForPayload(raw.client) : '',
       mail_content: this.buildMailContent(raw.mail_content),
       planned_date: this.storageService.toLocalDate(raw.planned_date),
       released_date: this.storageService.toLocalDate(raw.released_date),
-      closed_date: this.storageService.toLocalDate(closedDate)
+      closed_date: this.storageService.toLocalDate(closedDate),
+      qc_testing_start_date: qcTestingStartDate,
+      qc_testing_end_date: qcTestingEndDate
     };
+
+    if (statusChangedDate) {
+      payload.status_changed_date = statusChangedDate;
+    }
 
     if (!this.selectedFiles.length) {
       return payload;
@@ -584,6 +737,42 @@ export class ReleaseFormComponent implements OnInit {
     payload.file_names = this.selectedFiles.map(file => file.name);
 
     return payload;
+  }
+
+  private getStatusChangedDateForPayload(
+    status: ReleaseStatus | null | undefined,
+    qcTestingEndDate: string | null,
+    releaseType: ReleaseType = this.normalizeReleaseType(this.releaseForm.get('release_type')?.value)
+  ): string | null {
+    if (releaseType === 'External') {
+      return null;
+    }
+
+    if (this.shouldShowQcTestingEndDate(status)) {
+      return qcTestingEndDate;
+    }
+    return null;
+  }
+
+  private getQcTestingStartDateForPayload(raw: any, releaseType: ReleaseType): string | null {
+    if (releaseType === 'External') {
+      return null;
+    }
+
+    return this.storageService.toLocalDate(raw.qc_testing_start_date);
+  }
+
+  private getQcTestingEndDateForPayload(raw: any, releaseType: ReleaseType, status: ReleaseStatus): string | null {
+    if (releaseType === 'External') {
+      return null;
+    }
+
+    if (!this.shouldShowQcTestingEndDate(status)) {
+      return null;
+    }
+    return this.storageService.toLocalDate(
+      raw.qc_testing_end_date || (status === 'Pass' || status === 'Failed' ? this.getTodayDate() : null)
+    );
   }
 
   private readFileAsBase64(file: File): Promise<string> {
@@ -603,7 +792,6 @@ export class ReleaseFormComponent implements OnInit {
     if (!Array.isArray(clientList)) {
       return '';
     }
-
     return clientList
       .filter(clientId => clientId !== null && clientId !== undefined && clientId !== '')
       .join(',');
@@ -615,19 +803,34 @@ export class ReleaseFormComponent implements OnInit {
         .map((client: any) => Number(client?.id ?? client))
         .filter(clientId => !Number.isNaN(clientId));
     }
-
     if (typeof clientList === 'string') {
       return clientList
         .split(',')
         .map(clientId => Number(clientId.trim()))
         .filter(clientId => !Number.isNaN(clientId));
     }
-
     return [];
   }
 
   private normalizeVersion(version: string | null | undefined): string {
     return (version ?? '').trim().toLowerCase();
+  }
+
+  private getReleaseTypeFromData(data: any): ReleaseType {
+    return this.normalizeReleaseType(data?.release_type ?? data?.releaseType);
+  }
+
+  private normalizeReleaseType(type: unknown): ReleaseType {
+    return `${type ?? ''}`.trim().toLowerCase() === 'external' ? 'External' : 'Internal';
+  }
+
+  private isExternalRelease(type: unknown = this.releaseForm.get('release_type')?.value): boolean {
+    return this.normalizeReleaseType(type) === 'External';
+  }
+
+  private normalizeReleaseStatus(status: unknown): ReleaseStatus {
+    const value = `${status ?? ''}`.trim();
+    return (value.toLowerCase() === 'passed' ? 'Pass' : value || 'Upcoming-Release') as ReleaseStatus;
   }
 
   private getTodayDate(): Date {
@@ -664,13 +867,12 @@ export class ReleaseFormComponent implements OnInit {
     this.getEmployees(e);
     this.getVersions(e?.value ?? this.projectid);
     this.getReleases(e?.value ?? this.projectid);
-
   }
 
   getProjects(callback?: Function) {
     this.authService.getAllProjectsByEmployeeId(this.empid).subscribe({
       next: (res: any) => {
-        this.projectList = res
+        this.projectList = res;
         if (callback) callback();
       }
     });
@@ -692,13 +894,18 @@ export class ReleaseFormComponent implements OnInit {
       }
     });
   }
+
   getEmployees(e: any) {
-    this.authService.getEmployeelistByProjectId(e.value).subscribe({
+    const projId = e?.value ?? e;
+    if (!projId) return;
+    this.authService.getEmployeelistByProjectId(projId).subscribe({
       next: (res: any) => {
-        this.employeeList = res?.assigned_employee_list
+        this.employeeList = res?.assigned_employee_list;
+        this.filteredEmployees = res?.assigned_employee_list;
       }
     });
   }
+
   closeDate() {
     return this.isClosedStatus(this.releaseForm.get('status')?.value);
   }
@@ -727,11 +934,9 @@ export class ReleaseFormComponent implements OnInit {
         const matchesSearch = client.company_name
           ?.toLowerCase()
           .includes(search);
-
         const isSelected =
           Array.isArray(selectedIds) &&
           selectedIds.includes(client.id);
-
         return matchesSearch || isSelected;
       })
       .sort((a: any, b: any) => {
@@ -742,5 +947,33 @@ export class ReleaseFormComponent implements OnInit {
         if (!aMatches && bMatches) return 1;
         return 0;
       });
+  }
+
+  getSelectedEmployeeName(): string {
+    const selectedId = this.releaseForm.get('assigned_to')?.value;
+    if (!selectedId) return 'Select Employee';
+    const foundEmp = this.employeeList.find(emp => (emp.id || emp.emp_id) == selectedId);
+    return foundEmp ? foundEmp.employee_name : 'Select Employee';
+  }
+
+  private applyEmployeeFilter(value: string | null): void {
+    const filterValue = (value ?? '').toLowerCase().trim();
+    this.filteredEmployees = this.employeeList.filter((employee: any) =>
+      (employee?.employee_name ?? '').toLowerCase().includes(filterValue)
+    );
+  }
+
+  isReleasedDateBeforeToday(): boolean {
+    const releasedDate = this.releaseForm.get('released_date')?.value;
+    if (!releasedDate) {
+      return false;
+    }
+    const selectedDate = new Date(releasedDate);
+    const today = new Date();
+
+    selectedDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    return selectedDate < today;
   }
 }

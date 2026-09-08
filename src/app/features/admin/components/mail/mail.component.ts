@@ -1,5 +1,6 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
+import { finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
 import { MailListComponent } from '../mail-list/mail-list.component';
@@ -22,6 +23,7 @@ export class MailComponent {
   initialEndDate: string | null = null;
   fromdate: any = null
   todate: any = null;
+  mailLoading = false;
   private suppressInitialRangeFetch = false;
 
   constructor(private authService : AuthService, private matDialog: MatDialog){}
@@ -36,10 +38,12 @@ export class MailComponent {
     if (this.table) {
       this.table.destroy();
     }
+    const freezeColumns = !this.isCompactViewport();
   
     this.table = new Tabulator(this.tableDiv.nativeElement, {
       data: this.mails,
-      layout: 'fitColumns',
+      layout: 'fitDataStretch',
+      responsiveLayout: false,
       pagination: 'local',
       paginationSize: 10,
       paginationCounter: 'rows',
@@ -68,7 +72,7 @@ export class MailComponent {
           title: 'Project Name',
           field: 'project_title',
           width: 304, 				//changed
-          frozen: true,
+          frozen: freezeColumns,
           resizable: true,
           hozAlign: 'left',
           sorter: 'string',
@@ -138,7 +142,7 @@ export class MailComponent {
           hozAlign: 'center',
           headerHozAlign: 'center',
           headerSort: false,
-          frozen: true,
+          frozen: freezeColumns,
           formatter: (cell: any) => this.actionFormatter(cell),
           cellClick: (e: any, cell: any) => this.handleActionClick(e, cell),
           cssClass: 'sticky-col-right',
@@ -247,7 +251,12 @@ export class MailComponent {
   }
 
   getAllMails(){
-    this.authService.getAllMails(this.userData.empid,this.userData.id,this.fromdate,this.todate).subscribe({
+    this.mailLoading = true;
+    this.authService.getAllMails(this.userData.empid,this.userData.id,this.fromdate,this.todate)
+      .pipe(finalize(() => {
+        this.mailLoading = false;
+      }))
+      .subscribe({
       next : (res : any[]) => {
         this.mails = res;
         console.log(res);
@@ -257,6 +266,10 @@ export class MailComponent {
       },
       error : (err : any) => {
         console.log('getAllMailsError',err);
+        this.mails = [];
+        if (this.table) {
+          this.table.replaceData?.(this.mails);
+        }
       }
     });
   }
@@ -392,5 +405,9 @@ openDialogue(data: any) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
       d.getDate()
     ).padStart(2, '0')}`;
+  }
+
+  private isCompactViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
   }
 }

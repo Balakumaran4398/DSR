@@ -194,20 +194,13 @@ export class StorageService {
 
   getRoleNames(): string[] {
     const user = this.getUser();
-    const rawRoles = user?.roles;
+    const rawRoles = user?.roles ?? user?.role ?? user?.authorities ?? user?.permissions;
+    const roles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
 
-    if (Array.isArray(rawRoles)) {
-      return rawRoles.filter((role): role is string => typeof role === 'string');
-    }
-
-    if (typeof rawRoles === 'string' && rawRoles.trim()) {
-      return rawRoles
-        .split(',')
-        .map(role => role.trim())
-        .filter(Boolean);
-    }
-
-    return [];
+    return [...new Set(roles
+      .flatMap(role => typeof role === 'string' ? role.split(',') : [role])
+      .map(role => this.extractRoleName(role))
+      .filter((role): role is string => !!role))];
   }
 
   hasAnyRole(allowedRoles: string[]): boolean {
@@ -216,7 +209,32 @@ export class StorageService {
     }
 
     const currentRoles = this.getRoleNames();
-    return allowedRoles.some(role => currentRoles.includes(role));
+    return allowedRoles.some(role => currentRoles.includes(this.normalizeRoleName(role)));
+  }
+
+  private extractRoleName(role: any): string | null {
+    if (role && typeof role === 'object') {
+      role = role.authority
+        ?? role.role
+        ?? role.roleName
+        ?? role.role_name
+        ?? role.name
+        ?? role.value;
+    }
+
+    if (typeof role !== 'string' || !role.trim()) {
+      return null;
+    }
+
+    return this.normalizeRoleName(role);
+  }
+
+  private normalizeRoleName(role: string): string {
+    const normalizedRole = role.trim().toUpperCase().replace(/[\s-]+/g, '_');
+
+    return ['ADMIN', 'MANAGER', 'EMPLOYEE'].includes(normalizedRole)
+      ? `ROLE_${normalizedRole}`
+      : normalizedRole;
   }
 
   // -----------------------------

@@ -59,7 +59,16 @@ export class HierarchyComponent implements OnInit, AfterViewInit {
   treeScale = 1;
   treeShellHeight = 'auto';
 
-  readonly palette = ['#0f766e', '#1d4ed8', '#7c3aed', '#ea580c', '#be123c', '#0891b2'];
+  isDarkMode = false;
+
+  readonly palette = [
+    'var(--hc-person-tone-1)',
+    'var(--hc-person-tone-2)',
+    'var(--hc-person-tone-3)',
+    'var(--hc-person-tone-4)',
+    'var(--hc-person-tone-5)',
+    'var(--hc-person-tone-6)'
+  ];
   private readonly desktopBreakpoint = 1024;
   employee_id: any;
   constructor(
@@ -67,7 +76,9 @@ export class HierarchyComponent implements OnInit, AfterViewInit {
     public storageService: StorageService,
     private toasterService: ToasterService
   ) {
-   
+    this.isDarkMode = sessionStorage.getItem('isDarkMode')==="true";
+    console.log(this.isDarkMode);
+    
     this.employee_id = storageService.getEmpId();
    
 

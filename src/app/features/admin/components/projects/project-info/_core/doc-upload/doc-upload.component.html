@@ -76,10 +76,13 @@
                     <button mat-flat-button color="primary" type="submit"
                         [disabled]="uploadForm.invalid || isSubmitting" class="px-8 py-2 rounded-lg">
                         <ng-container *ngIf="isSubmitting; else submitBtnText">
-                            Processing...
+                            <span class="app-button-loading">
+                                <i class="ri-loader-4-line app-button-spinner"></i>
+                                <span>Saving...</span>
+                            </span>
                         </ng-container>
                         <ng-template #submitBtnText>
-                            Submit Request
+                            Save
                         </ng-template>
                     </button>
                 </div>

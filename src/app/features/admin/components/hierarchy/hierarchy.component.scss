@@ -11,14 +11,68 @@
   --hc-orange: #ea580c;
   --hc-indigo: #4338ca;
   --hc-green: #15803d;
+  --hc-admin-tone: var(--text-active);
+  --hc-manager-tone: #fb923c;
+  --hc-owner-tone: #0ea5e9;
+  --hc-project-tone: #6366f1;
+  --hc-member-tone: #22c55e;
+  --hc-manager-selected-bg: rgb(253, 221, 180);
+  --hc-owner-selected-bg: rgb(164, 211, 243);
+  --hc-project-selected-bg: rgb(153, 174, 241);
+  --hc-member-selected-bg: rgb(172, 252, 200);
+  --hc-person-tone-1: #0f766e;
+  --hc-person-tone-2: #1d4ed8;
+  --hc-person-tone-3: #7c3aed;
+  --hc-person-tone-4: #ea580c;
+  --hc-person-tone-5: #be123c;
+  --hc-person-tone-6: #0891b2;
   --hc-card-border: #cbd5e1;
   --hc-connector: 3px solid rgb(126, 202, 247);
+}
+
+:host-context(.dark-mode) {
+  --hc-ink: var(--text-main);
+  --hc-muted: var(--text-muted);
+  --hc-line: rgba(148, 163, 184, 0.78);
+  --hc-glass: rgba(17, 24, 39, 0.84);
+  --hc-glass-strong: rgba(30, 41, 59, 0.92);
+  --hc-shadow: 0 24px 56px rgba(0, 0, 0, 0.32);
+  --hc-card-border: var(--border-card);
+  --hc-connector: 3px solid color-mix(in srgb, var(--text-active) 48%, #334155);
+  --hc-manager-selected-bg: color-mix(in srgb, var(--hc-manager-tone) 22%, var(--bg-card));
+  --hc-owner-selected-bg: color-mix(in srgb, var(--hc-owner-tone) 22%, var(--bg-card));
+  --hc-project-selected-bg: color-mix(in srgb, var(--hc-project-tone) 22%, var(--bg-card));
+  --hc-member-selected-bg: color-mix(in srgb, var(--hc-member-tone) 22%, var(--bg-card));
+}
+
+:host-context(.theme-black) {
+  --hc-teal: var(--text-active);
+  --hc-blue: var(--text-active);
+  --hc-orange: var(--text-active);
+  --hc-indigo: var(--text-active);
+  --hc-green: var(--text-active);
+  --hc-line: color-mix(in srgb, var(--text-active) 74%, var(--text-muted));
+  --hc-connector: 3px solid color-mix(in srgb, var(--text-active) 54%, var(--border-card));
+  --hc-manager-tone: var(--text-active);
+  --hc-owner-tone: var(--text-active);
+  --hc-project-tone: var(--text-active);
+  --hc-member-tone: var(--text-active);
+  --hc-manager-selected-bg: color-mix(in srgb, var(--text-active) 14%, var(--bg-card));
+  --hc-owner-selected-bg: color-mix(in srgb, var(--text-active) 14%, var(--bg-card));
+  --hc-project-selected-bg: color-mix(in srgb, var(--text-active) 14%, var(--bg-card));
+  --hc-member-selected-bg: color-mix(in srgb, var(--text-active) 14%, var(--bg-card));
+  --hc-person-tone-1: var(--text-active);
+  --hc-person-tone-2: var(--text-active);
+  --hc-person-tone-3: var(--text-active);
+  --hc-person-tone-4: var(--text-active);
+  --hc-person-tone-5: var(--text-active);
+  --hc-person-tone-6: var(--text-active);
 }
 
 
 .hierarchy-hero,
 .hierarchy-canvas {
-  border: 1px solid rgba(255, 255, 255, 0.68);
+  border: 1px solid var(--hc-card-border);
   border-radius: 30px;
   background: var(--hc-glass);
   // box-shadow: var(--hc-shadow);
@@ -55,7 +109,7 @@
 .hierarchy-canvas__head h2 {
   margin: 0.9rem 0 0.4rem;
   color: var(--hc-ink);
-  font: 800 clamp(2rem, 4vw, 3rem) 'Outfit', sans-serif;
+  font: 800 clamp(2rem, 4vw, 3rem) 'Roboto', sans-serif;
   letter-spacing: -0.04em;
 }
 
@@ -92,7 +146,7 @@
 .hierarchy-stat strong {
   display: block;
   color: var(--hc-ink);
-  font: 800 1.5rem 'Outfit', sans-serif;
+  font: 800 1.5rem 'Roboto', sans-serif;
 }
 
 .hierarchy-stat small {
@@ -184,7 +238,7 @@
 
 .hierarchy-section__heading {
   color: var(--hc-ink);
-  font: 800 0.9rem 'Outfit', sans-serif;
+  font: 800 0.9rem 'Roboto', sans-serif;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -338,7 +392,7 @@
 .hierarchy-manager-owner__connector {
   position: relative;
   width: 2px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.98));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hc-line) 14%, transparent), var(--hc-line));
 }
 
 .hierarchy-root-flow__connector {
@@ -360,7 +414,7 @@
   border-right: 2px solid var(--hc-line);
   border-bottom: 2px solid var(--hc-line);
   transform: translateX(-50%) rotate(45deg);
-  background: #ffffff;
+  background: var(--bg-card);
 }
 
 .hierarchy-manager-flow {
@@ -371,9 +425,9 @@
 .hierarchy-manager-owner {
   position: relative;
   padding: 1.2rem 1.2rem 1.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.76);
+  border: 1px solid var(--hc-card-border);
   border-radius: 30px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(246, 250, 255, 0.94));
+  background: linear-gradient(180deg, var(--hc-glass-strong), var(--hc-glass));
   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
 }
 
@@ -565,8 +619,8 @@
 
 .hierarchy-card--root {
   max-width: 15rem;
-  background: var(--text-active);
-  border-color: rgba(15, 118, 110, 0.4);
+  background: var(--hc-admin-tone);
+  border-color: color-mix(in srgb, var(--hc-admin-tone) 42%, var(--hc-card-border));
   display: block;
   text-align: center;
 }
@@ -576,7 +630,7 @@
 // }
 
 .hierarchy-card--manager {
-  border-color: rgba(249, 115, 22, 0.4);
+  border-color: color-mix(in srgb, var(--hc-manager-tone) 42%, var(--hc-card-border));
   // background: linear-gradient(180deg, rgba(255, 247, 237, 0.98), rgba(255, 255, 255, 0.98));
   // box-shadow: 0 16px 32px rgba(249, 115, 22, 0.12);
 }
@@ -584,7 +638,7 @@
 
 
 .hierarchy-card--owner {
-  border-color: rgba(14, 165, 233, 0.38);
+  border-color: color-mix(in srgb, var(--hc-owner-tone) 42%, var(--hc-card-border));
   // background: linear-gradient(180deg, rgba(240, 249, 255, 0.98), rgba(255, 255, 255, 0.98));
   // box-shadow: 0 16px 32px rgba(14, 165, 233, 0.11);
 }
@@ -596,14 +650,14 @@
 // }
 
 .hierarchy-card--project {
-  border-color: rgba(99, 102, 241, 0.34);
+  border-color: color-mix(in srgb, var(--hc-project-tone) 42%, var(--hc-card-border));
   // background: linear-gradient(180deg, rgba(238, 242, 255, 0.98), rgba(255, 255, 255, 0.98));
   // box-shadow: 0 16px 32px rgba(99, 102, 241, 0.11);
 }
 
 
 .hierarchy-card--member {
-  border-color: rgba(34, 197, 94, 0.34);
+  border-color: color-mix(in srgb, var(--hc-member-tone) 42%, var(--hc-card-border));
   // background: linear-gradient(180deg, rgba(240, 253, 244, 0.98), rgba(255, 255, 255, 0.98));
   // box-shadow: 0 16px 30px rgba(34, 197, 94, 0.1);
 }
@@ -611,7 +665,7 @@
 
 
 .hierarchy-card--project-manager {
-  border-color: rgba(249, 115, 22, 0.4);
+  border-color: color-mix(in srgb, var(--hc-manager-tone) 42%, var(--hc-card-border));
   // background: linear-gradient(180deg, rgba(255, 247, 237, 0.96), rgba(255, 255, 255, 0.98));
   // box-shadow: 0 18px 34px rgba(249, 115, 22, 0.14);
 }
@@ -624,26 +678,26 @@
 
 .hierarchy-card--manager.hierarchy-card--interactive.is-selected,
 .hierarchy-selection-node:focus-visible .hierarchy-card--manager.hierarchy-card--interactive {
-  border-color: #fb923c;
-  background: rgb(253, 221, 180);
+  border-color: var(--hc-manager-tone);
+  background: var(--hc-manager-selected-bg);
 }
 
 .hierarchy-card--owner.hierarchy-card--interactive.is-selected,
 .hierarchy-selection-node:focus-visible .hierarchy-card--owner.hierarchy-card--interactive {
-  border-color: #0ea5e9;
-  background: rgb(164, 211, 243);
+  border-color: var(--hc-owner-tone);
+  background: var(--hc-owner-selected-bg);
 }
 
 .hierarchy-card--project.hierarchy-card--interactive.is-selected,
 .hierarchy-selection-node:focus-visible .hierarchy-card--project.hierarchy-card--interactive {
-  border-color: #6366f1;
-  background: rgb(153, 174, 241);
+  border-color: var(--hc-project-tone);
+  background: var(--hc-project-selected-bg);
 }
 
 .hierarchy-card--member.hierarchy-card--interactive.is-selected,
 .hierarchy-selection-node:focus-visible .hierarchy-card--member.hierarchy-card--interactive {
-  border-color: #22c55e;
-  background: rgb(172, 252, 200);
+  border-color: var(--hc-member-tone);
+  background: var(--hc-member-selected-bg);
 }
 
 .hierarchy-card--detail {
@@ -653,24 +707,24 @@
 
 .hierarchy-card--manager:hover,
 .hierarchy-selection-node:hover .hierarchy-card--manager {
-  border-color: #fb923c;
+  border-color: var(--hc-manager-tone);
 }
 
 .hierarchy-card--owner:hover,
 .hierarchy-selection-node:hover .hierarchy-card--owner {
-  border-color: #0ea5e9;
+  border-color: var(--hc-owner-tone);
 }
 
 .hierarchy-card--project:hover {
-  border-color: #6366f1;
+  border-color: var(--hc-project-tone);
 }
 
 .hierarchy-card--member:hover {
-  border-color: #22c55e;
+  border-color: var(--hc-member-tone);
 }
 
 .hierarchy-card--project-manager:hover {
-  border-color: #f97316;
+  border-color: var(--hc-manager-tone);
 }
 
 
@@ -704,38 +758,38 @@
 }
 
 .hierarchy-label--root {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.26);
-  color: #ffffff !important;
+  background: color-mix(in srgb, var(--text-on-active) 14%, transparent);
+  border-color: color-mix(in srgb, var(--text-on-active) 24%, transparent);
+  color: var(--text-on-active) !important;
 }
 
 .hierarchy-label--manager {
-  background: rgba(2, 132, 199, 0.12);
-  border-color: rgba(2, 132, 199, 0.24);
-  color: var(--hc-blue) !important;
+  background: color-mix(in srgb, var(--hc-manager-tone) 12%, transparent);
+  border-color: color-mix(in srgb, var(--hc-manager-tone) 24%, transparent);
+  color: var(--hc-manager-tone) !important;
 }
 
 .hierarchy-label--owner {
-  background: rgba(234, 88, 12, 0.12);
-  border-color: rgba(234, 88, 12, 0.22);
-  color: var(--hc-orange) !important;
+  background: color-mix(in srgb, var(--hc-owner-tone) 12%, transparent);
+  border-color: color-mix(in srgb, var(--hc-owner-tone) 24%, transparent);
+  color: var(--hc-owner-tone) !important;
 }
 
 .hierarchy-label--project {
-  background: rgba(67, 56, 202, 0.12);
-  border-color: rgba(67, 56, 202, 0.2);
-  color: var(--hc-indigo) !important;
+  background: color-mix(in srgb, var(--hc-project-tone) 12%, transparent);
+  border-color: color-mix(in srgb, var(--hc-project-tone) 24%, transparent);
+  color: var(--hc-project-tone) !important;
 }
 
 .hierarchy-label--member {
-  background: rgba(21, 128, 61, 0.12);
-  border-color: rgba(21, 128, 61, 0.22);
-  color: var(--hc-green) !important;
+  background: color-mix(in srgb, var(--hc-member-tone) 12%, transparent);
+  border-color: color-mix(in srgb, var(--hc-member-tone) 24%, transparent);
+  color: var(--hc-member-tone) !important;
 }
 
 .hierarchy-card__content strong {
   color: var(--hc-ink);
-  font: 700 0.98rem 'Outfit', sans-serif;
+  font: 700 0.98rem 'Roboto', sans-serif;
   letter-spacing: -0.02em;
   line-height: 1.3;
 }
@@ -749,11 +803,11 @@
 .hierarchy-card--root .hierarchy-card__content small,
 .hierarchy-card--root .hierarchy-card__content strong,
 .hierarchy-card--root .hierarchy-card__content p {
-  color: #ffffff;
+  color: var(--text-on-active);
 }
 
 .hierarchy-card--root .hierarchy-card__content p {
-  color: rgba(255, 255, 255, 0.82);
+  color: color-mix(in srgb, var(--text-on-active) 82%, transparent);
 }
 
 .hierarchy-root__avatar,
@@ -770,14 +824,14 @@
 .hierarchy-root__avatar {
   width: 3.4rem;
   height: 3.4rem;
-  background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
-  font: 800 1.3rem 'Outfit', sans-serif;
+  background: color-mix(in srgb, var(--text-on-active) 14%, transparent);
+  color: var(--text-on-active);
+  font: 800 1.3rem 'Roboto', sans-serif;
 }
 
 .hierarchy-avatar,
 .hierarchy-member-node__avatar {
-  background: color-mix(in srgb, var(--avatar-tone) 18%, white);
+  background: color-mix(in srgb, var(--avatar-tone) 18%, var(--bg-card));
   color: var(--avatar-tone);
   border: 1px solid rgba(15, 23, 42, 0.12);
 }
@@ -905,4 +959,51 @@
   .hierarchy-member-grid {
     grid-template-columns: 1fr;
   }
+}
+
+:host-context(.dark-mode) .hierarchy-hero,
+:host-context(.dark-mode) .hierarchy-canvas,
+:host-context(.dark-mode) .hierarchy-stat,
+:host-context(.dark-mode) .hierarchy-detail-panel,
+:host-context(.dark-mode) .hierarchy-project-detail,
+:host-context(.dark-mode) .hierarchy-card,
+:host-context(.dark-mode) .hierarchy-inline-empty,
+:host-context(.dark-mode) .hierarchy-empty {
+  border-color: var(--hc-card-border);
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.9)),
+    var(--hc-glass);
+  color: var(--text-main);
+  box-shadow: var(--hc-shadow);
+}
+
+:host-context(.dark-mode) .hierarchy-card--root {
+  background: linear-gradient(135deg, var(--hc-admin-tone), var(--brand-color));
+  border-color: color-mix(in srgb, var(--hc-admin-tone) 58%, var(--border-card));
+}
+
+:host-context(.dark-mode) .hierarchy-card--manager.hierarchy-card--interactive.is-selected,
+:host-context(.dark-mode) .hierarchy-selection-node:focus-visible .hierarchy-card--manager.hierarchy-card--interactive {
+  background: var(--hc-manager-selected-bg);
+}
+
+:host-context(.dark-mode) .hierarchy-card--owner.hierarchy-card--interactive.is-selected,
+:host-context(.dark-mode) .hierarchy-selection-node:focus-visible .hierarchy-card--owner.hierarchy-card--interactive {
+  background: var(--hc-owner-selected-bg);
+}
+
+:host-context(.dark-mode) .hierarchy-card--project.hierarchy-card--interactive.is-selected,
+:host-context(.dark-mode) .hierarchy-selection-node:focus-visible .hierarchy-card--project.hierarchy-card--interactive {
+  background: var(--hc-project-selected-bg);
+}
+
+:host-context(.dark-mode) .hierarchy-card--member.hierarchy-card--interactive.is-selected,
+:host-context(.dark-mode) .hierarchy-selection-node:focus-visible .hierarchy-card--member.hierarchy-card--interactive {
+  background: var(--hc-member-selected-bg);
+}
+
+:host-context(.dark-mode) .hierarchy-avatar,
+:host-context(.dark-mode) .hierarchy-member-node__avatar {
+  background: color-mix(in srgb, var(--avatar-tone) 22%, var(--bg-card));
+  border-color: var(--border-card);
 }

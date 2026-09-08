@@ -1,0 +1,564 @@
+<section class="performance-page">
+  <header class="topbar">
+    <div class="title-block">
+      <div class="title-mark">
+        <i class="ri-bar-chart-grouped-line" aria-hidden="true"></i>
+      </div>
+      <div>
+        <!-- <p class="eyebrow">Performance report</p> -->
+        <h1>Performance</h1>
+        <p class="sub">Department winners, score weightage and DSR eligibility</p>
+      </div>
+    </div>
+
+    <form class="filters" (ngSubmit)="loadBestEmployees(true)">
+      <div class="filter-control">
+        <label class="filter-label" for="performanceFromDate">From date</label>
+        <mat-form-field appearance="outline" class="field report-field" subscriptSizing="dynamic">
+          <input
+            id="performanceFromDate"
+            matInput
+            [matDatepicker]="fromDatePicker"
+            [(ngModel)]="fromDate"
+            name="fromDate"
+            placeholder="MM/DD/YYYY"
+            readonly
+            (click)="fromDatePicker.open()"
+            (dateChange)="onDateRangeChanged()">
+          <mat-datepicker-toggle matIconSuffix [for]="fromDatePicker"></mat-datepicker-toggle>
+          <mat-datepicker #fromDatePicker></mat-datepicker>
+        </mat-form-field>
+      </div>
+
+      <div class="filter-control">
+        <label class="filter-label" for="performanceToDate">To date</label>
+        <mat-form-field appearance="outline" class="field report-field" subscriptSizing="dynamic">
+          <input
+            id="performanceToDate"
+            matInput
+            [matDatepicker]="toDatePicker"
+            [(ngModel)]="toDate"
+            name="toDate"
+            placeholder="MM/DD/YYYY"
+            readonly
+            (click)="toDatePicker.open()"
+            (dateChange)="onDateRangeChanged()">
+          <mat-datepicker-toggle matIconSuffix [for]="toDatePicker"></mat-datepicker-toggle>
+          <mat-datepicker #toDatePicker></mat-datepicker>
+        </mat-form-field>
+      </div>
+
+      <div class="filter-control filter-control--department">
+        <span class="filter-label">Department</span>
+        <mat-form-field appearance="outline" class="field field--department report-field" subscriptSizing="dynamic">
+          <mat-select
+            aria-label="Department"
+            [(ngModel)]="selectedDepartmentId"
+            name="departmentId"
+            [disabled]="departmentsLoading || isManagerPerformanceScope"
+            (selectionChange)="onDepartmentChanged()"
+            (openedChange)="onDepartmentSelectOpened($event)"
+            panelClass="performance-department-select-panel">
+            <mat-select-trigger>
+              {{ selectedDepartmentName }}
+            </mat-select-trigger>
+            <div
+              class="department-select-search"
+              (click)="$event.stopPropagation()"
+              (keydown)="$event.stopPropagation()">
+              <div class="department-select-search__inner">
+                <mat-icon>search</mat-icon>
+                <input
+                  type="text"
+                  class="department-select-search__input"
+                  placeholder="Search departments..."
+                  [value]="departmentSearchTerm"
+                  (input)="filterDepartments($event)">
+              </div>
+            </div>
+            <mat-option *ngIf="departmentsLoading" disabled>Loading departments...</mat-option>
+            <mat-option *ngFor="let department of filteredDepartments; trackBy: trackByDepartment" [value]="department.id">
+              {{ department.department_name }}
+            </mat-option>
+            <mat-option *ngIf="!departmentsLoading && !filteredDepartments.length" disabled>No departments found</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="!canLoad || tableLoading">
+        <i [class]="tableLoading ? 'ri-loader-4-line app-spin' : 'ri-refresh-line'"></i>
+        <span>Apply</span>
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-ghost"
+        [disabled]="!canExport || excelExporting"
+        title="Export Excel"
+        (click)="exportExcel()">
+        <i [class]="excelExporting ? 'ri-loader-4-line app-spin' : 'ri-file-excel-2-line'"></i>
+        <span>Excel</span>
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-ghost"
+        [disabled]="!canExport || pdfExporting"
+        title="Export PDF"
+        (click)="exportPdf()">
+        <i [class]="pdfExporting ? 'ri-loader-4-line app-spin' : 'ri-file-pdf-2-line'"></i>
+        <span>PDF</span>
+      </button>
+    </form>
+  </header>
+
+  <!-- <section class="context-strip">
+    <article class="context-item">
+      <div class="k">Department</div>
+      <div class="v">{{ selectedDepartmentName }}</div>
+    </article>
+    <article class="context-item">
+      <div class="k">Date range</div>
+      <div class="v">{{ dateRangeLabel }}</div>
+    </article>
+    <article class="context-item">
+      <div class="k">DSR to date</div>
+      <div class="v">{{ toDate ? formatDateForDisplay(toDate) : '-' }}</div>
+    </article>
+    <article class="context-item">
+      <div class="k">Rows ready</div>
+      <div class="v">{{ rows.length }}</div>
+    </article>
+  </section> -->
+
+  <section class="kpi-strip">
+    <article
+      *ngFor="let tile of summaryTiles; trackBy: trackBySummary"
+      class="kpi-card"
+      [ngClass]="'kpi-card--' + tile.tone">
+      <div class="label">{{ tile.label }}</div>
+      <div class="num">{{ tile.value }}</div>
+      <div class="bar" *ngIf="tile.label !== 'Total Employees Evaluated'">
+        <i [style.width.%]="getSummaryProgress(tile)"></i>
+      </div>
+    </article>
+  </section>
+
+  <div *ngIf="!hasLoaded && !tableLoading" class="report-empty">
+    <i class="ri-bar-chart-grouped-line"></i>
+    <strong>No report loaded</strong>
+    <span>Select the filters and apply to view KPI eligibility data.</span>
+  </div>
+
+  <section *ngIf="hasLoaded || tableLoading" class="report-body app-loading-host" [attr.aria-busy]="tableLoading">
+    <ng-container *ngIf="rows.length; else reportNoData">
+      <div class="two-col">
+        <section class="card">
+          <p class="section-title"><span class="dot"></span>Eligibility rules</p>
+
+          <article
+            *ngFor="let rule of eligibilityRules; trackBy: trackByRule"
+            class="rule">
+            <div class="ico" [ngClass]="'ico--' + rule.tone">
+              <strong *ngIf="rule.value">{{ rule.value }}</strong>
+              <i *ngIf="!rule.value && rule.icon" [class]="rule.icon"></i>
+            </div>
+            <div class="txt">
+              <b>{{ rule.title }}</b>
+              <span>{{ rule.description }}</span>
+            </div>
+          </article>
+        </section>
+
+        <section class="card">
+          <p class="section-title"><span class="dot"></span>Department weightage configuration</p>
+
+          <div class="performance-table-toolbar performance-table-toolbar--compact">
+            <label class="performance-table-search">
+              <i class="ri-search-line"></i>
+              <input
+                type="search"
+                placeholder="Search department, weight, rule..."
+                [value]="weightageSearchTerm"
+                (input)="onWeightageSearch($event)"
+                (keyup.escape)="clearWeightageSearch()">
+              <button
+                *ngIf="weightageSearchTerm"
+                type="button"
+                title="Clear table search"
+                aria-label="Clear table search"
+                (click)="clearWeightageSearch()">
+                <i class="ri-close-line"></i>
+              </button>
+            </label>
+
+            <label class="performance-page-size-control">
+              <span>Rows</span>
+              <select [value]="weightagePageSize" (change)="onWeightagePageSizeChange($event)">
+                <option *ngFor="let pageSize of weightagePageSizeOptions; trackBy: trackByNumber" [value]="pageSize">
+                  {{ pageSize }}
+                </option>
+              </select>
+              <span>/ page</span>
+            </label>
+          </div>
+
+          <div class="app-table-scroll">
+            <table class="app-data-table app-data-table--wide">
+              <thead>
+                <tr>
+                  <th
+                    *ngFor="let column of weightageColumns; trackBy: trackByWeightageColumn"
+                    [class.app-data-table__cell--numeric]="column.align === 'right'">
+                    <button
+                    type="button"
+                    class="app-data-table__sort"
+                    [class.app-data-table__sort--right]="column.align === 'right'"
+                    [class.app-data-table__sort--active]="weightageSortColumn === column.key"
+                    [attr.aria-sort]="weightageSortColumn === column.key ? (weightageSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'"
+                    [attr.title]="column.title"
+                    (click)="sortWeightageRows(column.key)">
+                      <span>{{ column.label }}</span>
+                      <i [class]="getWeightageSortIcon(column.key)"></i>
+                    </button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of pagedWeightageRows; let weightageIndex = index; trackBy: trackByWeightage">
+                  <td
+                    *ngFor="let column of weightageColumns; trackBy: trackByWeightageColumn"
+                    [class.app-data-table__cell--numeric]="column.align === 'right'">
+                    <span *ngIf="column.key === 'department'; else weightageValue" class="pill-metric">
+                      <span class="swatch" [ngClass]="'swatch--' + getWeightageSwatchTone(weightageShowingFrom + weightageIndex - 1)"></span>
+                      {{ row.department }}
+                    </span>
+                    <ng-template #weightageValue>
+                      <span
+                        class="mono"
+                        [class.dash]="getWeightageValue(row, column.key) === '-'">
+                        {{ getWeightageValue(row, column.key) }}
+                      </span>
+                    </ng-template>
+                  </td>
+                </tr>
+                <tr *ngIf="!pagedWeightageRows.length">
+                  <td [attr.colspan]="weightageColumns.length" class="app-data-table__empty">No weightage configuration matches this search.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="performance-table-footer performance-table-footer--compact">
+            <span>
+              Showing {{ weightageShowingFrom }}-{{ weightageShowingTo }} of {{ filteredWeightageRows.length }} configurations
+            </span>
+            <div class="performance-pagination" aria-label="Department weightage pagination">
+              <button
+                type="button"
+                title="First page"
+                aria-label="First page"
+                [disabled]="weightagePageIndex === 0"
+                (click)="goToWeightagePage(0)">
+                <i class="ri-skip-left-line"></i>
+              </button>
+              <button
+                type="button"
+                title="Previous page"
+                aria-label="Previous page"
+                [disabled]="weightagePageIndex === 0"
+                (click)="goToWeightagePage(weightagePageIndex - 1)">
+                <i class="ri-arrow-left-s-line"></i>
+              </button>
+              <button
+                *ngFor="let page of weightagePageNumbers; trackBy: trackByNumber"
+                type="button"
+                [class.performance-pagination__page--active]="weightagePageIndex === page - 1"
+                (click)="goToWeightagePage(page - 1)">
+                {{ page }}
+              </button>
+              <button
+                type="button"
+                title="Next page"
+                aria-label="Next page"
+                [disabled]="weightagePageIndex >= weightageTotalPages - 1"
+                (click)="goToWeightagePage(weightagePageIndex + 1)">
+                <i class="ri-arrow-right-s-line"></i>
+              </button>
+              <button
+                type="button"
+                title="Last page"
+                aria-label="Last page"
+                [disabled]="weightagePageIndex >= weightageTotalPages - 1"
+                (click)="goToWeightagePage(weightageTotalPages - 1)">
+                <i class="ri-skip-right-line"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- <div class="note-row">
+            <i class="ri-information-line"></i>
+            <span>Weightage defines the contribution of each metric toward the final score by department/category.</span>
+          </div> -->
+        </section>
+      </div>
+
+      <div class="winners-layout">
+        <section class="card winners-card">
+          <p class="section-title">
+            <span class="dot"></span>
+            Department-wise winners - {{ selectedDepartmentName }}
+          </p>
+
+          <ng-container *ngFor="let group of winnerGroups; trackBy: trackByWinnerGroup">
+            <div class="winner-group-title" *ngIf="winnerGroups.length > 1">
+              <span>{{ group.departmentName }}</span>
+              <strong>{{ group.rows.length }} winners</strong>
+            </div>
+
+            <article
+              *ngFor="let row of group.rows; let rowIndex = index; trackBy: trackByRow"
+              class="winner-card">
+              <div class="rank-badge" [ngClass]="'rank-badge--' + getMedalTone(rowIndex)">
+                {{ rowIndex + 1 }}
+              </div>
+
+              <div class="winner-profile-cell">
+                <div class="winner-name-row">
+                  <div class="winner-id">{{ getInitials(row.employee_name) }}</div>
+                  <div>
+                    <div class="winner-name">{{ row.employee_name }}</div>
+                    <!-- <div class="winner-meta">ID {{ row.employee_id || '-' }} | {{ row.department_name }}</div> -->
+                    <div
+                      class="status-pill"
+                      [class.status-pill--eligible]="row.eligible !== false"
+                      [class.status-pill--not-eligible]="row.eligible === false">
+                      <i [class]="row.eligible === false ? 'ri-close-circle-fill' : 'ri-checkbox-circle-fill'"></i>
+                      {{ getEligibilityLabel(row) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="metric-bars">
+                <div
+                  *ngFor="let score of getScoreBreakdown(row); trackBy: trackByScore"
+                  class="metric-row">
+                  <span class="m-label">
+                    {{ score.label }}
+                    <ng-container *ngIf="score.weight !== null">{{ formatScore(score.weight) }}%</ng-container>
+                  </span>
+                  <div class="m-track">
+                    <i [ngClass]="'m-fill--' + score.tone" [style.width.%]="score.percentage"></i>
+                  </div>
+                  <span class="m-val">{{ score.valueLabel }}</span>
+                </div>
+              </div>
+            </article>
+          </ng-container>
+        </section>
+
+        <aside class="side-stack">
+          <section class="card final-card">
+            <p class="section-title">
+              <span class="dot"></span>
+              Overall top winners <small>(Top {{ top }})</small>
+            </p>
+
+            <article
+              *ngFor="let row of overallTopWinners; let topIndex = index; trackBy: trackByRow"
+              class="final-list-item">
+              <div class="final-rank" [ngClass]="'final-rank--' + getMedalTone(topIndex)">
+                {{ topIndex + 1 }}
+              </div>
+              <div class="final-info">
+                <div class="n">{{ row.employee_name }}</div>
+                <!-- <div class="d">ID {{ row.employee_id || '-' }} &middot; {{ row.department_name }}</div> -->
+              </div>
+              <div
+                class="final-score"
+                [class.final-score--good]="row.eligible !== false && (row.final_score || 0) > 0"
+                [class.final-score--bad]="row.eligible === false || (row.final_score || 0) <= 0">
+                {{ formatScore(row.final_score) }}
+              </div>
+            </article>
+
+            <div *ngIf="!overallTopWinners.length" class="mini-empty">No top winners found</div>
+          </section>
+
+          <!-- <section class="card summary-card-shell">
+            <p class="section-title"><span class="dot"></span>Summary overview</p>
+
+            <div class="summary-grid">
+              <article
+                *ngFor="let tile of summaryTiles; trackBy: trackBySummary"
+                class="summary-tile"
+                [ngClass]="'summary-tile--' + tile.tone">
+                <div class="k">{{ tile.label }}</div>
+                <div class="v">{{ tile.value }}</div>
+              </article>
+            </div>
+          </section> -->
+        </aside>
+      </div>
+
+      <section *ngIf="notEligibleRows.length" class="card not-eligible-section">
+        <div class="not-eligible-head">
+          <p class="section-title">
+            <span class="dot dot--danger"></span>
+            Not eligible employees
+          </p>
+          <span>{{ notEligibleRows.length }} of {{ rows.length }} employees</span>
+        </div>
+
+        <div class="performance-table-toolbar">
+          <label class="performance-table-search">
+            <i class="ri-search-line"></i>
+            <input
+              type="search"
+              placeholder="Search employee, reason, score..."
+              [value]="notEligibleSearchTerm"
+              (input)="onNotEligibleSearch($event)"
+              (keyup.escape)="clearNotEligibleSearch()">
+            <button
+              *ngIf="notEligibleSearchTerm"
+              type="button"
+              title="Clear table search"
+              aria-label="Clear table search"
+              (click)="clearNotEligibleSearch()">
+              <i class="ri-close-line"></i>
+            </button>
+          </label>
+
+          <label class="performance-page-size-control">
+            <span>Rows</span>
+            <select [value]="notEligiblePageSize" (change)="onNotEligiblePageSizeChange($event)">
+              <option *ngFor="let pageSize of notEligiblePageSizeOptions; trackBy: trackByNumber" [value]="pageSize">
+                {{ pageSize }}
+              </option>
+            </select>
+            <span>/ page</span>
+          </label>
+        </div>
+
+        <div class="app-table-scroll">
+          <table class="app-data-table app-data-table--xwide">
+            <thead>
+              <tr>
+                <th
+                  *ngFor="let column of displayedNotEligibleColumns; trackBy: trackByNotEligibleColumn"
+                  [class.app-data-table__cell--numeric]="column.align === 'right'">
+                  <button
+                    type="button"
+                    class="app-data-table__sort"
+                    [class.app-data-table__sort--right]="column.align === 'right'"
+                    [class.app-data-table__sort--active]="notEligibleSortColumn === column.key"
+                    [attr.aria-sort]="notEligibleSortColumn === column.key ? (notEligibleSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'"
+                    [attr.title]="column.title"
+                    (click)="sortNotEligibleRows(column.key)">
+                    <span>{{ column.label }}</span>
+                    <i [class]="getNotEligibleSortIcon(column.key)"></i>
+                  </button>
+                </th>
+              </tr>
+            </thead>
+              <tbody>
+                <tr *ngFor="let row of pagedNotEligibleRows; let rowIndex = index; trackBy: trackByRow">
+                <td
+                  *ngFor="let column of displayedNotEligibleColumns; trackBy: trackByNotEligibleColumn"
+                  [class.app-data-table__cell--numeric]="column.align === 'right'">
+                  <ng-container [ngSwitch]="column.key">
+                    <span *ngSwitchCase="'index'" class="mono">{{ notEligibleShowingFrom + rowIndex }}</span>
+                    <span *ngSwitchCase="'employee'" class="emp-cell">
+                      <b>{{ row.employee_name }}</b>
+                      <span>ID {{ row.employee_id || '-' }}</span>
+                    </span>
+                    <span *ngSwitchCase="'reason'" class="reason-pill">{{ getEligibilityReason(row) }}</span>
+                    <span
+                      *ngSwitchDefault
+                      [ngClass]="isNotEligibleScoreColumn(column.key) ? 'score-cell low' : 'mono'">
+                      {{ getNotEligibleCellValue(row, column.key) }}
+                    </span>
+                  </ng-container>
+                </td>
+              </tr>
+              <tr *ngIf="!pagedNotEligibleRows.length">
+                <td [attr.colspan]="displayedNotEligibleColumns.length" class="app-data-table__empty">No employees match this search.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="performance-table-footer">
+          <span>
+            Showing {{ notEligibleShowingFrom }}-{{ notEligibleShowingTo }} of {{ filteredNotEligibleRows.length }} employees
+          </span>
+          <div class="performance-pagination" aria-label="Not eligible employees pagination">
+            <button
+              type="button"
+              title="First page"
+              aria-label="First page"
+              [disabled]="notEligiblePageIndex === 0"
+              (click)="goToNotEligiblePage(0)">
+              <i class="ri-skip-left-line"></i>
+            </button>
+            <button
+              type="button"
+              title="Previous page"
+              aria-label="Previous page"
+              [disabled]="notEligiblePageIndex === 0"
+              (click)="goToNotEligiblePage(notEligiblePageIndex - 1)">
+              <i class="ri-arrow-left-s-line"></i>
+            </button>
+            <button
+              *ngFor="let page of notEligiblePageNumbers; trackBy: trackByNumber"
+              type="button"
+              [class.performance-pagination__page--active]="notEligiblePageIndex === page - 1"
+              (click)="goToNotEligiblePage(page - 1)">
+              {{ page }}
+            </button>
+            <button
+              type="button"
+              title="Next page"
+              aria-label="Next page"
+              [disabled]="notEligiblePageIndex >= notEligibleTotalPages - 1"
+              (click)="goToNotEligiblePage(notEligiblePageIndex + 1)">
+              <i class="ri-arrow-right-s-line"></i>
+            </button>
+            <button
+              type="button"
+              title="Last page"
+              aria-label="Last page"
+              [disabled]="notEligiblePageIndex >= notEligibleTotalPages - 1"
+              (click)="goToNotEligiblePage(notEligibleTotalPages - 1)">
+              <i class="ri-skip-right-line"></i>
+            </button>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-template #reportNoData>
+      <div class="report-empty report-empty--inside">
+        <i class="ri-inbox-line"></i>
+        <strong>No performance data found</strong>
+        <span>{{ errorMessage || 'No employees matched the selected department and date range.' }}</span>
+      </div>
+    </ng-template>
+
+    <div *ngIf="errorMessage && !tableLoading && rows.length" class="report-inline-error">
+      <i class="ri-error-warning-line"></i>
+      <span>{{ errorMessage }}</span>
+    </div>
+
+    <div *ngIf="tableLoading" class="app-local-loading-overlay">
+      <div class="app-local-loading">
+        <i class="ri-loader-4-line app-spin"></i>
+        <span>Loading performance report...</span>
+      </div>
+    </div>
+  </section>
+</section>

@@ -1,6 +1,7 @@
 import { AfterViewInit, Component, ElementRef, Inject, Input, Optional, SimpleChanges, ViewChild } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
+import { formatStatusPill } from 'src/app/_core/utils/status-pill.util';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
 declare const Tabulator: any;
 declare const luxon: any;
@@ -92,6 +93,7 @@ export class ProjectStatusReportComponent implements AfterViewInit {
               e.stopPropagation();
               const rowData = cell.getRow().getData();
               localStorage.setItem('projectDetails', JSON.stringify(rowData));
+              sessionStorage.setItem('activeProjectTab','release');
               this.router.navigate([`/main/projects/project-content/${rowData.projectid}`]);
               this.matDialog.closeAll();
 
@@ -127,24 +129,10 @@ export class ProjectStatusReportComponent implements AfterViewInit {
         {
           title: "Status",
           field: "status",
-          // editor: "list",
           minWidth: 150,
+          // cssClass: "app-status-cell",
           formatter: (cell: any) => {
-            const val = cell.getValue();
-
-            // Simple color logic
-            let colorClass = "bg-gray-100 text-gray-700";
-            if (["Active", "On-Track", "Approved", "Completed", "Invoiced", "Open"].includes(val)) {
-              colorClass = "bg-emerald-100 text-emerald-700";
-            } else if (["In-Progress", "In-Review", "In-Testing", "Planning"].includes(val)) {
-              colorClass = "bg-blue-100 text-blue-700";
-            } else if (["On-Hold", "To-be-Tested"].includes(val)) {
-              colorClass = "bg-amber-100 text-amber-700";
-            } else if (["Delayed", "Cancelled", "Rejected", "Closed"].includes(val)) {
-              colorClass = "bg-red-100 text-red-700";
-            }
-
-            return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${val}</span>`;
+            return formatStatusPill(cell.getValue());
           }
         },
         {
@@ -157,28 +145,52 @@ export class ProjectStatusReportComponent implements AfterViewInit {
         {
           title: "Type",
           field: "release_type",
-          width: 125,
+          width: 150,
           responsive: 2,
+          cssClass: "psr-type-cell",
 
           formatter: (cell: any) => {
-            const val = cell.getValue();
-            let colorClass = "bg-gray-100 text-gray-700";
-            let icon = "ri-question-line";
+            const value = `${cell.getValue() ?? ''}`.trim();
+            const safeValue = this.escapeHtml(value || '-');
+            const icon = value.toLowerCase().includes('internal')
+              ? 'ri-building-4-line'
+              : value.toLowerCase().includes('external')
+                ? 'ri-external-link-line'
+                : 'ri-price-tag-3-line';
 
-            if (val === 'Internal') {
-              colorClass = "bg-red-100 text-red-700";
-              icon = "";
-            } else {
-              colorClass = "bg-blue-100 text-blue-700";
-              icon = "";
-            }
-
-            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${colorClass}"><i class="${icon} mr-1"></i>${val}</span>`;
+            return `
+              <span class="psr-type-pill ${this.getReleaseTypeClass(value)}" title="${safeValue}">
+                <span>${safeValue}</span>
+              </span>
+            `;
           }
         },
       ]
     });
     attachTabulatorPaginationPersistence(this.table, buildTabulatorPaginationKey('project-status-report-table'));
 
+  }
+
+  private getReleaseTypeClass(value: string): string {
+    const type = `${value ?? ''}`.trim().toLowerCase();
+
+    if (type.includes('internal')) {
+      return 'psr-type--internal';
+    }
+
+    if (type.includes('external')) {
+      return 'psr-type--external';
+    }
+
+    return 'psr-type--muted';
+  }
+
+  private escapeHtml(value: any): string {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 }

@@ -47,8 +47,14 @@
 
         </div>
     </div>
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div #tableDiv></div>
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto overflow-y-hidden app-loading-host">
+        <div #tableDiv class="min-w-full"></div>
+        <div *ngIf="clientsLoading" class="app-local-loading-overlay">
+            <div class="app-local-loading">
+                <i class="ri-loader-4-line app-spin"></i>
+                <span>Loading clients...</span>
+            </div>
+        </div>
     </div>
           
       </div>

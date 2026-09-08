@@ -30,12 +30,7 @@
                     [class]="activeTabId === tab.id 
              ? 'bg-[var(--text-active)] text-white ring-2 ring-blue-100' 
              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'">
-                    <ng-container *ngIf="tab.id === 'releases'; else timeIcon">
-                        <i class="ri-install-line pr-2"></i>
-                    </ng-container>
-                    <ng-template #timeIcon>
-                        <i class="ri-calendar-2-line pr-2"></i>
-                    </ng-template>
+                    <i [class]="tab.icon + ' pr-2'"></i>
                     {{ tab.label }}
                 </button>
             </div>
@@ -56,10 +51,12 @@
                     <app-overview-releases></app-overview-releases>
                 </div>
             </div>
-
-
+            <div *ngSwitchCase="'Overall Performance'">
+                <div class="h-full">
+                    <app-overall-performance-report></app-overall-performance-report>
+                </div>
+            </div>
         </ng-container>
     </div>
 
 </div>
-

@@ -1,31 +1,172 @@
-<div class="settings-panel">
-    <h3>Appearance</h3>
-    <!-- <div class="setting-row">
-      <span>Dark Mode</span>
-      <button 
-        class="toggle-switch" 
-        [class.active]="isDarkMode$ | async" 
-        (click)="onToggleDark()">
-        <span class="toggle-knob"></span>
-      </button>
-    </div> -->
-  
-    <hr />
-  
-    <div class="setting-row vertical">
-      <!-- <span>Accent Color</span> -->
-      <div class="theme-grid">
-        <button 
-          *ngFor="let theme of themes" 
-          class="theme-btn"
-          [class.active]="(currentTheme$ | async)?.id === theme.id"
-          [attr.aria-label]="theme.name"
-          (click)="onThemeSelect(theme)">
-          
-          <span class="color-dot" [style.background-color]="theme.colorHex"></span>
-          <span class="theme-name">{{ theme.name }}</span>
-          
-        </button>
+<section class="theme-settings">
+  <header class="theme-settings__hero">
+    <div class="theme-settings__title">
+      <span class="theme-settings__mark" [style.background-color]="selectedThemeColor">
+        <i class="ri-palette-line"></i>
+      </span>
+      <div>
+        <span class="theme-settings__eyebrow">Appearance</span>
+        <h1>Theme Settings</h1>
       </div>
     </div>
+
+    <div class="theme-settings__summary">
+      <div class="theme-settings__summary-item">
+        <span>Selected</span>
+        <strong>{{ selectedThemeName }}</strong>
+      </div>
+      <div class="theme-settings__summary-item theme-settings__summary-item--color">
+        <span [style.background-color]="selectedThemeColor"></span>
+        <strong>{{ selectedThemeColor }}</strong>
+      </div>
+      <button
+        type="button"
+        class="theme-settings__mode"
+        [class.theme-settings__mode--active]="isDarkMode$ | async"
+        [attr.aria-pressed]="isDarkMode$ | async"
+        aria-label="Toggle color mode"
+        (click)="onToggleDark()">
+        <i [class]="(isDarkMode$ | async) ? 'ri-moon-clear-fill' : 'ri-sun-line'"></i>
+        <span>{{ (isDarkMode$ | async) ? 'Dark' : 'Light' }}</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="theme-settings__layout">
+    <main class="theme-selector">
+      <div class="theme-selector__head">
+        <div>
+          <span class="theme-selector__label">Select Theme</span>
+          <h2>Application Color</h2>
+        </div>
+        <span class="theme-selector__state" [class.theme-selector__state--pending]="hasPendingChanges">
+          {{ hasPendingChanges ? 'Previewing' : 'Applied' }}
+        </span>
+      </div>
+
+      <div class="theme-grid" aria-label="Theme color options">
+        <button
+          *ngFor="let theme of themes"
+          type="button"
+          class="theme-card"
+          [class.theme-card--active]="isSelected(theme)"
+          [style.--theme-color]="theme.colorHex"
+          [style.--theme-soft]="theme.bgActive || theme.colorHex"
+          [attr.aria-pressed]="isSelected(theme)"
+          (click)="onThemeSelect(theme)">
+          <span class="theme-card__color">
+            <span></span>
+            <i *ngIf="isSelected(theme)" class="ri-check-line"></i>
+          </span>
+          <span class="theme-card__content">
+            <strong>{{ theme.name }}</strong>
+            <small>{{ theme.colorHex }}</small>
+          </span>
+        </button>
+      </div>
+
+     
+
+      <div class="theme-actions">
+        <button
+          type="button"
+          class="theme-actions__apply"
+          [disabled]="!hasPendingChanges"
+          (click)="applyTheme()">
+          <i class="ri-check-double-line"></i>
+          <span>Apply Theme</span>
+        </button>
+        <button type="button" class="theme-actions__reset" (click)="resetTheme()">
+          <i class="ri-restart-line"></i>
+          <span>Reset to Default</span>
+        </button>
+      </div>
+    </main>
+
+    <aside class="theme-preview" [style.--preview-color]="selectedThemeColor">
+      <div class="theme-preview__head">
+        <div>
+          <span>Live Preview</span>
+          <strong>{{ selectedThemeName }}</strong>
+        </div>
+        <span class="theme-preview__chip">
+          <i class="ri-flashlight-line"></i>
+          Active
+        </span>
+      </div>
+
+      <div class="theme-preview__window">
+        <nav class="theme-preview__rail">
+          <span class="theme-preview__brand">
+            <i class="ri-briefcase-4-fill"></i>
+          </span>
+          <span class="theme-preview__nav theme-preview__nav--active">
+            <i class="ri-dashboard-line"></i>
+            Dashboard
+          </span>
+          <span class="theme-preview__nav">
+            <i class="ri-folder-3-line"></i>
+            Projects
+          </span>
+          <span class="theme-preview__nav">
+            <i class="ri-settings-4-line"></i>
+            Settings
+          </span>
+        </nav>
+
+        <div class="theme-preview__workspace">
+          <div class="theme-preview__toolbar">
+            <div>
+              <span></span>
+              <strong>Project Hub</strong>
+            </div>
+            <button type="button" aria-label="Preview notification">
+              <i class="ri-notification-3-line"></i>
+            </button>
+          </div>
+
+          <div class="theme-preview__tabs">
+            <span class="theme-preview__tab theme-preview__tab--active">Overview</span>
+            <span class="theme-preview__tab">Reports</span>
+            <span class="theme-preview__tab">Team</span>
+          </div>
+
+          <div class="theme-preview__metrics">
+            <article>
+              <span>Open</span>
+              <strong>24</strong>
+            </article>
+            <article class="theme-preview__metric--active">
+              <span>Active</span>
+              <strong>12</strong>
+            </article>
+          </div>
+
+          <label class="theme-preview__field">
+            <span>Form Focus</span>
+            <input type="text" value="Primary color" readonly>
+          </label>
+
+          <div class="theme-preview__list">
+            <span class="theme-preview__row theme-preview__row--selected">
+              <i class="ri-check-line"></i>
+              Selected state
+            </span>
+            <span class="theme-preview__row">
+              <i class="ri-link"></i>
+              Link color
+            </span>
+          </div>
+
+          <!-- <div class="theme-preview__footer">
+            <button type="button">
+              <i class="ri-save-line"></i>
+              Save
+            </button>
+            <a >View Link</a>
+          </div> -->
+        </div>
+      </div>
+    </aside>
   </div>
+</section>

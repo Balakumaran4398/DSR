@@ -1,0 +1,463 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R 12 0 R 14 0 R] /Count 5 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Length 6004 >>
+stream
+0.145 0.388 0.922 rg 0.00 805.89 595.28 36.00 re f
+BT /F2 11 Tf 1.000 1.000 1.000 rg 42.00 819.89 Td (R-Space Pro - Frontend Dashboard UI KPI Analysis) Tj ET
+BT /F1 9 Tf 1.000 1.000 1.000 rg 513.28 819.89 Td (Page 1) Tj ET
+BT /F2 18 Tf 0.059 0.090 0.165 rg 42.00 781.89 Td (Frontend UI Dashboard KPI Analysis Report) Tj ET
+0.145 0.388 0.922 RG 1.20 w 42.00 773.89 m 553.28 773.89 l S
+BT /F2 10 Tf 0.118 0.161 0.231 rg 42.00 751.89 Td (Project path:) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 172.00 751.89 Td (/home/user/Angular/R-SPACE-PRO) Tj ET
+BT /F2 10 Tf 0.118 0.161 0.231 rg 42.00 733.89 Td (Generated at:) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 172.00 733.89 Td (2026-08-08T12:43:59+05:30) Tj ET
+BT /F2 10 Tf 0.118 0.161 0.231 rg 42.00 715.89 Td (Analysis type:) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 172.00 715.89 Td (Frontend and UI source analysis only. Backend records were not counted.) Tj ET
+BT /F2 10 Tf 0.118 0.161 0.231 rg 42.00 697.89 Td (Routed dashboard:) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 172.00 697.89 Td (/main/dashboard uses DashBoardComponent) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 679.89 Td (This PDF explains how Tasks, Releases, Issues, Tickets, and DSR submission status should be represented in) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 665.89 Td (the dashboard UI. It is based on Angular templates, components, routes, table columns, status labels, and) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 651.89 Td (existing dashboard bindings in the frontend workspace.) Tj ET
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 627.89 Td (Executive Summary) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 619.89 m 553.28 619.89 l S
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 603.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 603.89 Td (The active dashboard is src/app/features/admin/components/dash-board/dash-board.component.html, routed) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 589.89 Td (through AdminRoutingModule at path dashboard.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 573.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 573.89 Td (The dashboard already presents KPI cards for projects, releases, tasks, issues, and staff, plus tables) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 559.89 Td (for overdue items, due today, upcoming releases, completed releases, tasks, and issues.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 543.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 543.89 Td (Tickets and DSR submission compliance are available as separate UI screens, but they are not currently) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 529.89 Td (integrated into the routed dashboard KPI grid.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 513.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 513.89 Td (Employee-wise, team-wise, and date-wise analytics are partially supported by frontend fields across) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 499.89 Td (task, issue, ticket, DSR, and team components, but no unified dashboard view model exists yet.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 483.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 483.89 Td (Recommended dashboard additions are ticket KPI cards, DSR compliance cards, employee/team/date rollup) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 469.89 Td (tables, and chart panels for status, priority, release type, ticket product, and DSR missing employees.) Tj ET
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 447.89 Td (Current Routed Dashboard UI) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 439.89 m 553.28 439.89 l S
+0.945 0.961 0.976 rg 42.00 407.89 510.00 22.00 re f
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 47.00 415.89 Td (UI Area) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 142.00 415.89 Td (Current Widgets) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 352.00 415.89 Td (Frontend Binding) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 393.89 Td (Top KPI cards) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 142.00 393.89 Td (Active Projects, Total Releases, Internal ...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 352.00 393.89 Td (data.active_project, data.total_release, ...) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 383.89 m 552.00 383.89 l S
+0.973 0.980 0.988 rg 42.00 363.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 371.89 Td (Attention Needed) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 142.00 371.89 Td (Overdue Items, Due Today) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 352.00 371.89 Td (data.overdue_items, data.today_due) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 361.89 m 552.00 361.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 349.89 Td (Achievements) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 142.00 349.89 Td (Upcoming Releases, Released Projects) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 352.00 349.89 Td (data.upcomming_release, data.completed_re...) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 339.89 m 552.00 339.89 l S
+0.973 0.980 0.988 rg 42.00 319.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 327.89 Td (Workload) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 142.00 327.89 Td (Tasks, Issues) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 352.00 327.89 Td (data.task_list, data.bug_list) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 317.89 m 552.00 317.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 305.89 Td (Detail dialogs) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 142.00 305.89 Td (Reusable Tabulator tables) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 352.00 305.89 Td (openMatDialog\(\), OverdueComponent, Projec...) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 295.89 m 552.00 295.89 l S
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 283.89 Td (Current dashboard cards use compact clickable cards, icon indicators, and dialog drilldowns. This pattern) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 269.89 Td (should be kept for Tickets and DSR so the dashboard remains consistent.) Tj ET
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 245.89 Td (Module UI Coverage) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 237.89 m 553.28 237.89 l S
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 8501 >>
+stream
+0.145 0.388 0.922 rg 0.00 805.89 595.28 36.00 re f
+BT /F2 11 Tf 1.000 1.000 1.000 rg 42.00 819.89 Td (R-Space Pro - Frontend Dashboard UI KPI Analysis) Tj ET
+BT /F1 9 Tf 1.000 1.000 1.000 rg 513.28 819.89 Td (Page 2) Tj ET
+0.945 0.961 0.976 rg 42.00 765.89 510.00 22.00 re f
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 47.00 773.89 Td (Module) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 127.00 773.89 Td (Main Frontend Screen) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 337.00 773.89 Td (Dashboard Status) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 751.89 Td (Tasks) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 127.00 751.89 Td (OverviewTaskComponent, TasksComponent, Ove...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 337.00 751.89 Td (Already shown as Open/Closed cards, overdue ...) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 741.89 m 552.00 741.89 l S
+0.973 0.980 0.988 rg 42.00 721.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 729.89 Td (Issues) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 127.00 729.89 Td (IssuesComponent with task_type bug) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 337.00 729.89 Td (Already shown as Open/Closed cards and issue...) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 719.89 m 552.00 719.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 707.89 Td (Releases) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 127.00 707.89 Td (OverviewReleasesComponent, ReleaseManagerC...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 337.00 707.89 Td (Already shown as total/internal/external pas...) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 697.89 m 552.00 697.89 l S
+0.973 0.980 0.988 rg 42.00 677.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 685.89 Td (Tickets) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 127.00 685.89 Td (TicketInfoComponent with Raised Tickets, O...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 337.00 685.89 Td (Not shown on routed dashboard yet) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 675.89 m 552.00 675.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 663.89 Td (DSR Submitted) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 127.00 663.89 Td (TaskOverviewComponent) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 337.00 663.89 Td (Not shown on routed dashboard yet) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 653.89 m 552.00 653.89 l S
+0.973 0.980 0.988 rg 42.00 633.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 641.89 Td (DSR Not Submitted) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 127.00 641.89 Td (NotSendDsrComponent) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 337.00 641.89 Td (Not shown on routed dashboard yet) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 631.89 m 552.00 631.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 619.89 Td (Team) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 127.00 619.89 Td (TeamComponent) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 337.00 619.89 Td (Only Active Staff count shown; team KPI roll...) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 609.89 m 552.00 609.89 l S
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 591.89 Td (Recommended Dashboard Layout) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 583.89 m 553.28 583.89 l S
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 567.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 567.89 Td (Top filter row: Date range, Employee, Team/Department, Project, Release Type, Ticket Status. Use the) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 553.89 Td (existing date-range-filter component pattern.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 537.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 537.89 Td (KPI card row: Task Completion, Issue Resolution, Release Success, Ticket Closure, DSR Submission Rate,) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 523.89 Td (Missing DSR Employees.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 507.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 507.89 Td (Operational card row: Open Tasks, Open Issues, Pending Releases, Pending Tickets, Overdue Items, Due) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 493.89 Td (Today.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 477.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 477.89 Td (Charts row: Task/Issue Status Distribution, Release Type and Pass/Fail, Ticket Status by Product, DSR) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 463.89 Td (Submitted vs Missing.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 447.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 447.89 Td (Tables row: Employee-wise KPI table, Team-wise KPI table, Date-wise trend table, Employees Not Submitted) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 433.89 Td (DSR table.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 417.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 417.89 Td (Drilldown behavior: Reuse MatDialog and Tabulator table components so each KPI opens its matching detail) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 403.89 Td (rows.) Tj ET
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 381.89 Td (KPI Card Definitions for UI) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 373.89 m 553.28 373.89 l S
+0.945 0.961 0.976 rg 42.00 341.89 510.00 22.00 re f
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 47.00 349.89 Td (KPI Card) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 167.00 349.89 Td (Formula for Frontend View Model) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 377.00 349.89 Td (Recommended Drilldown) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 327.89 Td (Task Completion Rate) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 167.00 327.89 Td (closed_task / \(active_task + closed_task\) ...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 377.00 327.89 Td (Closed/open task rows) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 317.89 m 552.00 317.89 l S
+0.973 0.980 0.988 rg 42.00 297.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 305.89 Td (Issue Resolution Rate) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 167.00 305.89 Td (closed_issue / \(active_issue + closed_issu...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 377.00 305.89 Td (Closed/open issue rows) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 295.89 m 552.00 295.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 283.89 Td (Release Success Rate) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 167.00 283.89 Td (\(internal_pass_release + external_pass_rel...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 377.00 283.89 Td (Passed/failed release list) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 273.89 m 552.00 273.89 l S
+0.973 0.980 0.988 rg 42.00 253.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 261.89 Td (Ticket Closure Rate) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 167.00 261.89 Td (closed ticket status codes [4,6,7,10] / al...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 377.00 261.89 Td (TicketInfo overall tickets filtered ...) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 251.89 m 552.00 251.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 239.89 Td (DSR Submission Rate) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 167.00 239.89 Td (submitted employee-days / expected employe...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 377.00 239.89 Td (TaskOverview DSR rows and NotSendDsr...) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 229.89 m 552.00 229.89 l S
+0.973 0.980 0.988 rg 42.00 209.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 217.89 Td (Employees Not Submitted...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 167.00 217.89 Td (distinct employees in NotSendDsr rows for ...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 377.00 217.89 Td (NotSendDsrComponent table) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 207.89 m 552.00 207.89 l S
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 189.89 Td (Employee-Wise Dashboard Row) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 181.89 m 553.28 181.89 l S
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 165.89 Td (Create one row per employee for charts and tables. This row can power a leaderboard table, employee) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 151.89 Td (performance chart, and employee filter drilldown.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 133.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 133.89 Td (employee_id, employee_name, team_name) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 117.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 117.89 Td (tasks_total, tasks_completed, tasks_pending, task_completion_rate_percent) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 101.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 101.89 Td (issues_total, issues_resolved, issues_pending, issue_resolution_rate_percent) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 85.89 Td (-) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 6109 >>
+stream
+0.145 0.388 0.922 rg 0.00 805.89 595.28 36.00 re f
+BT /F2 11 Tf 1.000 1.000 1.000 rg 42.00 819.89 Td (R-Space Pro - Frontend Dashboard UI KPI Analysis) Tj ET
+BT /F1 9 Tf 1.000 1.000 1.000 rg 513.28 819.89 Td (Page 3) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 781.89 Td (releases_total, releases_passed, releases_failed, release_success_rate_percent) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 765.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 765.89 Td (tickets_total, tickets_closed, tickets_pending, ticket_closure_rate_percent) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 749.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 749.89 Td (dsr_submitted_days, dsr_missing_days, dsr_submission_rate_percent) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 733.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 733.89 Td (worked_hours_total, average_completion_percent) Tj ET
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 711.89 Td (Team-Wise Dashboard Row) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 703.89 m 553.28 703.89 l S
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 687.89 Td (Team grouping should use department_name first because TeamComponent already displays department_name. Fall) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 673.89 Td (back to department, manager, or project only when department_name is missing.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 655.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 655.89 Td (team_name, employee_count) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 639.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 639.89 Td (tasks_total, issues_total, releases_total, tickets_total) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 623.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 623.89 Td (dsr_expected_employee_days, dsr_submitted_employee_days, dsr_missing_employee_days) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 607.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 607.89 Td (overall_completion_rate_percent, overdue_count, pending_count) Tj ET
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 585.89 Td (Date-Wise Dashboard Row) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 577.89 m 553.28 577.89 l S
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 561.89 Td (Date-wise data should normalize all UI dates to YYYY-MM-DD, then feed line charts, daily bars, and heatmaps.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 543.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 543.89 Td (date) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 527.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 527.89 Td (tasks_started, tasks_due, tasks_completed) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 511.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 511.89 Td (issues_created_or_due, issues_resolved) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 495.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 495.89 Td (releases_planned, releases_completed, releases_overdue) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 479.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 479.89 Td (tickets_created, tickets_closed) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 463.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 463.89 Td (dsr_submitted_count, dsr_missing_count, worked_hours_total) Tj ET
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 441.89 Td (Tickets UI Dashboard Additions) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 433.89 m 553.28 433.89 l S
+0.945 0.961 0.976 rg 42.00 401.89 510.00 22.00 re f
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 47.00 409.89 Td (Recommended Card/Chart) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 192.00 409.89 Td (Frontend Source Fields) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 372.00 409.89 Td (Placement) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 387.89 Td (Total Tickets) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 192.00 387.89 Td (tickets.length from TicketsComponent) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 372.00 387.89 Td (Top KPI cards) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 377.89 m 552.00 377.89 l S
+0.973 0.980 0.988 rg 42.00 357.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 365.89 Td (Open Tickets) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 192.00 365.89 Td (status 0) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 372.00 365.89 Td (Top KPI cards) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 355.89 m 552.00 355.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 343.89 Td (Pending Tickets) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 192.00 343.89 Td (status 1,2,3) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 372.00 343.89 Td (Top KPI cards or status chart) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 333.89 m 552.00 333.89 l S
+0.973 0.980 0.988 rg 42.00 313.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 321.89 Td (Closed Tickets) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 192.00 321.89 Td (status 4,6,7,10) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 372.00 321.89 Td (Top KPI cards) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 311.89 m 552.00 311.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 299.89 Td (Failed/Rejected/Cancelled) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 192.00 299.89 Td (status 5,8,9) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 372.00 299.89 Td (Attention Needed) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 289.89 m 552.00 289.89 l S
+0.973 0.980 0.988 rg 42.00 269.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 277.89 Td (Ticket Product Split) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 192.00 277.89 Td (product_name, type, version) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 372.00 277.89 Td (Charts row) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 267.89 m 552.00 267.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 255.89 Td (Ticket Owner Load) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 192.00 255.89 Td (assigned_to_name, department_name) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 372.00 255.89 Td (Employee/team table) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 245.89 m 552.00 245.89 l S
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 227.89 Td (DSR UI Dashboard Additions) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 219.89 m 553.28 219.89 l S
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 8747 >>
+stream
+0.145 0.388 0.922 rg 0.00 805.89 595.28 36.00 re f
+BT /F2 11 Tf 1.000 1.000 1.000 rg 42.00 819.89 Td (R-Space Pro - Frontend Dashboard UI KPI Analysis) Tj ET
+BT /F1 9 Tf 1.000 1.000 1.000 rg 513.28 819.89 Td (Page 4) Tj ET
+0.945 0.961 0.976 rg 42.00 765.89 510.00 22.00 re f
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 47.00 773.89 Td (Recommended Card/Table) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 197.00 773.89 Td (Frontend Source Fields) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 382.00 773.89 Td (Placement) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 751.89 Td (DSR Submitted Today) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 197.00 751.89 Td (TaskOverview rows by date and employe...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 382.00 751.89 Td (Top KPI cards) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 741.89 m 552.00 741.89 l S
+0.973 0.980 0.988 rg 42.00 721.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 729.89 Td (DSR Not Submitted) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 197.00 729.89 Td (NotSendDsr date and employee_name) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 382.00 729.89 Td (Top KPI cards) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 719.89 m 552.00 719.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 707.89 Td (Submission Rate) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 197.00 707.89 Td (submitted employee-days / expected em...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 382.00 707.89 Td (Top KPI cards) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 697.89 m 552.00 697.89 l S
+0.973 0.980 0.988 rg 42.00 677.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 685.89 Td (Missing Employees List) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 197.00 685.89 Td (NotSendDsr rows) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 382.00 685.89 Td (Attention Needed) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 675.89 m 552.00 675.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 663.89 Td (Employee DSR Trend) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 197.00 663.89 Td (date, employee_name, worked_hours, co...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 382.00 663.89 Td (Date-wise chart/table) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 653.89 m 552.00 653.89 l S
+0.973 0.980 0.988 rg 42.00 633.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 641.89 Td (Worked Hours Total) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 197.00 641.89 Td (worked_hours converted to decimal hours) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 382.00 641.89 Td (Employee-wise table) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 631.89 m 552.00 631.89 l S
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 613.89 Td (Status and Completion Mapping) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 605.89 m 553.28 605.89 l S
+0.945 0.961 0.976 rg 42.00 573.89 510.00 22.00 re f
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 47.00 581.89 Td (Entity) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 122.00 581.89 Td (Completed) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 282.00 581.89 Td (Pending) Tj ET
+BT /F2 8.5 Tf 0.118 0.161 0.231 rg 452.00 581.89 Td (Failed/Blocked) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 559.89 Td (Tasks) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 122.00 559.89 Td (Closed, Completed, Approved, Pa...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 282.00 559.89 Td (Open, In-Progress, In-Review, Pla...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 452.00 559.89 Td (Delayed, Cancelled,...) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 549.89 m 552.00 549.89 l S
+0.973 0.980 0.988 rg 42.00 529.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 537.89 Td (Issues) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 122.00 537.89 Td (Closed, Completed, Approved) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 282.00 537.89 Td (Open, In-Progress, In-Review, To-...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 452.00 537.89 Td (Delayed, Rejected, ...) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 527.89 m 552.00 527.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 515.89 Td (Releases) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 122.00 515.89 Td (Pass) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 282.00 515.89 Td (Upcoming-Release, On-Hold, Open, ...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 452.00 515.89 Td (Failed, Rejected) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 505.89 m 552.00 505.89 l S
+0.973 0.980 0.988 rg 42.00 485.89 510.00 22.00 re f
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 493.89 Td (Tickets) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 122.00 493.89 Td (4 Closed, 6 Approved, 7 Complet...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 282.00 493.89 Td (0 Open, 1 In-Progress, 2 To-be-Te...) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 452.00 493.89 Td (5 Cancelled, 8 Reje...) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 483.89 m 552.00 483.89 l S
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 47.00 471.89 Td (DSR) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 122.00 471.89 Td (Present/submitted row exists) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 282.00 471.89 Td (Expected but not submitted) Tj ET
+BT /F1 8.2 Tf 0.200 0.255 0.333 rg 452.00 471.89 Td (Absent/missing DSR) Tj ET
+0.886 0.910 0.941 RG 0.40 w 42.00 461.89 m 552.00 461.89 l S
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 443.89 Td (Frontend Implementation Notes) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 435.89 m 553.28 435.89 l S
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 419.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 419.89 Td (Keep DashBoardComponent as the main dashboard target because it is the routed component for) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 405.89 Td (/main/dashboard.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 389.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 389.89 Td (Add a DashboardViewModel in DashBoardComponent that derives card values and chart rows from the data) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 375.89 Td (object plus ticket and DSR screen data.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 359.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 359.89 Td (Reuse app-overdue for task/issue/ticket attention tables where fields match or create a generic KPI) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 345.89 Td (detail table for mixed entities.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 329.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 329.89 Td (Reuse app-project-status-report for release drilldowns and keep release-specific columns there.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 313.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 313.89 Td (Add ticket and DSR fetch calls only in the dashboard component or a frontend facade service; avoid) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 299.89 Td (scattering calculations inside templates.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 283.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 283.89 Td (Use null or dash states for unavailable metrics; do not display 0 unless the frontend received a real) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 269.89 Td (empty row set.) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 253.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 253.89 Td (Provide no-data states for every chart panel so dashboard layout stays stable when filters return empty) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 239.89 Td (lists.) Tj ET
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 217.89 Td (Suggested Dashboard View Model) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 209.89 m 553.28 209.89 l S
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 193.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 193.89 Td (interface DashboardKpiVm { cards: KpiCard[]; employeeRows: EmployeeKpiRow[]; teamRows: TeamKpiRow[];) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 179.89 Td (dateRows: DateKpiRow[]; statusCharts: ChartSeries[]; attentionRows: AttentionRow[]; missingDsrRows:) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 165.89 Td (MissingDsrRow[]; }) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 149.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 149.89 Td (interface KpiCard { id: string; label: string; value: number | string | null; rate?: number | null;) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 135.89 Td (icon: string; tone: string; drilldownKey: string; }) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 119.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 119.89 Td (interface MissingDsrRow { date: string; employee_name: string; team_name?: string; reason?: string; }) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 103.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 103.89 Td (interface DateKpiRow { date: string; tasks_due: number; issues_due: number; tickets_created: number;) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 89.89 Td (releases_planned: number; dsr_submitted_count: number; dsr_missing_count: number; }) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 11 0 R >>
+endobj
+13 0 obj
+<< /Length 4030 >>
+stream
+0.145 0.388 0.922 rg 0.00 805.89 595.28 36.00 re f
+BT /F2 11 Tf 1.000 1.000 1.000 rg 42.00 819.89 Td (R-Space Pro - Frontend Dashboard UI KPI Analysis) Tj ET
+BT /F1 9 Tf 1.000 1.000 1.000 rg 513.28 819.89 Td (Page 5) Tj ET
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 775.89 Td (Files Analyzed) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 767.89 m 553.28 767.89 l S
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 751.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 751.89 Td (src/app/features/admin/admin-routing.module.ts) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 735.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 735.89 Td (src/app/features/admin/components/dash-board/dash-board.component.html) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 719.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 719.89 Td (src/app/features/admin/components/dash-board/dash-board.component.ts) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 703.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 703.89 Td (src/app/features/admin/components/dashboard/dashboard.component.html) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 687.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 687.89 Td (src/app/features/admin/components/overview/overview.component.html) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 671.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 671.89 Td (src/app/features/admin/components/overview/overview-task/overview-task.component.ts) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 655.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 655.89 Td (src/app/features/admin/components/overview/overview-releases/overview-releases.component.ts) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 639.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 639.89 Td (src/app/features/admin/components/projects/project-info/issues/issues.component.ts) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 623.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 623.89 Td (src/app/features/admin/components/Tickets/ticket-info/ticket-info.component.html) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 607.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 607.89 Td (src/app/features/admin/components/Tickets/tickets/tickets.component.ts) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 591.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 591.89 Td (src/app/features/admin/components/task-overview/task-overview.component.ts) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 575.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 575.89 Td (src/app/features/admin/components/projects/project-info/_core/not-send-dsr/not-send-dsr.component.ts) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 559.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 559.89 Td (src/app/features/admin/components/team/team.component.ts) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 543.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 543.89 Td (src/app/features/admin/core/charts/overdue/overdue.component.ts) Tj ET
+BT /F2 10 Tf 0.145 0.388 0.922 rg 46.00 527.89 Td (-) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 60.00 527.89 Td (src/app/features/admin/core/charts/project-status-report/project-status-report.component.ts) Tj ET
+BT /F2 13 Tf 0.118 0.161 0.231 rg 42.00 505.89 Td (Final Recommendation) Tj ET
+0.886 0.910 0.941 RG 0.80 w 42.00 497.89 m 553.28 497.89 l S
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 481.89 Td (The dashboard should become the single KPI command center by keeping the current card and drilldown pattern,) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 467.89 Td (then adding Tickets and DSR compliance beside Tasks, Issues, and Releases. The best next frontend step is to) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 453.89 Td (define a DashboardKpiVm, map current dashboard data into it, add ticket and DSR panels, then render) Tj ET
+BT /F1 10 Tf 0.200 0.255 0.333 rg 42.00 439.89 Td (employee-wise, team-wise, and date-wise tables/charts from the same normalized view model.) Tj ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 13 0 R >>
+endobj
+xref
+0 15
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000142 00000 n 
+0000000212 00000 n 
+0000000287 00000 n 
+0000006343 00000 n 
+0000006485 00000 n 
+0000015038 00000 n 
+0000015180 00000 n 
+0000021341 00000 n 
+0000021484 00000 n 
+0000030284 00000 n 
+0000030428 00000 n 
+0000034511 00000 n 
+trailer
+<< /Size 15 /Root 1 0 R >>
+startxref
+34655
+%%EOF

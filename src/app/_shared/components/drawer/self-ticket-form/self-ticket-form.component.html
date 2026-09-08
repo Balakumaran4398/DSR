@@ -17,6 +17,37 @@
   <div class="flex-1 overflow-y-auto p-6 bg-white">
     <form [formGroup]="ticketForm" class="flex flex-col gap-6">
 
+      <!--Hardware Employee only-->
+      <section *ngIf="isHardware">
+        <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
+          <mat-icon>person</mat-icon>
+          <h2 class="text-sm font-bold uppercase tracking-wider m-0">
+            Employee Information
+          </h2>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+          <!-- Name -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Name
+            </label>
+
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <input matInput [value]="hardwareEmployeeName || '—'" readonly />
+            </mat-form-field>
+          </div>
+          <!-- Department -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Department
+            </label>
+
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <input matInput value="Hardware" readonly />
+            </mat-form-field>
+          </div>
+        </div>
+      </section>
       <!-- Ticket Information -->
       <section>
         <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
@@ -27,7 +58,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
 
           <!-- Client -->
-          <div>
+          <div [ngClass]="{ 'col-span-2' : isHardware }">
             <label class="block text-sm font-medium text-slate-700 mb-1">
               Client <span class="text-red-500">*</span>
             </label>
@@ -52,7 +83,7 @@
             </mat-form-field>
           </div>
           <!-- Product -->
-          <div>
+          <div *ngIf="!isHardware">
             <label class="block text-sm font-medium text-slate-700 mb-1">
               Product <span class="text-red-500">*</span>
             </label>
@@ -81,7 +112,7 @@
           </div>
 
 
-          <div>
+          <div *ngIf="!isHardware">
             <label class="block text-sm font-medium text-slate-700 mb-1">
               Product Version 
             </label>
@@ -95,14 +126,14 @@
                   No versions available
                 </mat-option>
               </mat-select>
-              <mat-error *ngIf="rf.product_version?.invalid">
+              <!-- <mat-error *ngIf="rf.product_version?.invalid">
                 Product Version is required
-              </mat-error>
+              </mat-error> -->
             </mat-form-field>
           </div>
 
 
-          <div>
+          <div *ngIf="!isHardware">
             <label class="block text-sm font-medium text-slate-700 mb-1">
               Type <span class="text-red-500">*</span>
             </label>
@@ -119,7 +150,7 @@
           </div>
 
           <!-- Ticket Name -->
-          <div>
+          <div *ngIf="!isHardware">
             <label class="block text-sm font-medium text-slate-700 mb-1">
               Ticket Name <span class="text-red-500">*</span>
             </label>
@@ -128,6 +159,7 @@
               <mat-error *ngIf="rf.ticket_name?.invalid">Ticket Name is required</mat-error>
             </mat-form-field>
           </div>
+
 
           <!-- Priority -->
           <div>
@@ -154,7 +186,7 @@
             </label>
             <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
               <mat-select formControlName="status" placeholder="Select Status">
-                <mat-option *ngFor="let status of statusList" [value]="status.id">
+                <mat-option *ngFor="let status of statusList" [value]="status.name">
                   {{status.name}}
                 </mat-option>
               </mat-select>
@@ -162,18 +194,143 @@
             </mat-form-field>
           </div>
 
-          <!-- Worked Hours -->
-          <div class="flex-1">
+
+          <!-- Ticket category -->
+          <div *ngIf="isHardware">
             <label class="block text-sm font-medium text-slate-700 mb-1">
-              Worked Hours<span class="text-red-500">*</span>
+              Ticket Category <span class="text-red-500">*</span>
             </label>
             <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-              <input matInput type="time" step="1" formControlName="worked_hours">
-              <mat-icon matSuffix class="text-m opacity-50 scale-75">schedule</mat-icon>
+              <mat-select formControlName="ticketCategoryId" placeholder="Select Category"
+                (openedChange)="onCategorySelectOpened($event)" (selectionChange)="getTicketsByCategory($event.value)">
+                <mat-select-trigger>
+                  {{ getCategoryName() }}
+                </mat-select-trigger>
+                <div class="px-3 py-2 bg-white sticky top-0 z-10" (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()">
+                  <input type="text" class="w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none"
+                    placeholder="Search Category" [value]="categorySearchText" (input)="filterCategory($event)">
+                </div>
+                <mat-option [value]="null">
+                  No Categories
+                </mat-option>
+                <mat-option *ngFor="let category of filteredCategories" [value]="category.id">
+                  {{ category.type }}
+                </mat-option>
+              </mat-select>
+              <mat-error *ngIf="rf.ticketCategoryId?.invalid">Ticket category is required</mat-error>
             </mat-form-field>
-            <mat-error *ngIf="isWorkedHoursZero()" class="!text-xs !font-normal mt-1">
-              Worked hours is required
-            </mat-error>
+          </div>
+
+          <!-- Ticket name -->
+          <div *ngIf="isHardware">
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Ticket Name <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <mat-select formControlName="ticket_name" placeholder="Select Ticket">
+                <mat-select-trigger>
+                  {{ rf.ticket_name?.value || 'Select Ticket' }}
+                </mat-select-trigger>
+                <div class="px-3 py-2 bg-white sticky top-0 z-10" (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()">
+                  <input type="text" class="w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none"
+                    placeholder="Search Tickets" [value]="ticketSearchText" (input)="filterTickets($event)">
+                </div>
+                <mat-option [value]="null">No Tickets</mat-option>
+                <mat-option *ngFor="let ticket of filteredTickets" [value]="ticket.name">
+                  {{ ticket.name }}
+                </mat-option>
+                <!-- <mat-option *ngIf="!filteredTickets.length" disabled>No tickets found</mat-option> -->
+              </mat-select>
+              <mat-error *ngIf="rf.ticket_name?.invalid">Ticket name is required</mat-error>
+            </mat-form-field>
+          </div>
+
+
+          <!-- Model Name -->
+          <div *ngIf="isHardware">
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Model Name <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <mat-select formControlName="modelName" placeholder="Select Model Name"
+                (selectionChange)="onModelNameChange($event.value)" (openedChange)="onModelNameSelectOpened($event)">
+                <mat-select-trigger>
+                  {{ getSelectedModelName() || 'Select Model Name' }}
+                </mat-select-trigger>
+                <div class="px-3 py-2 bg-white sticky top-0 z-10" (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()">
+                  <input type="text" class="w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none"
+                    placeholder="Search Model Name" [value]="modelNameSearchText" (input)="filterModelNames($event)">
+                </div>
+                <mat-option [value]="null">Select Model Name</mat-option>
+                <mat-option *ngFor="let model of filteredModelNames" [value]="getModelNameValue(model)">
+                  {{ getModelNameLabel(model) }}
+                </mat-option>
+                <mat-option *ngIf="!filteredModelNames.length" disabled>No model names found</mat-option>
+              </mat-select>
+              <mat-error *ngIf="rf.modelName?.invalid">Model Name is required</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Model Code -->
+          <div *ngIf="isHardware">
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Model Code <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <mat-select formControlName="modelCode" placeholder="Select Model Code"
+                (openedChange)="onModelCodeSelectOpened($event)">
+                <mat-select-trigger>
+                  {{ getSelectedModelCode() || 'Select Model Code' }}
+                </mat-select-trigger>
+                <div class="px-3 py-2 bg-white sticky top-0 z-10" (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()">
+                  <input type="text" class="w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none"
+                    placeholder="Search Model Code" [value]="modelCodeSearchText" (input)="filterModelCodes($event)">
+                </div>
+                <mat-option [value]="null">Select Model Code</mat-option>
+                <mat-option *ngIf="!rf.modelName?.value" disabled>Select Model Name first</mat-option>
+                <mat-option *ngFor="let modelCode of filteredModelCodes" [value]="getModelCodeValue(modelCode)">
+                  {{ getModelCodeLabel(modelCode) }}
+                </mat-option>
+                <mat-option *ngIf="rf.modelName?.value && !filteredModelCodes.length" disabled>No model codes found</mat-option>
+              </mat-select>
+              <mat-error *ngIf="rf.modelCode?.invalid">Model Code is required</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Count -->
+          <div *ngIf="isHardware">
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Count <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <input matInput type="number" min="1" step="1" formControlName="count" placeholder="Enter count">
+              <mat-error *ngIf="rf.count?.hasError('required')">Count is required</mat-error>
+              <mat-error *ngIf="rf.count?.hasError('min') || rf.count?.hasError('pattern')">
+                Count must be a positive whole number
+              </mat-error>
+            </mat-form-field>
+          </div>
+
+
+          <!-- Worked Hours -->
+          <div class="flex-1" *ngIf="!isHardware">
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Worked Hours <span class="text-red-500">*</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input matInput type="text" placeholder="HH:mm" formControlName="worked_hours" maxlength="5">
+              <mat-error *ngIf="submitted && rf.worked_hours?.hasError('required')">
+                Worked hours is required
+              </mat-error>
+              <mat-error *ngIf="submitted && rf.worked_hours?.hasError('zeroWorkedHours')">
+                Worked hours must be greater than 00:00
+              </mat-error>
+            </mat-form-field>
+
           </div>
 
         </div>
@@ -193,7 +350,7 @@
           <!-- Description -->
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">
-              Ticket description
+              {{isHardware ? 'Comments' : 'Ticket description'}}
               <!-- <span class="text-red-500">*</span> -->
             </label>
             <mat-form-field appearance="outline" class="w-full">
@@ -203,7 +360,7 @@
           </div>
 
           <!-- Why Issue Happened -->
-          <div>
+          <div *ngIf="!isHardware">
             <label class="block text-sm font-medium text-slate-700 mb-1">
               Reason for issue
             </label>
@@ -211,7 +368,7 @@
               <textarea matInput rows="4" formControlName="client_comments"></textarea>
             </mat-form-field>
           </div>
-          <div>
+          <div *ngIf="!isHardware">
             <label class="block text-sm font-medium text-slate-700 mb-1">
               Solution
             </label>
@@ -239,8 +396,13 @@
 
   <!-- Footer -->
   <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
-    <button mat-stroked-button color="warn" (click)="onCancel()">Cancel</button>
-    <button mat-flat-button color="primary" [disabled]="ticketForm.invalid" (click)="onSubmit()">Save</button>
+    <button mat-stroked-button color="warn" (click)="onCancel()" [disabled]="isSubmitting">Cancel</button>
+    <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="isSubmitting">
+      <span class="app-button-loading">
+        <i *ngIf="isSubmitting" class="ri-loader-4-line app-button-spinner"></i>
+        <span>{{ isSubmitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save') }}</span>
+      </span>
+    </button>
   </div>
 
 </div>

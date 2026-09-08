@@ -6,6 +6,13 @@
   --profile-shadow-hover: 0 30px 62px rgba(15, 23, 42, 0.14);
 }
 
+:host-context(.dark-mode) {
+  --profile-surface: rgba(17, 24, 39, 0.88);
+  --profile-border: rgba(51, 65, 85, 0.82);
+  --profile-shadow: 0 24px 50px rgba(0, 0, 0, 0.28);
+  --profile-shadow-hover: 0 30px 62px rgba(0, 0, 0, 0.38);
+}
+
 .profile-page {
   position: relative;
   min-height: calc(100vh - 8rem);
@@ -16,6 +23,22 @@
     linear-gradient(180deg, #f8fbff 0%, #eef4ff 52%, #f7fafc 100%);
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+:host-context(.dark-mode) .profile-page {
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--brand-color) 14%, transparent), transparent 30%),
+    radial-gradient(circle at 92% 12%, rgba(14, 165, 233, 0.12), transparent 22%),
+    linear-gradient(180deg, var(--bg-body) 0%, #111827 52%, var(--bg-body) 100%);
+  color: var(--text-main);
+}
+
+:host-context(.dark-mode) .profile-orb-one {
+  background: color-mix(in srgb, var(--brand-color) 20%, transparent);
+}
+
+:host-context(.dark-mode) .profile-orb-two {
+  background: color-mix(in srgb, var(--text-active) 16%, transparent);
 }
 
 .profile-layout,
@@ -159,11 +182,11 @@
 
 .profile-avatar-summary__item strong {
   color: #ffffff;
-  font: 600 0.74rem/1.35 'Outfit', sans-serif;
+  font: 600 0.74rem/1.35 'Roboto', sans-serif;
 }
 
 .profile-avatar-summary__mono {
-  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-family: 'Roboto', sans-serif;
   font-size: 0.68rem;
 }
 
@@ -184,7 +207,7 @@
   place-items: center;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76));
   color: var(--text-active);
-  font: 700 clamp(1.15rem, 2vw, 1.6rem) 'Outfit', sans-serif;
+  font: 700 clamp(1.15rem, 2vw, 1.6rem) 'Roboto', sans-serif;
 }
 
 .profile-intro {
@@ -280,7 +303,7 @@
 
 .profile-title {
   margin: 0;
-  font: 700 clamp(1.25rem, 2vw, 1.9rem) / 1.08 'Outfit', sans-serif;
+  font: 700 clamp(1.25rem, 2vw, 1.9rem) / 1.08 'Roboto', sans-serif;
   letter-spacing: -0.02em;
 }
 
@@ -373,7 +396,7 @@
 
 .profile-highlight-card h3 {
   margin: 0.4rem 0 0;
-  font: 700 1.2rem 'Outfit', sans-serif;
+  font: 700 1.2rem 'Roboto', sans-serif;
 }
 
 .profile-highlight-card p {
@@ -454,7 +477,7 @@
 .profile-card__header h2 {
   margin: 0.35rem 0 0;
   // color: #0f172a;
-  font: 700 1.28rem 'Outfit', sans-serif;
+  font: 700 1.28rem 'Roboto', sans-serif;
 }
 
 .profile-card__action {
@@ -559,7 +582,7 @@
 .profile-skill-row h3 {
   margin: 0;
   color: darkslategray;
-  font: 700 0.98rem 'Outfit', sans-serif;
+  font: 700 0.98rem 'Roboto', sans-serif;
 }
 
 .profile-skill-row p {
@@ -570,7 +593,7 @@
 
 .profile-skill-row__top strong {
   color: var(--text-active);
-  font: 700 0.85rem 'Outfit', sans-serif;
+  font: 700 0.85rem 'Roboto', sans-serif;
   white-space: nowrap;
 }
 
@@ -605,8 +628,17 @@
   color: var(--text-active);
 }
 
+.profile-skill-row__action-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .profile-skill-row__action-btn--danger:hover {
   color: #dc2626;
+}
+
+.profile-action-spinner {
+  animation: profile-action-spin 0.8s linear infinite;
 }
 
 .profile-skill-row__track {
@@ -719,7 +751,7 @@
 .profile-skill-item h3 {
   margin: 0.9rem 0 0;
   color: #0f172a;
-  font: 700 1rem 'Outfit', sans-serif;
+  font: 700 1rem 'Roboto', sans-serif;
 }
 
 .profile-skill-item__category {
@@ -758,7 +790,7 @@
 
 .profile-skill-item__meta strong {
   color: #0f172a;
-  font: 700 0.95rem 'Outfit', sans-serif;
+  font: 700 0.95rem 'Roboto', sans-serif;
 }
 
 .profile-empty-inline {
@@ -800,7 +832,7 @@
 .profile-progress__inner strong {
   display: block;
   color: #0f172a;
-  font: 700 1.4rem 'Outfit', sans-serif;
+  font: 700 1.4rem 'Roboto', sans-serif;
 }
 
 .profile-progress__inner span {
@@ -812,7 +844,7 @@
 .profile-progress__copy h3 {
   margin: 0;
   color: #0f172a;
-  font: 700 1.12rem 'Outfit', sans-serif;
+  font: 700 1.12rem 'Roboto', sans-serif;
 }
 
 .profile-progress__copy p {
@@ -872,7 +904,7 @@
 }
 
 .profile-info-item__mono {
-  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-family: 'Roboto', sans-serif;
 }
 
 .profile-timeline {
@@ -900,7 +932,7 @@
 .profile-timeline__card h3 {
   margin: 0.6rem 0 0;
   color: #ffffff;
-  font: 700 1.2rem 'Outfit', sans-serif;
+  font: 700 1.2rem 'Roboto', sans-serif;
 }
 
 .profile-timeline__card p {
@@ -959,7 +991,7 @@
 .profile-empty-state h2 {
   margin: 0;
   // color: #0f172a;
-  font: 700 1.5rem 'Outfit', sans-serif;
+  font: 700 1.5rem 'Roboto', sans-serif;
 }
 
 .profile-empty-state p {
@@ -986,6 +1018,12 @@
 
   100% {
     background-position: -200% 0;
+  }
+}
+
+@keyframes profile-action-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -1082,4 +1120,152 @@
     width: 100%;
     justify-content: center;
   }
+}
+
+:host-context(.dark-mode) .profile-card,
+:host-context(.dark-mode) .profile-card--spotlight,
+:host-context(.dark-mode) .profile-card--secondary,
+:host-context(.dark-mode) .profile-skill-row,
+:host-context(.dark-mode) .profile-skill-entry,
+:host-context(.dark-mode) .profile-skill-item,
+:host-context(.dark-mode) .profile-progress,
+:host-context(.dark-mode) .profile-info-item {
+  border-color: var(--profile-border);
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.94), rgba(15, 23, 42, 0.92)),
+    var(--profile-surface);
+  color: var(--text-main);
+  box-shadow: var(--profile-shadow);
+}
+
+:host-context(.dark-mode) .profile-card::before {
+  background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.36), transparent);
+}
+
+:host-context(.dark-mode) .profile-card__eyebrow,
+:host-context(.dark-mode) .profile-skill-row__icon,
+:host-context(.dark-mode) .profile-skill-entry__hint i,
+:host-context(.dark-mode) .profile-skill-item__icon,
+:host-context(.dark-mode) .profile-info-item dt i {
+  background: var(--bg-active);
+  color: var(--text-active);
+  box-shadow: none;
+}
+
+:host-context(.dark-mode) .profile-skill-note,
+:host-context(.dark-mode) .profile-skill-row p,
+:host-context(.dark-mode) .profile-skill-entry__hint,
+:host-context(.dark-mode) .profile-skill-item__category,
+:host-context(.dark-mode) .profile-skill-item__meta span,
+:host-context(.dark-mode) .profile-empty-inline,
+:host-context(.dark-mode) .profile-progress__inner span,
+:host-context(.dark-mode) .profile-progress__copy p,
+:host-context(.dark-mode) .profile-info-item dt {
+  color: var(--text-muted);
+}
+
+:host-context(.dark-mode) .profile-card__header h2,
+:host-context(.dark-mode) .profile-skill-row h3,
+:host-context(.dark-mode) .profile-skill-item h3,
+:host-context(.dark-mode) .profile-skill-item__meta strong,
+:host-context(.dark-mode) .profile-progress__copy h3,
+:host-context(.dark-mode) .profile-progress__inner strong,
+:host-context(.dark-mode) .profile-info-item dd {
+  color: var(--text-main);
+}
+
+:host-context(.dark-mode) .profile-skill-row__action-btn,
+:host-context(.dark-mode) .profile-skill-item__remove,
+:host-context(.dark-mode) .profile-progress__inner {
+  background: var(--bg-elevated);
+  border-color: var(--border-card);
+  color: var(--text-soft);
+}
+
+:host-context(.dark-mode) .profile-skill-row__track,
+:host-context(.dark-mode) .profile-skill-item__track {
+  background: rgba(71, 85, 105, 0.55);
+}
+
+:host-context(.dark-mode.theme-black) .profile-page {
+  background: var(--bg-body);
+}
+
+:host-context(.dark-mode.theme-black) .profile-orb {
+  display: none;
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight {
+  border-color: var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-main);
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-intro {
+  border: 1px solid var(--border-card);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--bg-elevated) 82%, var(--text-active)), var(--bg-card));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-active) 14%, transparent);
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-avatar-stack {
+  padding: 0.42rem;
+  border: 1px solid color-mix(in srgb, var(--text-active) 26%, var(--border-card));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-elevated) 88%, var(--text-active));
+  box-shadow:
+    0 0 0 0.35rem color-mix(in srgb, var(--text-active) 8%, transparent),
+    0 18px 34px rgba(0, 0, 0, 0.34);
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-avatar-ring {
+  padding: 0.22rem;
+  border: 1px solid color-mix(in srgb, var(--text-active) 34%, var(--border-card));
+  background: var(--bg-card);
+  box-shadow: none;
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-avatar-image {
+  background: var(--bg-elevated);
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-avatar-fallback {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--text-active) 16%, var(--bg-elevated)), var(--bg-card));
+  color: var(--text-main);
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-title-surface,
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-intro__meta-chip {
+  border-color: color-mix(in srgb, var(--text-active) 24%, var(--border-card));
+  background: color-mix(in srgb, var(--text-active) 10%, var(--bg-elevated));
+  color: var(--text-main);
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-title,
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-intro__meta-chip i,
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-intro__meta-chip span {
+  color: var(--text-main);
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-intro__subtitle {
+  color: var(--text-soft);
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-info-item {
+  border-color: var(--border-card);
+  background: var(--bg-elevated);
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-info-item:hover {
+  border-color: color-mix(in srgb, var(--text-active) 34%, var(--border-card));
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.28);
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-info-item dt {
+  color: var(--text-muted);
+}
+
+:host-context(.dark-mode.theme-black) .profile-card--spotlight .profile-info-item dd {
+  color: var(--text-main);
 }

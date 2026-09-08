@@ -1,6 +1,483 @@
 .pdf-enabled {
-    background-color: #fff;
-    border-color: #e2e8f0;
+    background-color: var(--bg-card);
+    border-color: var(--border-card);
     color: var(--text-active);
     cursor: pointer;
+}
+
+.tickets-export-icon,
+.tickets-export-spinner {
+    font-size: 1.5rem;
+}
+
+.tickets-export-spinner {
+    animation: tickets-export-spin 0.8s linear infinite;
+}
+
+@keyframes tickets-export-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.tickets-page {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.tickets-toolbar-grid {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(18rem, auto) minmax(12rem, 1fr);
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.tickets-toolbar-title {
+  min-width: 0;
+}
+
+.tickets-toolbar-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.tickets-toolbar-filters app-date-range-filter,
+.tickets-toolbar-filters .ticket-filter-field {
+  display: block;
+  min-width: 0;
+  flex: 1 1 10rem;
+}
+
+.tickets-toolbar-filters app-date-range-filter {
+  flex-basis: 18rem;
+  max-width: 20rem;
+}
+
+.tickets-toolbar-filters .ticket-filter-field {
+  flex-basis: 11rem;
+  max-width: 13rem;
+}
+
+.tickets-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.tickets-toolbar-search {
+  flex: 1 1 13rem;
+  min-width: 11rem;
+  max-width: 16rem;
+}
+
+.tickets-toolbar-buttons {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.tickets-toolbar-button {
+  min-width: 0;
+  width: auto;
+}
+
+.tickets-table-shell {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.tickets-table-shell #tableDiv {
+  min-width: 0;
+  width: 100%;
+}
+
+.tickets-toolbar {
+  overflow: visible;
+}
+
+.ticket-filter-field {
+  min-width: 0;
+}
+
+:host ::ng-deep .ticket-filter-field .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+:host ::ng-deep .ticket-filter-field .mat-mdc-text-field-wrapper {
+  background: var(--form-bg);
+}
+
+:host ::ng-deep .tickets-toolbar-filters app-date-range-filter > div {
+  width: 100%;
+  min-width: 0;
+}
+
+:host ::ng-deep .tickets-table-shell .tabulator {
+  width: 100%;
+  min-width: 0;
+}
+
+:host ::ng-deep .tickets-table-shell .tabulator-tableholder {
+  overflow-x: auto !important;
+}
+
+:host ::ng-deep .tickets-table-shell .tabulator-row {
+  align-items: stretch;
+}
+
+:host ::ng-deep .tickets-table-shell .tabulator-row .tabulator-cell {
+  min-width: 0;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-table-cell-text {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-code-cell {
+  --ticket-code-action-width: 5.35rem;
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 1.75rem;
+  padding-right: 0;
+  transition: padding-right 0.2s ease;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-code-cell:hover,
+:host ::ng-deep .tickets-table-shell .ticket-code-cell:focus-within {
+  padding-right: var(--ticket-code-action-width);
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-code-cell__text {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--text-main);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  cursor: help;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-code-cell__value {
+  display: block;
+  max-width: 100%;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-row-actions {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: calc(var(--ticket-code-action-width) - 0.35rem);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(0.35rem);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 1;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-code-cell:hover .ticket-row-actions,
+:host ::ng-deep .tickets-table-shell .ticket-code-cell:focus-within .ticket-row-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) translateX(0);
+}
+
+:host ::ng-deep .tickets-table-shell .view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 1.85rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--border-card);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--bg-card) 92%, var(--text-active));
+  color: var(--text-active);
+  box-shadow: 0 0.45rem 1rem rgba(15, 23, 42, 0.12);
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+:host ::ng-deep .tickets-table-shell .view-btn:hover,
+:host ::ng-deep .tickets-table-shell .view-btn:focus-visible {
+  border-color: color-mix(in srgb, var(--text-active) 45%, var(--border-card));
+  background: var(--text-active);
+  color: var(--text-on-active);
+  outline: none;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-status-pill {
+  --ticket-status-color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--ticket-status-color) 32%, var(--border-card));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ticket-status-color) 13%, var(--bg-card));
+  color: var(--ticket-status-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-status--open {
+  --ticket-status-color: #db2777;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-status--progress {
+  --ticket-status-color: #2563eb;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-status--testing,
+:host ::ng-deep .tickets-table-shell .ticket-status--delayed {
+  --ticket-status-color: #d97706;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-status--closed {
+  --ticket-status-color: #64748b;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-status--reopen {
+  --ticket-status-color: #0891b2;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-status--success {
+  --ticket-status-color: #059669;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-status--danger {
+  --ticket-status-color: #dc2626;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-status--unknown {
+  --ticket-status-color: var(--text-muted);
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-category-pill {
+  --ticket-category-color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--ticket-category-color) 32%, var(--border-card));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ticket-category-color) 13%, var(--bg-card));
+  color: var(--ticket-category-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-category--production {
+  --ticket-category-color: #7c3aed;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-category--service {
+  --ticket-category-color: #059669;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-category--ordinary {
+  --ticket-category-color: #2563eb;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-category--unknown {
+  --ticket-category-color: var(--text-muted);
+}
+
+:host-context(.dark-mode) ::ng-deep .tickets-table-shell .ticket-status--open,
+:host-context(.dark-mode.theme-black) ::ng-deep .tickets-table-shell .ticket-status--open {
+  --ticket-status-color: #f472b6;
+}
+
+:host-context(.dark-mode) ::ng-deep .tickets-table-shell .ticket-status--progress,
+:host-context(.dark-mode.theme-black) ::ng-deep .tickets-table-shell .ticket-status--progress {
+  --ticket-status-color: #60a5fa;
+}
+
+:host-context(.dark-mode) ::ng-deep .tickets-table-shell .ticket-status--testing,
+:host-context(.dark-mode) ::ng-deep .tickets-table-shell .ticket-status--delayed,
+:host-context(.dark-mode.theme-black) ::ng-deep .tickets-table-shell .ticket-status--testing,
+:host-context(.dark-mode.theme-black) ::ng-deep .tickets-table-shell .ticket-status--delayed {
+  --ticket-status-color: #fbbf24;
+}
+
+:host-context(.dark-mode) ::ng-deep .tickets-table-shell .ticket-status--success,
+:host-context(.dark-mode.theme-black) ::ng-deep .tickets-table-shell .ticket-status--success {
+  --ticket-status-color: #10b981;
+}
+
+:host-context(.dark-mode) ::ng-deep .tickets-table-shell .ticket-status--reopen,
+:host-context(.dark-mode.theme-black) ::ng-deep .tickets-table-shell .ticket-status--reopen {
+  --ticket-status-color: #22d3ee;
+}
+
+:host-context(.dark-mode) ::ng-deep .tickets-table-shell .ticket-status--danger,
+:host-context(.dark-mode.theme-black) ::ng-deep .tickets-table-shell .ticket-status--danger {
+  --ticket-status-color: #f87171;
+}
+
+:host-context(.dark-mode) ::ng-deep .tickets-table-shell .ticket-category--production,
+:host-context(.dark-mode.theme-black) ::ng-deep .tickets-table-shell .ticket-category--production {
+  --ticket-category-color: #a78bfa;
+}
+
+:host-context(.dark-mode) ::ng-deep .tickets-table-shell .ticket-category--service,
+:host-context(.dark-mode.theme-black) ::ng-deep .tickets-table-shell .ticket-category--service {
+  --ticket-category-color: #10b981;
+}
+
+:host-context(.dark-mode) ::ng-deep .tickets-table-shell .ticket-category--ordinary,
+:host-context(.dark-mode.theme-black) ::ng-deep .tickets-table-shell .ticket-category--ordinary {
+  --ticket-category-color: #60a5fa;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-responsive-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--bg-body);
+  border-top: 1px solid var(--table-border, var(--border));
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-responsive-detail {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border-card);
+  border-radius: 0.5rem;
+  background: var(--bg-card);
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-responsive-detail span {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+:host ::ng-deep .tickets-table-shell .ticket-responsive-detail strong {
+  min-width: 0;
+  color: var(--text-main);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (hover: none), (max-width: 48rem) {
+  :host ::ng-deep .tickets-table-shell .ticket-code-cell,
+  :host ::ng-deep .tickets-table-shell .ticket-code-cell:hover,
+  :host ::ng-deep .tickets-table-shell .ticket-code-cell:focus-within {
+    padding-right: 0;
   }
+
+  :host ::ng-deep .tickets-table-shell .ticket-row-actions {
+    position: static;
+    justify-content: flex-start;
+    margin-top: 0.45rem;
+    opacity: 1 !important;
+    pointer-events: auto;
+    transform: none !important;
+  }
+}
+
+@media (max-width: 80rem) {
+  .tickets-toolbar-grid {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .tickets-toolbar-filters,
+  .tickets-toolbar-actions,
+  .tickets-toolbar-buttons {
+    justify-content: flex-start;
+  }
+
+  .tickets-toolbar-search {
+    max-width: none;
+  }
+}
+
+@media (max-width: 48rem) {
+  .tickets-toolbar {
+    padding: 0.75rem;
+  }
+
+  .tickets-toolbar-title {
+    align-items: flex-start;
+  }
+
+  .tickets-toolbar-filters,
+  .tickets-toolbar-actions,
+  .tickets-toolbar-buttons {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .tickets-toolbar-filters app-date-range-filter,
+  .tickets-toolbar-filters .ticket-filter-field,
+  .tickets-toolbar-search,
+  .tickets-toolbar-button {
+    width: 100%;
+    max-width: none;
+  }
+
+  :host ::ng-deep .tickets-table-shell .tabulator {
+    font-size: 0.8125rem !important;
+  }
+
+  :host ::ng-deep .tickets-table-shell .tabulator-header .tabulator-col .tabulator-col-content,
+  :host ::ng-deep .tickets-table-shell .tabulator-row .tabulator-cell {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  :host ::ng-deep .tickets-table-shell .ticket-responsive-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,0 +1,88 @@
+<section class="google-sheet-page">
+  <header class="page-header">
+    <div class="heading">
+      <span class="heading-icon"><i class="ri-file-excel-2-line"></i></span>
+      <div>
+        <h1>Google Sheet</h1>
+        <p>Open your performance sheet{{ canViewEmployees ? ' or review an employee sheet' : '' }}.</p>
+      </div>
+    </div>
+    <button type="button" class="refresh-button" [disabled]="loading" (click)="loadGoogleSheets()">
+      <i [class]="loading ? 'ri-loader-4-line sheet-spin' : 'ri-refresh-line'"></i>
+      Refresh
+    </button>
+  </header>
+
+  <div class="sheet-loading" *ngIf="loading">
+    <mat-spinner diameter="34"></mat-spinner>
+    <span>Loading Google Sheet links...</span>
+  </div>
+
+  <mat-tab-group *ngIf="!loading" animationDuration="180ms" class="sheet-tabs">
+    <mat-tab label="My Sheet">
+      <div class="tab-content">
+        <article class="own-sheet-card" *ngIf="ownSheet; else noOwnSheet">
+          <div class="sheet-logo"><i class="ri-file-excel-2-fill"></i></div>
+          <div class="own-sheet-copy">
+            <span>Your performance sheet</span>
+            <h2>{{ ownSheet.employeeName }}</h2>
+            <p>{{ ownSheet.designation || ownSheet.department || 'Employee' }}</p>
+          </div>
+          <button type="button" class="open-button" [disabled]="openingEmployeeId === ownSheet.employeeId"
+            (click)="openSheet(ownSheet)">
+            <i [class]="openingEmployeeId === ownSheet.employeeId ? 'ri-loader-4-line sheet-spin' : 'ri-external-link-line'"></i>
+            Open Google Sheet
+          </button>
+        </article>
+
+        <ng-template #noOwnSheet>
+          <div class="empty-state">
+            <i class="ri-file-search-line"></i>
+            <strong>No sheet link found</strong>
+            <span>A Google Sheet has not been configured for your employee account.</span>
+          </div>
+        </ng-template>
+      </div>
+    </mat-tab>
+
+    <mat-tab *ngIf="canViewEmployees" [label]="employeeTabLabel">
+      <div class="tab-content">
+        <div class="employee-toolbar">
+          <label class="search-box">
+            <i class="ri-search-line"></i>
+            <input type="search" [placeholder]="'Filter ' + employeeTabLabel.toLowerCase() + '...'"
+              [value]="searchTerm" (input)="onSearch($event)" (keyup.escape)="clearSearch()">
+            <button *ngIf="searchTerm" type="button" aria-label="Clear filter" (click)="clearSearch()">
+              <i class="ri-close-line"></i>
+            </button>
+          </label>
+          <span class="employee-count">{{ filteredEmployees.length }} of {{ employees.length }}</span>
+        </div>
+
+        <div class="employee-list" *ngIf="filteredEmployees.length; else noEmployees">
+          <article class="employee-row" *ngFor="let employee of filteredEmployees; trackBy: trackByEmployee">
+            <span class="avatar">{{ employee.initials }}</span>
+            <div class="employee-details">
+              <strong>{{ employee.employeeName }}</strong>
+              <span>{{ employee.designation || 'Employee' }}<ng-container *ngIf="employee.department"> · {{ employee.department }}</ng-container></span>
+              <small *ngIf="employee.email">{{ employee.email }}</small>
+            </div>
+            <button type="button" class="view-button" [disabled]="openingEmployeeId === employee.employeeId"
+              (click)="openSheet(employee)">
+              <i [class]="openingEmployeeId === employee.employeeId ? 'ri-loader-4-line sheet-spin' : 'ri-eye-line'"></i>
+              View sheet
+            </button>
+          </article>
+        </div>
+
+        <ng-template #noEmployees>
+          <div class="empty-state">
+            <i class="ri-user-search-line"></i>
+            <strong>No {{ employeeTabLabel.toLowerCase() }} found</strong>
+            <span>{{ searchTerm ? 'Try a different filter.' : 'No Google Sheet links are available.' }}</span>
+          </div>
+        </ng-template>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</section>

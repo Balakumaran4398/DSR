@@ -1,5 +1,6 @@
 import { Component, inject, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
@@ -33,6 +34,7 @@ export class UserFormComponent implements OnInit, OnChanges {
   isEditMode = false;
   hidePassword = true;
   skillDetails: ReadonlySkillDetail[] = [];
+  isSubmitting = false;
 
   // Mock data for dropdowns
   bloodGroups = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
@@ -79,7 +81,7 @@ export class UserFormComponent implements OnInit, OnChanges {
 
   get canManageSystemRole(): boolean {
     const roles = this.storageService.roles;
-    return !!(roles?.isAdmin || roles?.isManager);
+    return !!roles?.isAdmin;
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -159,7 +161,10 @@ export class UserFormComponent implements OnInit, OnChanges {
   }
 
   onSubmit() {
+    if (this.isSubmitting) return;
+
     if (this.userForm.valid) {
+      this.isSubmitting = true;
       this.submittedData = this.userForm.value;
       const formatDate = (date: any) => {
         if (!date) return null;
@@ -178,7 +183,11 @@ export class UserFormComponent implements OnInit, OnChanges {
       this.submittedData.username = this.storageService.getUsername();
       if (this.hasEditData() && this.isEditMode) {
         this.data = { ...this.data, ...this.userForm.value }
-        this.authService.updateUser(this.data).subscribe({
+        this.authService.updateUser(this.data)
+          .pipe(finalize(() => {
+            this.isSubmitting = false;
+          }))
+          .subscribe({
           next: ((res: any) => {
             this.toasterService.success(res?.message);
             this.drawerService.notifyAction({
@@ -195,18 +204,22 @@ export class UserFormComponent implements OnInit, OnChanges {
         })
       } else {
 
-        this.authService.createUser(this.userForm.value).subscribe((res: any) => {
-          this.toasterService.success(res?.message);
-          this.drawerService.notifyAction({
-            source: 'member',
-            action: 'created',
-            payload: res
-          });
-          this.resetForm();
-          this.drawerService.close();
-        }, err => {
-          this.toasterService.error(err?.error?.message);
-        })
+        this.authService.createUser(this.userForm.value)
+          .pipe(finalize(() => {
+            this.isSubmitting = false;
+          }))
+          .subscribe((res: any) => {
+            this.toasterService.success(res?.message);
+            this.drawerService.notifyAction({
+              source: 'member',
+              action: 'created',
+              payload: res
+            });
+            this.resetForm();
+            this.drawerService.close();
+          }, err => {
+            this.toasterService.error(err?.error?.message);
+          })
       }
     } else {
       this.userForm.markAllAsTouched();
@@ -252,16 +265,20 @@ export class UserFormComponent implements OnInit, OnChanges {
     const roleControl = this.userForm.get('role');
     if (!roleControl) return;
 
-    this.roles = this.allRoles.filter(role => role.value !== 'ROLE_ADMIN');
+    this.roles = this.canManageSystemRole
+      ? [...this.allRoles]
+      : this.allRoles.filter(role => role.value !== 'ROLE_ADMIN');
 
     if (this.canManageSystemRole) {
-      if (roleControl.value === 'ROLE_ADMIN') {
-        roleControl.setValue(this.defaultRole, { emitEvent: false });
-      }
       return;
     }
 
-    if (!this.hasEditData() || !roleControl.value || roleControl.value === 'ROLE_ADMIN') {
+    if (this.hasEditData()) {
+      roleControl.setValue(roleControl.value || this.data?.role || this.defaultRole, { emitEvent: false });
+      return;
+    }
+
+    if (!roleControl.value) {
       roleControl.setValue(this.defaultRole, { emitEvent: false });
     }
   }

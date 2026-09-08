@@ -1,7 +1,7 @@
 import { Component, ElementRef, Input, ViewChild } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { filter, map, Observable, of, startWith } from 'rxjs';
+import { filter, finalize, map, Observable, of, startWith } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
@@ -15,7 +15,7 @@ declare const luxon: any;
   styleUrls: ['./not-send-dsr.component.scss']
 })
 export class NotSendDsrComponent {
- @Input() title = 'Tasks';
+  @Input() title = 'Tasks';
   @Input() btnText = "Task"
   @Input() titleDesc = 'Manage your tasks';
   @ViewChild('tableDiv') tableDiv!: ElementRef;
@@ -41,12 +41,14 @@ export class NotSendDsrComponent {
   startDate: any = null;
   endDate: any = null;
   selected_emp_id: number | null = null;
-  
+  notSentDsrLoading = false;
+
   constructor(private authService: AuthService, private route: ActivatedRoute, private router: Router, private toasterService: ToasterService, private storageService: StorageService, private drawerService: DrawerService) {
     this.empid = this.storageService.getEmpId();
     const roles = this.storageService.roles;
     this.canSelectEmployee = !!(roles?.isAdmin || roles?.isManager);
     // this.getNotsendTasksOverview();
+    this.initializeDatesFromQueryParams();
     this.loadData({ target: { value: this.projectid } })
 
   }
@@ -91,14 +93,28 @@ export class NotSendDsrComponent {
       todate: this.endDate
     };
 
-    this.authService.getNotsendTasks(payload).subscribe((res: any) => {
-      const normalized = Array.isArray(res) ? res : res ? [res] : [];
-      this.tableData = normalized;
+    this.notSentDsrLoading = true;
+    this.authService.getNotsendTasks(payload)
+      .pipe(finalize(() => {
+        this.notSentDsrLoading = false;
+      }))
+      .subscribe({
+        next: (res: any) => {
+          const normalized = Array.isArray(res) ? res : res ? [res] : [];
+          this.tableData = normalized;
 
-      if (this.table) {
-        this.safeReplaceData(this.table, this.tableData);
-      }
-    });
+          if (this.table) {
+            this.safeReplaceData(this.table, this.tableData);
+          }
+        },
+        error: (err: any) => {
+          this.tableData = [];
+          if (this.table) {
+            this.safeReplaceData(this.table, this.tableData);
+          }
+          this.toasterService.error(err?.error?.message || 'Unable to load not sent DSR.');
+        }
+      });
   }
 
   ngAfterViewInit() {
@@ -113,30 +129,23 @@ export class NotSendDsrComponent {
 
       }
     }, 50);
-    
 
 
 
-      setTimeout(() => {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-      
-        // ✅ use correct variable name
-        this.dateRangeFilter.startDate = new Date(yesterday);
-        this.dateRangeFilter.endDate = new Date(yesterday);
-        this.dateRangeFilter.activePreset = 'Yesterday';
-      
-        this.dateRangeFilter.tempStart = new Date(yesterday);
-        this.dateRangeFilter.tempEnd = new Date(yesterday);
-      
-        // emit
-        this.dateRangeFilter['emitRange']();
-      
-      }, 0);
-      
+
+    setTimeout(() => {
+      if (!this.dateRangeFilter) return;
+
+      this.dateRangeFilter.startDate = new Date(this.startDate);
+      this.dateRangeFilter.endDate = new Date(this.endDate);
+
+      this.dateRangeFilter.tempStart = new Date(this.startDate);
+      this.dateRangeFilter.tempEnd = new Date(this.endDate);
+    }, 0);
+
   }
 
-  
+
 
   ngOnDestroy(): void {
     this.destroyed = true;
@@ -160,7 +169,7 @@ export class NotSendDsrComponent {
       }
     });
 
-   
+
 
   }
 
@@ -227,11 +236,11 @@ export class NotSendDsrComponent {
           widthGrow: 3,
           formatter: (cell: any) => {
             const name = cell.getValue() || "-";
-      
+
             const initials = name
               ? name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()
               : "--";
-      
+
             return `
               <div class="flex items-center gap-2">
                 <div class="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] text-gray-600">
@@ -244,7 +253,7 @@ export class NotSendDsrComponent {
         }
       ]
     });
-    
+
 
     try {
       const tableRef = this.table;
@@ -263,7 +272,7 @@ export class NotSendDsrComponent {
       this.resolveTableBuilt?.();
       this.resolveTableBuilt = null;
     }, 1000);
-this.table.on("rowSelectionChanged", (data: any[], rows: any[]) => {
+    this.table.on("rowSelectionChanged", (data: any[], rows: any[]) => {
       this.selectedCount = rows.length;
       this.showBar = this.selectedCount > 0;
       if (!this.showBar) this.showMoveMenu = false;
@@ -665,5 +674,29 @@ this.table.on("rowSelectionChanged", (data: any[], rows: any[]) => {
         // ignore
       }
     }, tableRef);
+  }
+  private initializeDatesFromQueryParams(): void {
+    this.route.queryParams.subscribe(params => {
+      const startDate = params['startDate'] || params['fromdate'];
+      const endDate = params['endDate'] || params['todate'];
+
+      if (startDate && endDate) {
+        this.startDate = startDate;
+        this.endDate = endDate;
+      } else {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        this.startDate = this.formatDateToYMD(yesterday);
+        this.endDate = this.formatDateToYMD(yesterday);
+      }
+
+      console.log({
+        startDate: this.startDate,
+        endDate: this.endDate
+      });
+
+      this.getNotsendTasksOverview();
+    });
   }
 }

@@ -1,6 +1,7 @@
 import { AfterViewInit, Component, ElementRef, Inject, Input, Optional, ViewChild } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
+import { formatStatusPill } from 'src/app/_core/utils/status-pill.util';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
 declare const Tabulator: any;
 declare const luxon: any;
@@ -97,23 +98,16 @@ export class OverdueComponent implements AfterViewInit {
         {
           title: "Type",
           field: "task_type",
-          width: 125,
+          minWidth: 180,
+          widthGrow: 1,
           responsive: 2,
+          variableHeight: true,
 
           formatter: (cell: any) => {
-            const val = cell.getValue();
-            let colorClass = "bg-gray-100 text-gray-700";
-            let icon = "ri-question-line";
+            const val = `${cell.getValue() ?? '-'}`.trim() || '-';
+            const escapedValue = this.escapeHtml(val);
 
-            if (val === 'bug') {
-              colorClass = "bg-red-100 text-red-700";
-              icon = "ri-bug-line";
-            } else {
-              colorClass = "bg-blue-100 text-blue-700";
-              icon = "ri-lightbulb-line";
-            }
-
-            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${colorClass}"><i class="${icon} mr-1"></i>${val}</span>`;
+            return `<span class="overdue-type-text" title="${escapedValue}">${escapedValue}</span>`;
           }
         },
         {
@@ -189,22 +183,9 @@ export class OverdueComponent implements AfterViewInit {
           field: "status",
           // editor: "list",
           minWidth: 150,
+          cssClass: "app-status-cell",
           formatter: (cell: any) => {
-            const val = cell.getValue();
-
-            // Simple color logic
-            let colorClass = "bg-gray-100 text-gray-700";
-            if (["Active", "On-Track", "Approved", "Completed", "Invoiced", "Open"].includes(val)) {
-              colorClass = "bg-emerald-100 text-emerald-700";
-            } else if (["In-Progress", "In-Review", "In-Testing", "Planning"].includes(val)) {
-              colorClass = "bg-blue-100 text-blue-700";
-            } else if (["On-Hold", "To-be-Tested"].includes(val)) {
-              colorClass = "bg-amber-100 text-amber-700";
-            } else if (["Delayed", "Cancelled", "Rejected", "Closed"].includes(val)) {
-              colorClass = "bg-red-100 text-red-700";
-            }
-
-            return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${val}</span>`;
+            return formatStatusPill(cell.getValue());
           }
         },
         {
@@ -245,5 +226,14 @@ export class OverdueComponent implements AfterViewInit {
     }
 
     return 'requirement';
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }

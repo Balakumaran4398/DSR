@@ -2,3 +2,18 @@
     border-color: var(--text-active);
     box-shadow: 0px 0px 2px var(--text-active);
 }
+
+:host {
+    display: block;
+    width: 100%;
+    min-width: 0;
+}
+
+.date-range-panel {
+    position: relative;
+    z-index: 1000;
+}
+
+::ng-deep .date-range-overlay-backdrop {
+    background: transparent;
+}

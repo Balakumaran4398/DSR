@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { filter } from 'rxjs';
+import { filter, finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
@@ -43,6 +43,9 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
   statusList: any = [];
   canSelectEmployee = false;
   searchTerm = '';
+  projectTableLoading = false;
+  deletingProjectId: number | null = null;
+  updatingProjectId: number | null = null;
 
   private tableCheckInterval: any;
   private destroyed = false;
@@ -119,6 +122,7 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
     if (this.destroyed) return;
 
     this.resetTableBuilt();
+    const freezeColumns = !this.isCompactViewport();
 
     if (this.table) {
       const prev = this.table;
@@ -135,8 +139,9 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
     this.rebuildManagerIndex();
     this.table = new Tabulator(this.tableDiv.nativeElement, {
       data: this.projectList,
-      layout: "fitColumns",
-      autoResize: false,        
+      layout: "fitDataStretch",
+      responsiveLayout: false,
+      autoResize: true,
       // layout: "fitDataStretch",
       pagination: "local",
       paginationSize: 10,
@@ -164,7 +169,7 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
           title: "Project",
           field: "project_title",
           widthGrow: 2,
-          frozen: true,
+          frozen: freezeColumns,
           width: 250,
           editor: "input",
           formatter: (cell: any) => {
@@ -319,41 +324,38 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
           width: 180,
           formatter: (cell: any) => {
             const data = cell.getData();
-            const total = data.tasks_done + data.tasks_pending;
-            const pct = total === 0 ? 0 : Math.round((data.tasks_done / total) * 100);
+            const done = Number(data.tasks_done) || 0;
+            const pending = Number(data.tasks_pending) || 0;
+            const total = done + pending;
+            const pct = total === 0 ? 0 : Math.round((done / total) * 100);
 
-            // Color logic
-            let colorClass = "text-blue-600";
-            let strokeClass = "text-blue-600";
+            let progressClass = "projects-progress--active";
 
             if (pct === 100) {
-              colorClass = "text-emerald-500";
-              strokeClass = "text-emerald-500";
+              progressClass = "projects-progress--complete";
             } else if (pct < 30) {
-              colorClass = "text-amber-500";
-              strokeClass = "text-amber-500";
+              progressClass = "projects-progress--warning";
             }
 
             // SVG parameters for 36x36 viewBox, radius 14
             // Circumference = 2 * PI * 14 ~= 87.96
-            const radius = 14;
             const circumference = 100;
             const offset = circumference - (pct / 100) * circumference;
 
             return `
-                <div class="flex items-center gap-3 w-full">
+                <div class="projects-progress ${progressClass}">
                     <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
                         <!-- Background Circle -->
                         <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                            <path class="text-gray-200" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" />
+                            <path class="projects-progress__track" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" />
                             <!-- Progress Circle -->
-                            <path class="${strokeClass} transition-all duration-1000 ease-out" stroke-dasharray="${circumference}, ${circumference}" stroke-dashoffset="${offset}" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+                            <path class="projects-progress__value" stroke-dasharray="${circumference}, ${circumference}" stroke-dashoffset="${offset}" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
                         </svg>
-                        <div class="absolute text-[10px] font-bold text-gray-700">${pct}%</div>
+                        <div class="projects-progress__percent">${pct}%</div>
                     </div>
                     <div class="flex flex-col min-w-0">
-                        <span class="text-xs font-semibold text-gray-700 truncate">${data.tasks_done}/${total} Tasks</span>
-                        <span class="text-[10px] text-gray-400 font-medium truncate">Completed</span>
+                        <span class="projects-progress__count">${done}/${total} Tasks</span>
+                        <span class="projects-progress__label">Completed</span>
                     </div>
                 </div>
                 `;
@@ -362,15 +364,19 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
         {
           title: "Department",
           field: "department",
-          // width: 100,
+          minWidth: 280,
+          widthGrow: 1.4,
+          tooltip: true,
           formatter: (cell: any) => {
-            return `<span class="inline-flex text-center  items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${cell.getValue()}</span>`;
+            const value = this.escapeHtml(cell.getValue() || '-');
+            return `<span class="projects-department-pill" title="${value}">${value}</span>`;
           }
         },
         {
           title: "Status",
           field: "isclose", // Boolean Field
           hozAlign: "center",
+          cssClass: "projects-status-cell",
           // width: 100,
           editor: "list",
           editorParams: {
@@ -380,15 +386,17 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
             ]
           },
           formatter: (cell: any) => {
-            const isClosed = cell.getValue();
+            const value = cell.getValue();
+            const isClosed = value === true || value === 'true' || value === 1 || value === '1';
             const label = isClosed ? "Closed" : "Open";
-            const colorClass = isClosed ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700";
-            const dotClass = isClosed ? "bg-red-500" : "bg-green-500";
+            const statusClass = isClosed ? "projects-status--closed" : "projects-status--open";
 
             return `
-              <div class="flex items-center justify-center gap-1.5">
-                  <span class="h-2 w-2 rounded-full ${dotClass}"></span>
-                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${label}</span>
+              <div class="projects-status-wrap">
+                  <span class="projects-status ${statusClass}">
+                    <span class="projects-status__dot"></span>
+                    <span class="projects-status__label">${label}</span>
+                  </span>
               </div>`;
           }
         },
@@ -435,8 +443,8 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
           width: 100,
           hozAlign: "center",
           headerSort: false,
-          frozen: true,
-          formatter: this.actionFormatter,
+          frozen: freezeColumns,
+          formatter: (cell: any) => this.actionFormatter(cell),
           cellClick: (e: any, cell: any) => this.handleActionClick(e, cell),
           cssClass: "sticky-col-right",
         }
@@ -488,13 +496,18 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
 
 
   actionFormatter(cell: any) {
+    const data = cell.getData?.() ?? {};
+    const projectId = Number(data?.id);
+    const isDeleting = this.deletingProjectId === projectId;
+    const isUpdating = this.updatingProjectId === projectId;
+
     return `
       <div class="flex items-center justify-center gap-3 w-full h-full">
-        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit">
-          <i class="ri-pencil-line text-lg pointer-events-none"></i>
+        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit ${isUpdating ? 'tabulator-action-button--loading' : ''}" title="${isUpdating ? 'Updating...' : 'Edit'}" ${isUpdating || isDeleting ? 'disabled' : ''}>
+          <i class="${isUpdating ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-pencil-line text-lg'} pointer-events-none"></i>
         </button>
-        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete" title="Delete">
-          <i class="ri-delete-bin-line text-lg pointer-events-none"></i>
+        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete ${isDeleting ? 'tabulator-action-button--loading' : ''}" title="${isDeleting ? 'Deleting...' : 'Delete'}" ${isDeleting || isUpdating ? 'disabled' : ''}>
+          <i class="${isDeleting ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-delete-bin-line text-lg'} pointer-events-none"></i>
         </button>
       </div>
     `;
@@ -507,6 +520,7 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
     e.stopPropagation();
     const target = e.target.closest('button');
     if (!target) return;
+    if (target.disabled) return;
 
     const row = cell.getRow();
     const data = row.getData();
@@ -523,12 +537,19 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
         confirmButtonText: "Yes, delete it!"
       }).then((result) => {
         if (result.isConfirmed) {
-          this.authService.deleteProject(this.storageService.getUsername(), data.id).subscribe((res: any) => {
-            this.toasterService.success(res.message);
-            this.getProjects();
-          }, err => {
-            this.toasterService.error(err?.error?.message);
-          })
+          this.deletingProjectId = Number(data.id);
+          this.refreshVisibleRows();
+          this.authService.deleteProject(this.storageService.getUsername(), data.id)
+            .pipe(finalize(() => {
+              this.deletingProjectId = null;
+              this.refreshVisibleRows();
+            }))
+            .subscribe((res: any) => {
+              this.toasterService.success(res.message);
+              this.getProjects();
+            }, err => {
+              this.toasterService.error(err?.error?.message);
+            })
         }
       });
     }
@@ -631,7 +652,12 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
       return;
     }
 
-    this.authService.getAllProjectsByEmployeeId(employeeId).subscribe({
+    this.projectTableLoading = true;
+    this.authService.getAllProjectsByEmployeeId(employeeId)
+      .pipe(finalize(() => {
+        this.projectTableLoading = false;
+      }))
+      .subscribe({
       next: (res: any) => {
         const list = Array.isArray(res) ? res : (res?.data ?? res?.projects ?? []);
         this.projectList = Array.isArray(list) ? list : [];
@@ -671,8 +697,15 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
 
   updateProject(selectedProject: any) {
     selectedProject.username = this.storageService.getUsername();
+    this.updatingProjectId = Number(selectedProject?.id);
+    this.refreshVisibleRows();
 
-    this.authService.updateProject(selectedProject).subscribe({
+    this.authService.updateProject(selectedProject)
+      .pipe(finalize(() => {
+        this.updatingProjectId = null;
+        this.refreshVisibleRows();
+      }))
+      .subscribe({
       next: ((res: any) => {
         this.toasterService.success(res?.message);
         this.getProjects();
@@ -682,6 +715,14 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
         this.toasterService.error(err?.error?.message);
       }
     })
+  }
+
+  private refreshVisibleRows(): void {
+    try {
+      this.table?.redraw?.(true);
+    } catch {
+      // ignore redraw timing during table rebuilds
+    }
   }
 
   private resetTableBuilt(): void {
@@ -886,6 +927,16 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
       page: Number(this.table?.getPage?.() || 1) || 1,
       pageSize: Number(this.table?.getPageSize?.() || 10) || 10
     });
+  }
+
+  private isCompactViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  private escapeHtml(value: any): string {
+    const div = document.createElement('div');
+    div.textContent = `${value ?? ''}`;
+    return div.innerHTML;
   }
 
 }

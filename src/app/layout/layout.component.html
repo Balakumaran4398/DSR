@@ -103,10 +103,10 @@
                 <span class="dsr-nav-tooltip">Settings</span>
             </div>
             <div class="dsr-nav-submenu" [class.dsr-nav-open]="openSubmenu === 'settings'">
-                <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'general'"
-                    (click)="activateLink('general')">General</a>
-                <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'security'"
-                    (click)="activateLink('security')">Security</a>
+                <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'theme-settings'"
+                    (click)="activateLink('theme-settings')">Theme Settings</a>
+                <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'hardware'"
+                    (click)="activateLink('hardware')">Hardware</a>
                 <!-- <a class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'billing'"
                     (click)="activateLink('billing')">Billing</a> -->
             </div>
@@ -133,9 +133,9 @@
                     <i class="ri-settings-2-line"></i>
                     <span>Account Settings</span>
                 </a>
-                <a class="dsr-nav-user-sub-link" style="color: #EF4444;"
+                <a class="dsr-nav-user-sub-link dsr-nav-user-sub-link--danger"
                     (click)="closeMobileSidebar();confirmLogOut();">
-                    <i class="ri-logout-box-r-line" style="color: #EF4444;"></i>
+                    <i class="ri-logout-box-r-line"></i>
                     <span>Sign Out</span>
                 </a>
             </div>

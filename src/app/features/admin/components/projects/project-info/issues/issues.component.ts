@@ -1,6 +1,6 @@
 import { Component, ElementRef, Input, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { filter, from } from 'rxjs';
+import { filter, finalize, from } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
@@ -56,6 +56,10 @@ export class IssuesComponent {
   searchTerm = '';
   initialStartDate: string | null = null;
   initialEndDate: string | null = null;
+  tableLoading = false;
+  deletingIssueId: number | null = null;
+  updatingIssueId: number | null = null;
+  movingPhaseId: number | null = null;
   private originalAssignedTo: number | null = null;
   readonly categoryOptions = [
     { value: 'High', textClass: 'text-red-600' },
@@ -77,6 +81,7 @@ export class IssuesComponent {
     this.route.paramMap.subscribe(params => {
       this.projectid = Number(params.get('projectid'));
       this.restoreViewState();
+      this.applyNavigationDateRange();
       if (!this.fromdate || !this.todate) {
         this.setCurrentMondayToSaturdayRange();
       }
@@ -129,9 +134,11 @@ export class IssuesComponent {
 
   initializeTable() {
     this.rebuildEmployeeIndex();
+    const freezeColumns = !this.isCompactViewport();
     this.table = new Tabulator(this.tableDiv.nativeElement, {
       data: this.tableData,
-      layout: "fitColumns",
+      layout: "fitDataStretch",
+      responsiveLayout: false,
       // height: "500px", 
       pagination: "local",
       paginationSize: 10,
@@ -169,9 +176,10 @@ export class IssuesComponent {
         {
           title: "Task Name",
           field: "task",
-          widthGrow: 2,
-          minWidth: 350,
-          frozen: true, // Freeze the Project column
+          width: 500,
+          widthGrow: 0.9,
+          minWidth: 380,
+          frozen: freezeColumns, // Freeze the Project column on desktop only
           editor: "textarea",
           formatter: (cell: any) => {
             const data = cell.getData();
@@ -274,21 +282,14 @@ export class IssuesComponent {
             clearable: true
           },
           formatter: (cell: any) => {
-            const val = cell.getValue();
-
-            // Simple color logic
-            let colorClass = "bg-gray-100 text-gray-700";
-            if (["Active", "On-Track", "Approved", "Completed", "Invoiced", "Open"].includes(val)) {
-              colorClass = "bg-emerald-100 text-emerald-700";
-            } else if (["In-Progress", "In-Review", "In-Testing", "Planning"].includes(val)) {
-              colorClass = "bg-blue-100 text-blue-700";
-            } else if (["On-Hold", "To-be-Tested"].includes(val)) {
-              colorClass = "bg-amber-100 text-amber-700";
-            } else if (["Delayed", "Cancelled", "Rejected", "Closed"].includes(val)) {
-              colorClass = "bg-red-100 text-red-700";
-            }
-
-            return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${val}</span>`;
+            const val = `${cell.getValue() ?? ''}`.trim() || '-';
+            const safeValue = this.escapeHtml(val);
+            return `
+              <span class="issue-status-pill ${this.getIssueStatusClass(val)}" title="${safeValue}">
+                <span class="issue-status-dot"></span>
+                <span class="issue-status-label">${safeValue}</span>
+              </span>
+            `;
           }
         },
         {
@@ -296,22 +297,9 @@ export class IssuesComponent {
           field: "task_category",
           width: 120,
           formatter: (cell: any) => {
-            const val = cell.getValue();
-
-           let colorClass = "bg-gray-100 text-gray-700";
-            if (["Support"].includes(val)) {
-              colorClass = "bg-emerald-100 text-emerald-700";
-            } else if (["Requirement"].includes(val)) {
-              colorClass = "bg-amber-100 text-amber-700";
-            } else if (["Bug"].includes(val)) {
-              colorClass = "bg-red-100 text-red-700";
-            }
-            // return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${val}</span>`;
-
-            if (!val) {
-              return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium text-slate-500">-</span>`;
-            }
-            return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${val}</span>`;
+            const val = `${cell.getValue() ?? ''}`.trim() || '-';
+            const safeValue = this.escapeHtml(val);
+            return `<span class="issue-category-pill ${this.getIssueCategoryClass(val)}" title="${safeValue}">${safeValue}</span>`;
           }
         },      
 
@@ -446,8 +434,8 @@ export class IssuesComponent {
           width: 130,
           hozAlign: "center",
           headerSort: false,
-          frozen: true,
-          formatter: this.actionFormatter,
+          frozen: freezeColumns,
+          formatter: (cell: any) => this.actionFormatter(cell),
           cellClick: (e: any, cell: any) => this.handleActionClick(e, cell),
           cssClass: "sticky-col-right",
         }
@@ -507,15 +495,20 @@ export class IssuesComponent {
     });
   }
   actionFormatter(cell: any) {
+    const data = cell.getData?.() ?? {};
+    const issueId = Number(data?.id);
+    const isDeleting = this.deletingIssueId === issueId;
+    const isUpdating = this.updatingIssueId === issueId;
+
     return `
       <div class="flex items-center justify-center gap-3 w-full h-full">
-        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit">
-          <i class="ri-pencil-line text-lg pointer-events-none"></i>
+        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit ${isUpdating ? 'tabulator-action-button--loading' : ''}" title="${isUpdating ? 'Updating...' : 'Edit'}" ${isUpdating || isDeleting ? 'disabled' : ''}>
+          <i class="${isUpdating ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-pencil-line text-lg'} pointer-events-none"></i>
         </button>
-        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete" title="Delete">
-          <i class="ri-delete-bin-line text-lg pointer-events-none"></i>
+        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete ${isDeleting ? 'tabulator-action-button--loading' : ''}" title="${isDeleting ? 'Deleting...' : 'Delete'}" ${isDeleting || isUpdating ? 'disabled' : ''}>
+          <i class="${isDeleting ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-delete-bin-line text-lg'} pointer-events-none"></i>
         </button>
-           <button class="text-slate-400 hover:text-emerald-600 transition-colors btn-download" title="Download">
+           <button class="text-slate-400 hover:text-emerald-600 transition-colors btn-download" title="Download" ${isDeleting || isUpdating ? 'disabled' : ''}>
           <i class="ri-download-2-line text-lg pointer-events-none"></i>
         </button>
  
@@ -528,6 +521,7 @@ export class IssuesComponent {
     e.stopPropagation();
     const target = e.target.closest('button');
     if (!target) return;
+    if (target.disabled) return;
 
     const row = cell.getRow();
     const data = row.getData();
@@ -556,12 +550,19 @@ export class IssuesComponent {
         confirmButtonText: "Yes, delete it!"
       }).then((result) => {
         if (result.isConfirmed) {
-          this.authService.deleteTask(this.storageService.getUsername(), data.id).subscribe((res: any) => {
-            this.toasterService.success(res.message);
-            this.getProjects();
-          }, err => {
-            this.toasterService.error(err?.error?.message);
-          })
+          this.deletingIssueId = Number(data.id);
+          this.refreshVisibleRows();
+          this.authService.deleteTask(this.storageService.getUsername(), data.id)
+            .pipe(finalize(() => {
+              this.deletingIssueId = null;
+              this.refreshVisibleRows();
+            }))
+            .subscribe((res: any) => {
+              this.toasterService.success(res.message);
+              this.getTasksByProjectIdNdEmployeeId();
+            }, err => {
+              this.toasterService.error(err?.error?.message);
+            })
         }
       });
     }else if (target.classList.contains('btn-download')) {
@@ -702,7 +703,12 @@ export class IssuesComponent {
       return;
     }
 
-    this.authService.swapTask(phaseId, taskIds.join(','), this.storageService.getUsername()).subscribe({
+    this.movingPhaseId = Number(phaseId);
+    this.authService.swapTask(phaseId, taskIds.join(','), this.storageService.getUsername())
+      .pipe(finalize(() => {
+        this.movingPhaseId = null;
+      }))
+      .subscribe({
       next: (res: any) => {
         this.toasterService.success(res?.message || 'Issues moved successfully.');
         rows.forEach((row: any) => row.update({
@@ -867,7 +873,14 @@ export class IssuesComponent {
 
   updateTask(selectTask: any) {
     selectTask.username = this.storageService.getUsername();
-    this.authService.updateTask(selectTask).subscribe({
+    this.updatingIssueId = Number(selectTask?.id);
+    this.refreshVisibleRows();
+    this.authService.updateTask(selectTask)
+      .pipe(finalize(() => {
+        this.updatingIssueId = null;
+        this.refreshVisibleRows();
+      }))
+      .subscribe({
       next: ((res: any) => {
         this.toasterService.success(res?.message);
         this.getTasksByProjectIdNdEmployeeId()
@@ -876,6 +889,14 @@ export class IssuesComponent {
         this.toasterService.error(err?.error?.message);
       }
     })
+  }
+
+  private refreshVisibleRows(): void {
+    try {
+      this.table?.redraw?.(true);
+    } catch {
+      // ignore redraw timing during table rebuilds
+    }
   }
 
   onRangeChange(event: { startDate: Date; endDate: Date }) {
@@ -1094,6 +1115,41 @@ export class IssuesComponent {
     `;
   }
 
+  private getIssueStatusClass(status: string): string {
+    const normalized = `${status ?? ''}`.trim().toLowerCase();
+    if (['active', 'on-track', 'approved', 'completed', 'invoiced', 'open', 'pass', 'passed'].includes(normalized)) {
+      return 'issue-status-success';
+    }
+    if (['in-progress', 'in-review', 'in-testing', 'planning'].includes(normalized)) {
+      return 'issue-status-progress';
+    }
+    if (['on-hold', 'to-be-tested', 'upcoming-release'].includes(normalized)) {
+      return 'issue-status-warning';
+    }
+    if (['delayed', 'cancelled', 'rejected', 'closed', 'failed'].includes(normalized)) {
+      return 'issue-status-danger';
+    }
+    return 'issue-status-muted';
+  }
+
+  private getIssueCategoryClass(category: string): string {
+    const normalized = `${category ?? ''}`.trim().toLowerCase();
+    if (normalized === 'support') {
+      return 'issue-category-success';
+    }
+    if (normalized === 'requirement') {
+      return 'issue-category-warning';
+    }
+    if (normalized === 'bug') {
+      return 'issue-category-danger';
+    }
+    return 'issue-category-muted';
+  }
+
+  private isCompactViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+  }
+
   private escapeHtml(value: any): string {
     return String(value ?? '-')
       .replace(/&/g, '&amp;')
@@ -1157,6 +1213,36 @@ export class IssuesComponent {
     this.todate = this.formatDateToYMD(weekEnd);
     this.initialStartDate = this.fromdate;
     this.initialEndDate = this.todate;
+  }
+
+  private applyNavigationDateRange(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const fromDate = params.get('fromdate') || params.get('startDate');
+    const toDate = params.get('todate') || params.get('endDate');
+
+    if (!this.isValidDateRangeValue(fromDate) || !this.isValidDateRangeValue(toDate)) {
+      return;
+    }
+
+    this.fromdate = fromDate;
+    this.todate = toDate;
+    this.initialStartDate = this.fromdate;
+    this.initialEndDate = this.todate;
+    this.version = '';
+    this.tableData = [];
+    this.pendingStateRestore = false;
+    this.isRestoringTableState = false;
+    this.suppressInitialRangeFetch = false;
+    this.tableStateRestoreAttempts = 0;
+  }
+
+  private isValidDateRangeValue(value: string | null): value is string {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return false;
+    }
+
+    const parsed = new Date(`${value}T00:00:00`);
+    return !Number.isNaN(parsed.getTime());
   }
 
 
@@ -1291,7 +1377,12 @@ export class IssuesComponent {
       ? this.authService.getIsasueByProjectIdNdEmployeeId(this.projectid, this.empid, 0, "bug", this.version)
       : this.authService.getTasksByProjectIdNdEmployeeId(this.projectid, this.empid, 0, "bug", this.fromdate || '', this.todate || '');
 
-    request$.subscribe({
+    this.tableLoading = true;
+    request$
+      .pipe(finalize(() => {
+        this.tableLoading = false;
+      }))
+      .subscribe({
       next: (res: any) => {
         this.tableData = Array.isArray(res) ? res : [];
         if (this.table) {

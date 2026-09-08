@@ -1,6 +1,6 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, inject, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { Router } from '@angular/router';
-import { filter, Subject, takeUntil } from 'rxjs';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { filter, finalize, Subject, takeUntil } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
@@ -37,25 +37,62 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
   private destroy$ = new Subject<void>();
   empid: any = 0;
   canSelectEmployee = false;
+  showOverallBackButton = false;
+  teamTableLoading = false;
+  deletingMemberId: number | null = null;
 
-  constructor(private authService: AuthService, private storageService: StorageService, private router: Router,private toasterService: ToasterService, private drawerService: DrawerService) { 
+  constructor(
+    private authService: AuthService,
+    private storageService: StorageService,
+    private router: Router,
+    private route: ActivatedRoute,
+    private toasterService: ToasterService,
+    private drawerService: DrawerService
+  ) {
     this.empid = this.storageService.getEmpId();
     const roles = this.storageService.roles;
     this.canSelectEmployee = !!(roles?.isAdmin || roles?.isManager);
   }
   ngOnInit(): void {
     // this.getTeamInfo();
+    this.route.queryParamMap
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(params => {
+        this.showOverallBackButton = params.get('from') === 'overall';
+      });
+
     this.drawerService.drawerAction$
-      .pipe(filter(a => a.source === 'member'))
+      .pipe(
+        filter(a => a.source === 'member'),
+        takeUntil(this.destroy$)
+      )
       .subscribe(() => { this.getTeamInfo() });
   }
   getTeamInfo() {
-    this.authService.getUsersAll(this.empid).subscribe((res: any) => {
-      this.tableData = res;
-      if (this.table) {
-        this.safeReplaceData(this.table, this.tableData);
+    this.teamTableLoading = true;
+    this.authService.getUsersAll(this.empid)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.teamTableLoading = false;
+        })
+      )
+      .subscribe({
+        next: (res: any) => {
+          this.tableData = res;
+          if (this.table) {
+            this.safeReplaceData(this.table, this.tableData);
 
-      }})
+          }
+        },
+        error: (err: any) => {
+          this.tableData = [];
+          if (this.table) {
+            this.safeReplaceData(this.table, this.tableData);
+          }
+          this.toasterService.error(err?.error?.message ?? 'Unable to load team members');
+        }
+      })
   }
 
   ngAfterViewInit() {
@@ -70,18 +107,20 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       }
     }, 50);
 
-     this.drawerService.drawerAction$
-          .pipe(
-            filter(a => a.source === 'teammate'),
-            takeUntil(this.destroy$)
-          )
-          .subscribe(() => {
-            this.getTeamInfo();
-          });
+    this.drawerService.drawerAction$
+      .pipe(
+        filter(a => a.source === 'teammate'),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(() => {
+        this.getTeamInfo();
+      });
   }
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.destroy$.next();
+    this.destroy$.complete();
 
     if (this.tableCheckInterval) {
       clearInterval(this.tableCheckInterval);
@@ -102,9 +141,11 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
 
 
   initializeTable() {
+    const freezeColumns = !this.isCompactViewport();
     this.table = new Tabulator(this.tableDiv.nativeElement, {
       data: this.tableData,
-      layout: "fitData",
+      layout: "fitDataStretch",
+      responsiveLayout: false,
       pagination: "local",
       paginationSize: 15,
       paginationCounter: "rows",
@@ -134,7 +175,7 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
           minWidth: 280,
           formatter: this.nameFormatter,
           responsive: 0,
-          frozen: true,
+          frozen: freezeColumns,
           cellClick: (e: any, cell: any) => {
             if (e.target.closest('.member-skills-view-btn')) {
               e.stopPropagation();
@@ -142,7 +183,7 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
             }
           }
         },
-  
+
         // Mobile (New)
         { title: "Mobile", field: "mobile", width: 140, responsive: 3, formatter: (cell: any) => `<span class="text-gray-600 text-sm font-mono">${cell.getValue() || '-'}</span>` },
         // Mobile (New)
@@ -154,17 +195,29 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
         // Role Text
         { title: "Role", field: "position", formatter: (cell: any) => `<span class="text-gray-600">${cell.getValue() || '-'}</span>`, responsive: 5 },
 
+        // {
+        //   title: "Status",
+        //   field: "isactive",
+        //   editor: 'list',
+        //   editorParams: {
+        //     values: [{ label: "Active", value: true }, { label: "Inactive", value: false }],
+        //     autocomplete: true,
+        //     clearable: false,
+        //   },
+        //   editable: (cell: any) => this.canEditStatus(cell.getRow().getData()),
+        //   cellClick: (e: any, cell: any) => {
+        //     const data = cell.getRow().getData();
+
+        //     if (!this.canEditStatus(data, true)) {
+        //       e.stopPropagation();
+        //     }
+        //   },
+        //   formatter: (cell: any) => this.statusFormatter(cell),
+        // },
         {
           title: "Status",
           field: "isactive",
-          editor: 'list',
-          editorParams: {
-            values: [{ label: "Active", value: true }, { label: "Inactive", value: false }], // Boolean dropdown
-            autocomplete: true,
-            clearable: false,
-          },
-          formatter: this.statusFormatter,
-
+          formatter: (cell: any) => this.statusFormatter(cell),
         },
         // Shift (New)
         { title: "Shift", field: "shift_type", width: 120, responsive: 4, formatter: (cell: any) => `<span class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs">${cell.getValue() || '-'}</span>` },
@@ -172,17 +225,19 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
         { title: "Attendance id", field: "attendanceid", width: 130, responsive: 3, formatter: (cell: any) => `<span class="text-gray-600 text-sm font-mono ">${cell.getValue() || '-'}</span>` },
         // Joined Date
         { title: "Date joined", field: "joining_date", width: 150, formatter: (cell: any) => `<span class="text-gray-500">${cell.getValue()}</span>`, responsive: 3 },
-        {
-          title: "Actions",
-          field: "actions", // Ensures CSS targeting matches a "field"
-          minWidth: 100,
-          hozAlign: "center",
-          headerSort: false,
-          frozen: true,
-          formatter: this.actionFormatter,
-          cellClick: (e: any, cell: any) => this.handleActionClick(e, cell),
-          cssClass: "sticky-col-right",
-        }
+        ...(this.storageService.getRoleNames()[0] !== 'ROLE_EMPLOYEE'
+          ? [{
+            title: 'Actions',
+            field: 'actions',
+            minWidth: 100,
+            hozAlign: 'center',
+            headerSort: false,
+            frozen: true,
+            formatter: (cell: any) => this.actionFormatter(cell),
+            cellClick: (e: any, cell: any) => this.handleActionClick(e, cell),
+            cssClass: 'sticky-col-right'
+          }]
+          : [])
       ],
     });
     attachTabulatorPaginationPersistence(this.table, buildTabulatorPaginationKey('team-table'));
@@ -195,19 +250,19 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
 
   // --- Formatters ---
   statusFormatter(cell: any) {
-    const value = cell.getValue(); // This will be true/false
-    let classes = "";
-    let dotColor = "";
-    let label = "";
+    const value = cell.getValue();
+    let classes = '';
+    let dotColor = '';
+    let label = '';
 
     if (value === true) {
-      classes = "bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20";
-      dotColor = "bg-emerald-500";
-      label = "Active";
+      classes = 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20';
+      dotColor = 'bg-emerald-500';
+      label = 'Active';
     } else {
-      classes = "bg-red-50 text-red-700 border-red-200 ring-red-600/20"; // Changed inactive to red for visibility
-      dotColor = "bg-red-500";
-      label = "Inactive";
+      classes = 'bg-red-50 text-red-700 border-red-200 ring-red-600/20';
+      dotColor = 'bg-red-500';
+      label = 'Inactive';
     }
 
     return `
@@ -217,18 +272,21 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
         </span>
     `;
   }
-
   actionFormatter(cell: any) {
+    const data = cell.getData?.() ?? {};
+    const memberId = Number(data?.id);
+    const isDeleting = this.deletingMemberId === memberId;
+
     return `
       <div class="flex items-center justify-center gap-3 w-full h-full">
-      <button class="text-slate-400 hover:text-amber-600 transition-colors btn-relieve" title="Relieve Employee">
+      <button class="text-slate-400 hover:text-amber-600 transition-colors btn-relieve" title="Relieve Employee" ${isDeleting ? 'disabled' : ''}>
       <i class="ri-user-unfollow-line text-lg pointer-events-none"></i>
       </button>
-        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit">
+        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit" ${isDeleting ? 'disabled' : ''}>
           <i class="ri-pencil-line text-lg pointer-events-none"></i>
         </button>
-        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete" title="Delete">
-          <i class="ri-delete-bin-line text-lg pointer-events-none"></i>
+        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete ${isDeleting ? 'tabulator-action-button--loading' : ''}" title="${isDeleting ? 'Deleting...' : 'Delete'}" ${isDeleting ? 'disabled' : ''}>
+          <i class="${isDeleting ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-delete-bin-line text-lg'} pointer-events-none"></i>
         </button>
       </div>
     `;
@@ -241,9 +299,19 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
     e.stopPropagation();
     const target = e.target.closest('button');
     if (!target) return;
+    if (target.disabled) return;
 
     const row = cell.getRow();
     const data = row.getData();
+    console.log('forInactive', data);
+
+    if (this.storageService.roles.isEmployee) {
+      return
+    }
+    if (sessionStorage.getItem('department') !== data.department_name && this.storageService.getRoleNames()[0] !== "ROLE_ADMIN") {
+      this.toasterService.error("You don't have permission to perform this action");
+      return
+    }
     console.log(data);
     if (target.classList.contains('btn-relieve')) {
       this.drawerService.open('relieve', data);
@@ -261,15 +329,30 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
         confirmButtonText: "Yes, delete it!"
       }).then((result) => {
         if (result.isConfirmed) {
-          this.authService.deleteUser(data.id, this.storageService.getUsername()).subscribe((res: any) => {
-            this.toasterService.success(res.message);
-            this.getTeamInfo();
-          }, err => {
-            this.toasterService.error(err?.error?.message);
-          })
+          this.deletingMemberId = Number(data.id);
+          this.refreshVisibleRows();
+          this.authService.deleteUser(data.id, this.storageService.getUsername())
+            .pipe(finalize(() => {
+              this.deletingMemberId = null;
+              this.refreshVisibleRows();
+            }))
+            .subscribe((res: any) => {
+              this.toasterService.success(res.message);
+              this.getTeamInfo();
+            }, err => {
+              this.toasterService.error(err?.error?.message);
+            })
         }
       });
 
+    }
+  }
+
+  private refreshVisibleRows(): void {
+    try {
+      this.table?.redraw?.(true);
+    } catch {
+      // ignore redraw timing during table rebuilds
     }
   }
   nameFormatter(cell: any) {
@@ -367,6 +450,10 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
     this.drawerService.open('member');
   }
 
+  backToOverall(): void {
+    this.router.navigate(['/main/overall']);
+  }
+
   private enqueueTableOp(action: () => any): void {
     this.tableOps = this.tableOps.finally(() => {
       if (this.destroyed) return;
@@ -414,7 +501,7 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       .replace(/'/g, '&#39;');
   }
 
- private openMemberSkillsDialog(rowData: any): void {
+  private openMemberSkillsDialog(rowData: any): void {
     console.log('openMemberSkillsDialog', rowData);
     const skills = this.buildTeamSkillDetails(rowData);
     const memberName = this.getMemberDisplayName(rowData);
@@ -437,8 +524,6 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
 
     // Determine status configuration (Green background with dark green text for active, red background with dark red text for inactive)
     const isActive = rowData?.isactive !== false;
-    const statusBg = isActive ? '#dcfce7' : '#fee2e2';
-    const statusColor = isActive ? '#166534' : '#991b1b';
     const statusText = isActive ? 'Active' : 'Inactive';
     const statusDot = isActive ? '#22c55e' : '#ef4444';
 
@@ -460,8 +545,8 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       align-items:center;
       gap:12px;
       padding:12px 14px;
-      background:#ffffff;
-      border:1px solid #e2e8f0;
+      background:linear-gradient(180deg, var(--bg-card) 0%, var(--bg-elevated) 100%);
+      border:1px solid var(--border-card);
       border-radius:16px;
       box-shadow:0 2px 6px rgba(15,23,42,0.02);
     ">
@@ -469,8 +554,8 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
         width:36px;
         height:36px;
         border-radius:12px;
-        background:#eff6ff;
-        color:#2563eb;
+        background:var(--bg-active);
+        color:var(--text-active);
         display:flex;
         align-items:center;
         justify-content:center;
@@ -480,8 +565,8 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
         <i class="${item.icon}"></i>
       </div>
       <div style="min-width:0;">
-        <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em;">${item.label}</div>
-        <div style="font-size:13px; font-weight:700; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${this.escapeHtml(item.value)}">${this.escapeHtml(item.value)}</div>
+        <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">${item.label}</div>
+        <div style="font-size:13px; font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${this.escapeHtml(item.value)}">${this.escapeHtml(item.value)}</div>
       </div>
     </div>
   `).join('');
@@ -491,10 +576,10 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       <article style="
         position:relative;
         overflow:hidden;
-        border:1px solid #e2e8f0;
+        border:1px solid var(--border-card);
         border-radius:20px;
         padding:16px;
-        background:#ffffff;
+        background:linear-gradient(180deg, var(--bg-card) 0%, var(--bg-elevated) 100%);
         box-shadow:0 10px 25px rgba(15,23,42,0.04);
         transition:all 0.2s ease;
       ">
@@ -515,10 +600,10 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
               <i class="${this.escapeHtml(skill.icon)}" style="font-size:20px;"></i>
             </div>
             <div style="min-width:0;">
-             <h3 style="margin:0; font-size:14px; line-height:1.25; color:#0f172a; font-weight:700; word-break:break-word;"> 
+             <h3 style="margin:0; font-size:14px; line-height:1.25; color:var(--text-main); font-weight:700; word-break:break-word;"> 
                 ${this.escapeHtml(skill.name)}
               </h3>
-               <p style="margin:4px 0 0; font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.06em;">
+               <p style="margin:4px 0 0; font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em;">
                 ${this.escapeHtml(skill.category)}
               </p>
             </div>
@@ -529,8 +614,9 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
             white-space:nowrap;
             border-radius:999px;
             padding:5px 10px;
-            background:#ecfeff;
-            color:#0e7490;
+            background:color-mix(in srgb, var(--text-active) 12%, var(--bg-card));
+            color:var(--text-active);
+            border:1px solid color-mix(in srgb, var(--text-active) 24%, var(--border-card));
             font-size:11px;
             font-weight:800;
           ">
@@ -542,12 +628,12 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       : `
       <div style="
         grid-column: span 2;
-        border:1px dashed #cbd5e1;
+        border:1px dashed var(--border-card);
         border-radius:20px;
         padding:28px 20px;
-        background:#ffffff;
+        background:var(--bg-card);
         text-align:center;
-        color:#64748b;
+        color:var(--text-muted);
       ">
         <div style="
           width:48px;
@@ -557,12 +643,12 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
           display:flex;
           align-items:center;
           justify-content:center;
-          background:#e0f2fe;
-          color:#0369a1;
+          background:var(--bg-active);
+          color:var(--text-active);
         ">
           <i class="ri-lightbulb-flash-line" style="font-size:24px;"></i>
         </div>
-        <h4 style="margin:0; color:#0f172a; font-size:16px; font-weight:800;">No skills added yet</h4>
+        <h4 style="margin:0; color:var(--text-main); font-size:16px; font-weight:800;">No skills added yet</h4>
         <p style="margin:6px 0 0; font-size:13px;">Skill details are shown here when they are available for this member.</p>
       </div>
     `;
@@ -576,18 +662,19 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       html: `
       <div style="
         text-align:left;
-        background:#f8fafc;
+        background:linear-gradient(180deg, var(--overlay-bg) 0%, var(--bg-elevated) 100%);
         border-radius:28px;
         overflow:hidden;
         box-shadow:0 25px 70px rgba(15,23,42,0.28);
-        border:1px solid #e2e8f0;
-        font-family:inherit;
+        border:1px solid var(--overlay-border);
+        font-family:'Roboto', sans-serif;
+        color:var(--text-main);
       ">
-        <!-- Header Banner Profile Card -->
+                <!-- Header Banner Profile Card -->
         <div style="
           padding:32px;
-          background:var(--text-active);
-          color:#ffffff;
+          background:var(--brand-color);
+          color:var(--text-on-active);
           position:relative;
         ">
           <button type="button" class="member-skills-dialog-close" style="
@@ -598,8 +685,8 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
             height:38px;
             border:none;
             border-radius:999px;
-            background:rgba(255,255,255,0.14);
-            color:#ffffff;
+            background:color-mix(in srgb, var(--text-on-active) 14%, transparent);
+            color:var(--text-on-active);
             display:flex;
             align-items:center;
             justify-content:center;
@@ -616,7 +703,7 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
                 height:72px;
                 border-radius:22px;
                 object-fit:cover;
-                border:2px solid rgba(255,255,255,0.3);
+                border:2px solid color-mix(in srgb, var(--text-on-active) 30%, transparent);
                 box-shadow:0 8px 20px rgba(0,0,0,0.15);
                 flex:0 0 auto;
               " />
@@ -625,12 +712,12 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
                 width:72px;
                 height:72px;
                 border-radius:22px;
-                background:rgba(255,255,255,0.18);
-                border:2px solid rgba(255,255,255,0.28);
+                background:color-mix(in srgb, var(--text-on-active) 18%, transparent);
+                border:2px solid color-mix(in srgb, var(--text-on-active) 28%, transparent);
                 display:flex;
                 align-items:center;
                 justify-content:center;
-                color:#ffffff;
+                color:var(--text-on-active);
                 font-size:24px;
                 font-weight:900;
                 flex:0 0 auto;
@@ -643,12 +730,11 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
                 <h2 style="margin:0; font-size:26px; line-height:1.2; font-weight:900; word-break:break-word;">${this.escapeHtml(memberName)}</h2>
                 
                 <!-- Role Badge -->
-                <span style="background:rgba(255,255,255,0.2); padding:2px 10px; border-radius:999px; font-size:11px; font-weight:700;">
+                <span style="background:color-mix(in srgb, var(--text-on-active) 20%, transparent); color:var(--text-on-active); padding:2px 10px; border-radius:999px; font-size:11px; font-weight:700;">
                   ${this.escapeHtml(rowData?.role || '')}
                 </span>
-
                 <!-- Active / Inactive Status Badge (Solid BG with Colored Text) -->
-                <span style="display:inline-flex; align-items:center; gap:6px; background:${statusBg}; color:${statusColor}; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:800;">
+                <span style="display:inline-flex; align-items:center; gap:6px; background:color-mix(in srgb, ${statusDot} 14%, var(--bg-card)); color:${statusDot}; border:1px solid color-mix(in srgb, ${statusDot} 28%, var(--border-card)); padding:3px 10px; border-radius:999px; font-size:11px; font-weight:800;">
                   <span style="width:6px; height:6px; border-radius:999px; background:${statusDot}; display:inline-block;"></span>
                   ${statusText}
                 </span>
@@ -659,11 +745,13 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
         </div>
 
         <!-- Scrollable Content Body -->
-        <div style="padding:28px 32px 32px; max-height:68vh; overflow-y:auto;">
+        <div style="padding:28px 32px 32px; max-height:68vh; overflow-y:auto; background:
+          radial-gradient(circle at top right, color-mix(in srgb, var(--text-active) 10%, transparent), transparent 28%),
+          linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 84%, transparent), var(--bg-elevated));">
           
           <!-- Personal Details Grid Section -->
           <div style="margin-bottom:24px;">
-            <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:800; text-transform:uppercase; color:#475569; letter-spacing:0.06em;">
+            <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--text-soft); letter-spacing:0.06em;">
               Personal & Professional Bio
             </h4>
             <div style="
@@ -677,7 +765,7 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
 
           <!-- Skills Section -->
           <div>
-            <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:800; text-transform:uppercase; color:#475569; letter-spacing:0.06em;">
+            <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--text-soft); letter-spacing:0.06em;">
               Expertise & Skills Matrix
             </h4>
             <div style="
@@ -808,17 +896,17 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       .toUpperCase() || 'TM';
   }
 
-    private openIssueDetailsDialog(rowData: any): void {
-      const summaryCards = [
-        { label: 'Owner', value: rowData?.assigned_from_name || '-' },
-        { label: 'Assignee', value: rowData?.assigned_to_name || '-' },
-        { label: 'Start Date', value: rowData?.start_date || '-' },
-        { label: 'End Date', value: rowData?.end_date || '-' },
-        { label: 'Estimated Hours', value: rowData?.estimated_hours || '-' },
-        { label: 'Worked Hours', value: rowData?.worked_hours || '-' }
-      ];
-  
-      const summaryHtml = summaryCards.map((item: any) => `
+  private openIssueDetailsDialog(rowData: any): void {
+    const summaryCards = [
+      { label: 'Owner', value: rowData?.assigned_from_name || '-' },
+      { label: 'Assignee', value: rowData?.assigned_to_name || '-' },
+      { label: 'Start Date', value: rowData?.start_date || '-' },
+      { label: 'End Date', value: rowData?.end_date || '-' },
+      { label: 'Estimated Hours', value: rowData?.estimated_hours || '-' },
+      { label: 'Worked Hours', value: rowData?.worked_hours || '-' }
+    ];
+
+    const summaryHtml = summaryCards.map((item: any) => `
         <div style="
           background:#ffffff;
           border:1px solid #e2e8f0;
@@ -834,32 +922,32 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
           </div>
         </div>
       `).join('');
-  
-      const metadataRows = [
-        { label: 'Type', value: rowData?.task_type || '-' },
-        { label: 'Version', value: rowData?.version || '-' },
-        { label: 'Phase', value: rowData?.phase_title || '-' },
-        {
-          label: 'Completion',
-          value: rowData?.completion_percentage !== undefined && rowData?.completion_percentage !== null
-            ? `${rowData.completion_percentage}%`
-            : '-'
-        }
-      ];
-  
-      const metadataHtml = metadataRows.map((item: any) => `
+
+    const metadataRows = [
+      { label: 'Type', value: rowData?.task_type || '-' },
+      { label: 'Version', value: rowData?.version || '-' },
+      { label: 'Phase', value: rowData?.phase_title || '-' },
+      {
+        label: 'Completion',
+        value: rowData?.completion_percentage !== undefined && rowData?.completion_percentage !== null
+          ? `${rowData.completion_percentage}%`
+          : '-'
+      }
+    ];
+
+    const metadataHtml = metadataRows.map((item: any) => `
         <div style="display:flex; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid #e2e8f0;">
           <div style="font-size:13px; font-weight:600; color:#475569;">${this.escapeHtml(item.label)}</div>
           <div style="font-size:13px; font-weight:600; color:#0f172a; text-align:right; word-break:break-word;">${this.escapeHtml(item.value)}</div>
         </div>
       `).join('');
-  
-      Swal.fire({
-        showCloseButton: false,
-        showConfirmButton: false,
-        width: 860,
-        padding: 0,
-        html: `
+
+    Swal.fire({
+      showCloseButton: false,
+      showConfirmButton: false,
+      width: 860,
+      padding: 0,
+      html: `
           <div style="
             text-align:left;
             background:#ffffff;
@@ -949,21 +1037,21 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
             </div>
           </div>
         `,
-        didOpen: (popup) => {
-          const swalPopup = popup.parentElement as HTMLElement | null;
-          if (swalPopup) {
-            swalPopup.style.background = 'transparent';
-            swalPopup.style.boxShadow = 'none';
-          }
-  
-          const closeButton = popup.querySelector('.issue-dialog-close') as HTMLButtonElement | null;
-          if (closeButton) {
-            closeButton.addEventListener('click', () => Swal.close());
-          }
+      didOpen: (popup) => {
+        const swalPopup = popup.parentElement as HTMLElement | null;
+        if (swalPopup) {
+          swalPopup.style.background = 'transparent';
+          swalPopup.style.boxShadow = 'none';
         }
-      });
-    }
- private buildBadge(label: string, background: string, color: string): string {
+
+        const closeButton = popup.querySelector('.issue-dialog-close') as HTMLButtonElement | null;
+        if (closeButton) {
+          closeButton.addEventListener('click', () => Swal.close());
+        }
+      }
+    });
+  }
+  private buildBadge(label: string, background: string, color: string): string {
     return `
       <span style="
         display:inline-flex;
@@ -979,6 +1067,36 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
         ${this.escapeHtml(label)}
       </span>
     `;
+  }
+
+  private isCompactViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+  }
+  private canEditStatus(data: any, showError = false): boolean {
+    const role = this.storageService.getRoleNames()[0];
+
+    if (role === "ROLE_EMPLOYEE") {
+      if (showError) {
+        this.toasterService.error(
+          "You don't have permission to edit this status"
+        );
+      }
+      return false;
+    }
+
+    if (
+      sessionStorage.getItem("department") !== data.department_name &&
+      role !== "ROLE_ADMIN"
+    ) {
+      if (showError) {
+        this.toasterService.error(
+          "You don't have permission to edit this status"
+        );
+      }
+      return false;
+    }
+
+    return true;
   }
 
 }

@@ -1,6 +1,7 @@
 import { Component, inject, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService, DrawerTaskFormType } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
@@ -46,6 +47,8 @@ export class TaskFormComponent implements OnInit, OnChanges {
   phaseList: any[] = [];
   versionList: any[] = [];
   employeeList: any[] = [];
+  filteredEmployees: any[] = [];
+  employeeFilterControl = new FormControl('');
   taskCategory : any[] = [];
   statusList: any = [];
   empid: any = 0;
@@ -54,6 +57,7 @@ export class TaskFormComponent implements OnInit, OnChanges {
   projectDetails: any;
   selectedFiles: File[] = [];
   selectedFileName: string = '';
+  private originalAssignedFrom: any = null;
   submitting:boolean = false;
   constructor(private authService: AuthService, private drawerService: DrawerService, private route: ActivatedRoute, private toasterService: ToasterService, private storageService: StorageService) {
     this.empid = this.storageService.getEmpId();
@@ -82,7 +86,9 @@ export class TaskFormComponent implements OnInit, OnChanges {
       files: [[]],
     });
 
-
+    this.employeeFilterControl.valueChanges.subscribe(value => {
+      this.applyEmployeeFilter(value);
+    });
   }
   ngOnChanges(changes: SimpleChanges): void {
     const stored = localStorage.getItem('projectDetails');
@@ -239,6 +245,8 @@ export class TaskFormComponent implements OnInit, OnChanges {
 
   private resetTaskForm(): void {
     this.isEditMode = false;
+    this.originalAssignedFrom = null;
+    this.resetEmployeeFilter();
     const projectId = this.projectDetails?.id ?? this.projectid;
     this.projectid = projectId;
     this.taskForm.reset({
@@ -271,6 +279,8 @@ export class TaskFormComponent implements OnInit, OnChanges {
   }
 
   async onSubmit() {
+    if (this.submitting) return;
+
     if (this.taskForm.valid) {
       this.submitting = true;
       this.taskForm.get("task_type")?.setValue(this.type)
@@ -288,9 +298,12 @@ export class TaskFormComponent implements OnInit, OnChanges {
           this.data = { ...this.data, ...requestPayload }
           this.updateTask(this.data)
         } else {
-          this.authService.createTask(requestPayload).subscribe({
-            next: ((res: any) => {
+          this.authService.createTask(requestPayload)
+            .pipe(finalize(() => {
               this.submitting = false;
+            }))
+            .subscribe({
+            next: ((res: any) => {
               this.toasterService.success(res?.message);
               this.drawerService.notifyAction({
                 source: 'task',
@@ -301,7 +314,6 @@ export class TaskFormComponent implements OnInit, OnChanges {
               // this.taskForm.reset();
             }),
             error: (err: any) => {
-              this.submitting = false;
               this.toasterService.error(err?.error?.message);
             }
           })
@@ -327,6 +339,7 @@ export class TaskFormComponent implements OnInit, OnChanges {
 
   onProjectChange(projectid: any) {
     this.projectid = projectid;
+    this.employeeFilterControl.setValue('', { emitEvent: false });
     this.taskForm.patchValue({
       phaseid: null,
       assigned_to: null,
@@ -372,7 +385,8 @@ export class TaskFormComponent implements OnInit, OnChanges {
   getEmployees(projectid: any) {
     this.authService.getEmployeelistByProjectId(projectid).subscribe({
       next: (res: any) => {
-        this.employeeList = res?.assigned_employee_list
+        this.employeeList = Array.isArray(res?.assigned_employee_list) ? res.assigned_employee_list : [];
+        this.applyEmployeeFilter(this.employeeFilterControl.value);
       }
     });
   }
@@ -384,8 +398,11 @@ export class TaskFormComponent implements OnInit, OnChanges {
     this.isEditMode = true;
     const taskType = this.normalizeTaskType(data.task_type ?? this.type);
     const projectId = data.projectid ?? this.projectid;
+    const assignedFrom = this.resolveAssignedFrom(data);
     this._type = taskType;
     this.projectid = projectId;
+    this.originalAssignedFrom = assignedFrom;
+    this.employeeFilterControl.setValue('', { emitEvent: false });
     this.getPhasesByProjectId({ value: projectId });
     this.getEmployees(projectId);
     this.getVersions(projectId);
@@ -404,7 +421,7 @@ export class TaskFormComponent implements OnInit, OnChanges {
       description: data.description ?? '',
       task_type: taskType,
       username: this.storageService.getUsername(),
-      assigned_from: this.storageService.getEmpId(),
+      assigned_from: assignedFrom,
       version: data.version ?? '',
       task_category: data.task_category ?? '',
       file_url: null,
@@ -425,9 +442,12 @@ export class TaskFormComponent implements OnInit, OnChanges {
 
   updateTask(selectTask: any) {
     selectTask.username = this.storageService.getUsername();
-    this.authService.updateTask(selectTask).subscribe({
-      next: ((res: any) => {
+    this.authService.updateTask(selectTask)
+      .pipe(finalize(() => {
         this.submitting = false;
+      }))
+      .subscribe({
+      next: ((res: any) => {
         this.toasterService.success(res?.message);
         this.drawerService.notifyAction({
           source: 'task',
@@ -437,7 +457,6 @@ export class TaskFormComponent implements OnInit, OnChanges {
         this.onCancel();
       }),
       error: (err: any) => {
-        this.submitting = false;
         this.toasterService.error(err?.error?.message);
       }
     })
@@ -479,6 +498,9 @@ export class TaskFormComponent implements OnInit, OnChanges {
 
   private async buildTaskRequestPayload(payload: any): Promise<any> {
     const { files, file_url, file_name, file_type, ...requestPayload } = payload;
+    if (this.isEditMode) {
+      requestPayload.assigned_from = this.getAssignedFromForUpdate(requestPayload.assigned_from);
+    }
 
     if (!this.isBugType || !this.selectedFiles.length) {
       return requestPayload;
@@ -491,6 +513,65 @@ export class TaskFormComponent implements OnInit, OnChanges {
       file_urls: encodedFiles,
       file_names: this.selectedFiles.map(file => file.name)
     };
+  }
+
+  private resolveAssignedFrom(data: any): any {
+    return this.firstPresent(
+      data?.assigned_from,
+      data?.assignedFrom,
+      data?.assigned_from_id,
+      data?.assignedFromId,
+      this.storageService.getEmpId()
+    );
+  }
+
+  private getAssignedFromForUpdate(formAssignedFrom: any): any {
+    return this.firstPresent(
+      this.originalAssignedFrom,
+      this.resolveAssignedFrom(this.data),
+      formAssignedFrom,
+      this.storageService.getEmpId()
+    );
+  }
+
+  private firstPresent(...values: any[]): any {
+    return values.find(value => value !== null && value !== undefined && value !== '');
+  }
+
+  getSelectedEmployeeName(): string {
+    const selectedId = this.taskForm.get('assigned_to')?.value;
+    if (!selectedId) return 'Select Owner';
+
+    const foundEmployee = this.employeeList.find(employee =>
+      `${this.firstPresent(employee?.id, employee?.emp_id, employee?.employee_id)}` === `${selectedId}`
+    );
+
+    return foundEmployee?.employee_name || 'Select Owner';
+  }
+
+  onAssignToOpenedChange(isOpen: boolean): void {
+    if (!isOpen) {
+      this.resetEmployeeFilter();
+    }
+  }
+
+  private applyEmployeeFilter(value: string | null): void {
+    const filterValue = (value ?? '').toLowerCase().trim();
+    const employees = Array.isArray(this.employeeList) ? this.employeeList : [];
+
+    if (!filterValue) {
+      this.filteredEmployees = [...employees];
+      return;
+    }
+
+    this.filteredEmployees = employees.filter((employee: any) =>
+      `${employee?.employee_name ?? ''}`.toLowerCase().includes(filterValue)
+    );
+  }
+
+  private resetEmployeeFilter(): void {
+    this.employeeFilterControl.setValue('', { emitEvent: false });
+    this.filteredEmployees = Array.isArray(this.employeeList) ? [...this.employeeList] : [];
   }
 
   private readFileAsBase64(file: File): Promise<string> {

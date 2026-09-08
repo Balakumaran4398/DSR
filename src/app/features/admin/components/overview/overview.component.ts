@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { StorageService } from 'src/app/_core/services/storage.service';
 
 @Component({
   selector: 'app-overview',
@@ -6,10 +7,9 @@ import { Component } from '@angular/core';
   styleUrls: ['./overview.component.scss']
 })
 export class OverviewComponent {
-  // State using standard properties instead of Signals
-  activeTabId: string = 'timelogs';
+  activeTabId = 'releases';
 
-  mainTabs: any[] = [
+  private readonly defaultTabs: any[] = [
     {
       id: 'timelogs',
       label: 'Time logs',
@@ -21,11 +21,54 @@ export class OverviewComponent {
       label: 'Releases',
       icon: 'ri-install-line',
       description: 'Project deployment history'
+    },
+    {
+      id: 'Overall Performance',
+      label: 'Overall Performance',
+      icon: 'ri-bar-chart-line',
+      description: 'Project performance metrics'
     }
-
   ];
 
+  private readonly overallPerformanceTab = {
+    id: 'Overall Performance',
+    label: 'Overall Performance',
+    icon: 'ri-bar-chart-line',
+    description: 'Project performance metrics'
+  };
+
+  mainTabs: any[] = [];
+  private tabStorageKey = 'overviewCurrentView';
+
+  constructor(private storageService: StorageService) { }
+
+  ngOnInit(): void {
+    const { isAdmin, isManager } = this.storageService.roles;
+    const canViewOverallPerformance = isAdmin || isManager;
+    this.tabStorageKey = canViewOverallPerformance
+      ? 'overviewCurrentView:management'
+      : 'overviewCurrentView:standard';
+
+    this.mainTabs = canViewOverallPerformance
+      ? [...this.defaultTabs]
+      : this.defaultTabs.filter(tab => tab.id !== this.overallPerformanceTab.id);
+
+    const roleDefaultTab = canViewOverallPerformance
+      ? this.overallPerformanceTab.id
+      : 'releases';
+    const savedTab = sessionStorage.getItem(this.tabStorageKey);
+    const savedTabIsAvailable = this.mainTabs.some(tab => tab.id === savedTab);
+
+    this.activeTabId = savedTabIsAvailable ? savedTab! : roleDefaultTab;
+    sessionStorage.setItem(this.tabStorageKey, this.activeTabId);
+  }
+
   setActiveTab(id: string): void {
-    this.activeTabId = id;
+    if (!this.mainTabs.some(tab => tab.id === id)) {
+      return;
+    }
+
+    this.activeTabId = id;    
+    sessionStorage.setItem(this.tabStorageKey, id);
   }
 }

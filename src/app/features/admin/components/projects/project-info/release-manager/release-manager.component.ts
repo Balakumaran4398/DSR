@@ -2,7 +2,7 @@ import { Component, ElementRef, HostListener } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
-import { filter } from 'rxjs';
+import { filter, finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
@@ -22,6 +22,9 @@ export interface Release {
   released_date: string;
   projectid: string;
   assigned_to: string;
+  assignedTo?: string | number;
+  assigned_to_id?: string | number;
+  assignedToId?: string | number;
   assignee_name?: string;
   release_type: 'Internal' | 'External';
   ismail: boolean;
@@ -55,6 +58,7 @@ export class ReleaseManagerComponent {
   deptName: any;
   // View State
   currentView: 'table' | 'kanban' = 'kanban';
+
   searchQuery: string = '';
 
   // Data
@@ -73,19 +77,30 @@ export class ReleaseManagerComponent {
   projectid: any = 0
   releaseTypeControl = new FormControl('');
   selectedReleaseType: string = 'All';
+  releaseLoading = false;
+  createReleaseLoading = false;
+  deletingReleaseId: number | null = null;
+  updatingReleaseId: number | null = null;
   constructor(private matDialog: MatDialog, private authService: AuthService, private drawerService: DrawerService, private storageService: StorageService, private router: Router, private route: ActivatedRoute, private toasterService: ToasterService) {
     this.empid = this.storageService.getEmpId();
     this.username = this.storageService.getUsername();
     // this.projectid = this.route.snapshot.paramMap.get('projectid');
     this.route.paramMap.subscribe(params => {
-      this.projectid = Number(params.get('projectid'));
+      const newProjectId = Number(params.get('projectid') || params.get('projectId') || params.get('id'));
+
+      if (newProjectId && newProjectId !== this.projectid) {
+        this.projectid = newProjectId;
+        this.loadData(); // Re-loads employees and releases for the new project
+      }
     });
     this.deptName = this.storageService.getDept();
 
   }
 
   ngOnInit(): void {
-    this.loadData();
+    if (this.projectid) {
+      this.loadData();
+    }
     this.drawerService.drawerAction$
       .pipe(filter(a => a.source === 'release'))
       .subscribe(() => { this.loadData() });
@@ -99,7 +114,11 @@ export class ReleaseManagerComponent {
   }
 
   createNew() {
+    if (this.createReleaseLoading) return;
+
+    this.createReleaseLoading = true;
     this.getReleaseByProjectId((releases: Release[]) => {
+      this.createReleaseLoading = false;
       this.drawerService.open('release', {
         mode: 'create',
         projectid: this.projectid,
@@ -155,6 +174,13 @@ export class ReleaseManagerComponent {
   // --- Drag and Drop ---
 
   onDragStart(event: DragEvent, release: Release) {
+    if (!this.canDragRelease(release)) {
+      event.preventDefault();
+      this.toasterService.error("You are Not Allowed.");
+      this.draggedReleaseId = null;
+      return;
+    }
+
     this.draggedReleaseId = release.id;
     if (event.dataTransfer) {
       event.dataTransfer.setData('text/plain', release.id);
@@ -193,8 +219,15 @@ export class ReleaseManagerComponent {
     const release = this.releaseList.find(r => r.id == releaseId);
     if (!release) return;
 
+    if (!this.canDragRelease(release)) {
+      this.toasterService.error("You are Not Allowed.");
+      this.draggedReleaseId = null;
+      return;
+    }
+
     if (!this.canDragOrDrop(release.status, newStatus)) {
       this.toasterService.error('Not Allowed');
+      this.draggedReleaseId = null;
       return;
     }
     if (release.status !== newStatus) {
@@ -206,12 +239,12 @@ export class ReleaseManagerComponent {
   }
 
   canDragOrDrop(sourceStatus: string, targetStatus?: string): boolean {
-    const isEmployee = this.storageService.roles?.isEmployee;
+    const roles = this.storageService.roles;
     const department = this.storageService.getDept();
     if (department?.toUpperCase() === 'SQA') {
       return true;
     }
-    if (!isEmployee) return true;
+    if (roles?.isAdmin || roles?.isManager || !roles?.isEmployee) return true;
     const allowedStatuses = ['In-Progress', 'To-be-Tested'];
     if (!targetStatus) {
       return allowedStatuses.includes(sourceStatus);
@@ -265,13 +298,16 @@ export class ReleaseManagerComponent {
       this.safeReplaceData(this.tabulator, this.filteredReleases);
 
     } const employeeList = this.employeeList.map((m: any) => ({ label: m.employee_name, value: m.id }));
+    const freezeColumns = !this.isCompactViewport();
     const employeeListLookup = this.employeeList.reduce((acc: any, cur: any) => {
       acc[cur.id] = cur.employee_name;
       return acc;
     }, {});
+    const canEditTableCell = (cell: any) => this.canEditRelease(cell.getRow().getData());
     this.tabulator = new Tabulator(element, {
       data: this.filteredReleases,
-      layout: "fitColumns",
+      layout: "fitDataStretch",
+      responsiveLayout: false,
       pagination: "local",
       paginationSize: 10,
       paginationCounter: "rows",
@@ -290,6 +326,9 @@ export class ReleaseManagerComponent {
       cellEdited: (cell: any) => {
         const val = cell.getValue();
         const data = cell.getData();
+        if (!this.canEditRelease(data)) {
+          return;
+        }
         // Sync change with local array so filtered data persists
         const found = this.releaseList.find(r => r.id === data.id);
         if (found) {
@@ -299,7 +338,8 @@ export class ReleaseManagerComponent {
       columns: [
         {
           title: "Title", field: "title", editor: "input",
-          frozen: true,
+          editable: canEditTableCell,
+          frozen: freezeColumns,
           formatter: (cell: any) => {
             const data = cell.getData();
             return `
@@ -327,33 +367,27 @@ export class ReleaseManagerComponent {
           }
 
         },
-        { title: "Version", field: "version", width: 100, editor: "input" },
-        { title: "Reject Reason", field: "reject_reason", width: 200, editor: "input" },
+        { title: "Version", field: "version", width: 100, editor: "input", editable: canEditTableCell },
+        { title: "Reject Reason", field: "reject_reason", width: 200, editor: "input", editable: canEditTableCell },
         {
           title: "Status",
           field: "status",
-          width: 130,
+          width: 200,
+          editable: canEditTableCell,
           editor: "list", editorParams: { values: this.statusList },
           formatter: (cell: any) => {
-            const val = cell.getValue();
-            // Simple color logic
-            let colorClass = "bg-gray-100 text-gray-700";
-            if (["Active", "On-Track", "Approved", "Pass", "Invoiced", "Open"].includes(val)) {
-              colorClass = "bg-emerald-100 text-emerald-700";
-            } else if (["In-Progress", "In-Review", "In-Testing", "To-be-Tested", "Planning"].includes(val)) {
-              colorClass = "bg-blue-100 text-blue-700";
-            } else if (["On-Hold", "To-be-Tested"].includes(val)) {
-              colorClass = "bg-amber-100 text-amber-700";
-            } else if (["Delayed", "Cancelled", "Rejected", "Failed", "Closed"].includes(val)) {
-              colorClass = "bg-red-100 text-red-700";
-            }
-            return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${val}</span>`;
+            const val = `${cell.getValue() ?? ''}`.trim();
+            const safeValue = this.escapeHtml(val || '-');
+            return `<span class="release-status-pill ${this.getReleaseStatusPillClass(val)}" title="${safeValue}">${safeValue}</span>`;
           }
         },
+
+
         {
           title: "Assignee",
           field: "assigned_to",
           minWidth: 200,
+          editable: canEditTableCell,
           editor: "list",
           editorParams: {
             values: employeeList,
@@ -379,8 +413,8 @@ export class ReleaseManagerComponent {
           width: 100,
           hozAlign: "center",
           headerSort: false,
-          frozen: true,
-          formatter: this.actionFormatter,
+          frozen: freezeColumns,
+          formatter: (cell: any) => this.actionFormatter(cell),
           cellClick: (e: any, cell: any) => this.handleActionClick(e, cell),
           cssClass: "sticky-col-right",
         }
@@ -390,17 +424,32 @@ export class ReleaseManagerComponent {
 
     this.tabulator.on("cellEdited", (cell: any) => {
       var rowData = cell.getData();
+      if (!this.canEditRelease(rowData)) {
+        this.toasterService.error("You are Not Allowed.");
+        cell.restoreOldValue();
+        return;
+      }
       this.updateRelease(rowData)
     });
   }
   actionFormatter(cell: any) {
+    const data = cell.getData();
+    const releaseId = Number(data?.id);
+    const isDeleting = this.deletingReleaseId === releaseId;
+    const isUpdating = this.updatingReleaseId === releaseId;
+    const editButton = this.canEditRelease(data)
+      ? `
+        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit ${isUpdating ? 'tabulator-action-button--loading' : ''}" title="${isUpdating ? 'Updating...' : 'Edit'}" ${isUpdating || isDeleting ? 'disabled' : ''}>
+          <i class="${isUpdating ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-pencil-line text-lg'} pointer-events-none"></i>
+        </button>
+      `
+      : '';
+
     return `
       <div class="flex items-center justify-center gap-3 w-full h-full">
-        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit">
-          <i class="ri-pencil-line text-lg pointer-events-none"></i>
-        </button>
-        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete" title="Delete">
-          <i class="ri-delete-bin-line text-lg pointer-events-none"></i>
+        ${editButton}
+        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete ${isDeleting ? 'tabulator-action-button--loading' : ''}" title="${isDeleting ? 'Deleting...' : 'Delete'}" ${isDeleting || isUpdating ? 'disabled' : ''}>
+          <i class="${isDeleting ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-delete-bin-line text-lg'} pointer-events-none"></i>
         </button>
       </div>
     `;
@@ -410,16 +459,12 @@ export class ReleaseManagerComponent {
     e.stopPropagation();
     const target = e.target.closest('button');
     if (!target) return;
+    if (target.disabled) return;
     const row = cell.getRow();
     const data = row.getData();
     console.log(data);
     if (target.classList.contains('btn-edit')) {
-      this.drawerService.open('release', {
-        ...data,
-        mode: 'edit',
-        projectid: data?.projectid ?? this.projectid,
-        releaseList: this.releaseList
-      })
+      this.openDrawer(data);
     } else if (target.classList.contains('btn-delete')) {
       this.deleteRelease(data);
     }
@@ -452,25 +497,45 @@ export class ReleaseManagerComponent {
   }
 
   getReleaseByProjectId(callback?: Function) {
-    this.authService.getReleaseByProjectId(this.projectid).subscribe({
-      next: (res: any) => {
-        this.releaseList = res;
-        this.filterData();
-        if (callback) callback(res);
-      }
-    });
+    this.releaseLoading = true;
+    this.authService.getReleaseByProjectId(this.projectid)
+      .pipe(finalize(() => {
+        this.releaseLoading = false;
+        if (callback && this.createReleaseLoading) {
+          this.createReleaseLoading = false;
+        }
+      }))
+      .subscribe({
+        next: (res: any) => {
+          this.releaseList = res;
+          this.filterData();
+          if (callback) callback(res);
+        },
+        error: (err: any) => {
+          this.releaseList = [];
+          this.filterData();
+          this.toasterService.error(err?.error?.message || 'Unable to load releases.');
+        }
+      });
   }
 
   updateRelease(rowData: any) {
     rowData.username = this.storageService.getUsername();
-    this.authService.updateRelease(rowData).subscribe({
-      next: (res: any) => {
-        this.toasterService.success(res?.message);
-        this.getReleaseByProjectId()
-      }, error: (err) => {
-        this.toasterService.error(err?.error?.message);
-      }
-    })
+    this.updatingReleaseId = Number(rowData?.id);
+    this.refreshReleaseRows();
+    this.authService.updateRelease(rowData)
+      .pipe(finalize(() => {
+        this.updatingReleaseId = null;
+        this.refreshReleaseRows();
+      }))
+      .subscribe({
+        next: (res: any) => {
+          this.toasterService.success(res?.message);
+          this.getReleaseByProjectId()
+        }, error: (err) => {
+          this.toasterService.error(err?.error?.message);
+        }
+      })
   }
 
   deleteRelease(release: Release | any): void {
@@ -503,17 +568,32 @@ export class ReleaseManagerComponent {
         return;
       }
 
-      this.authService.deleteRelease(releaseId, this.username).subscribe({
-        next: (res: any) => {
-          this.toasterService.success(res?.message || 'Release deleted successfully.');
-          this.activeMenuId = null;
-          this.getReleaseByProjectId();
-        },
-        error: (err: any) => {
-          this.toasterService.error(err?.error?.message || 'Unable to delete release.');
-        }
-      });
+      this.deletingReleaseId = releaseId;
+      this.refreshReleaseRows();
+      this.authService.deleteRelease(releaseId, this.username)
+        .pipe(finalize(() => {
+          this.deletingReleaseId = null;
+          this.refreshReleaseRows();
+        }))
+        .subscribe({
+          next: (res: any) => {
+            this.toasterService.success(res?.message || 'Release deleted successfully.');
+            this.activeMenuId = null;
+            this.getReleaseByProjectId();
+          },
+          error: (err: any) => {
+            this.toasterService.error(err?.error?.message || 'Unable to delete release.');
+          }
+        });
     });
+  }
+
+  private refreshReleaseRows(): void {
+    try {
+      this.tabulator?.redraw?.(true);
+    } catch {
+      // ignore redraw timing during table rebuilds
+    }
   }
 
   // Tracks which menu is currently open
@@ -555,18 +635,27 @@ export class ReleaseManagerComponent {
 
   canEditRelease(release: any): boolean {
 
-    const loggedInEmpId = this.storageService.getEmpId();
-    const isEmployee = this.storageService.roles?.isEmployee;
+    const loggedInEmpId = `${this.storageService.getEmpId() ?? ''}`;
+    const assignedFrom = `${release?.assigned_from ?? ''}`;
+    const roles = this.storageService.roles;
 
-    const isAssignedUser =
-      loggedInEmpId === release.assigned_to ||
-      loggedInEmpId === release.assigned_from;
-
-    if (isEmployee && !isAssignedUser) {
-      return false;
+    if (roles?.isAdmin || roles?.isManager) {
+      return true;
     }
 
-    return true;
+    return !!loggedInEmpId && !!assignedFrom && loggedInEmpId === assignedFrom;
+  }
+
+  canDragRelease(release: any): boolean {
+    const loggedInEmpId = `${this.storageService.getEmpId() ?? ''}`;
+    const assignedTo = `${release?.assigned_to ?? release?.assignedTo ?? release?.assigned_to_id ?? release?.assignedToId ?? ''}`;
+    const roles = this.storageService.roles;
+
+    if (roles?.isAdmin || roles?.isManager) {
+      return true;
+    }
+
+    return !!loggedInEmpId && !!assignedTo && loggedInEmpId === assignedTo;
   }
   openDailogue(data: any) {
     const dialogRef = this.matDialog.open(ReleaseMailsListComponent,
@@ -620,6 +709,36 @@ export class ReleaseManagerComponent {
         // ignore
       }
     }
+  }
+
+  private getReleaseStatusPillClass(status: string): string {
+    const normalized = `${status ?? ''}`.trim().toLowerCase();
+    if (['active', 'on-track', 'approved', 'pass', 'passed', 'completed', 'invoiced', 'open'].includes(normalized)) {
+      return 'release-status--success';
+    }
+    if (['in-progress', 'in-review', 'in-testing', 'planning'].includes(normalized)) {
+      return 'release-status--progress';
+    }
+    if (['on-hold', 'to-be-tested', 'upcoming-release'].includes(normalized)) {
+      return 'release-status--warning';
+    }
+    if (['delayed', 'cancelled', 'rejected', 'failed', 'closed'].includes(normalized)) {
+      return 'release-status--danger';
+    }
+    return 'release-status--muted';
+  }
+
+  private isCompactViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  private escapeHtml(value: unknown): string {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
 }

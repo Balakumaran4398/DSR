@@ -212,6 +212,8 @@ export class MomdialogComponent implements OnInit, OnChanges {
   }
 
   submit(): void {
+    if (this.submitting) return;
+
     this.submitted = true;
     this.normalizeTextField('title');
     this.normalizeTextField('agenda');

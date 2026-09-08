@@ -1,18 +1,23 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { AuthService } from '../_core/services/auth.service';
 import { StorageService } from '../_core/services/storage.service';
 import { Router } from '@angular/router';
 import { DrawerService } from '../_core/services/drawer.service';
 import Swal from 'sweetalert2';
 import { ToasterService } from '../_core/services/toaster.service';
+import { ThemeService } from '../_core/services/theme.service';
+import { Subscription } from 'rxjs';
+import { NotificationDateRangeService } from '../_core/services/notification-date-range.service';
 
 @Component({
   selector: 'app-sidebar',
   templateUrl: './sidebar.component.html',
   styleUrls: ['./sidebar.component.scss']
 })
-export class SidebarComponent implements OnInit {
+export class SidebarComponent implements OnInit, OnDestroy {
   private readonly routeRoles: Record<string, string[]> = {
+    home: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
+    overall: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     dashboard: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     projects: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     team: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
@@ -24,24 +29,41 @@ export class SidebarComponent implements OnInit {
     'theme-settings': ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     hardware: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     'my-profile': ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
-    'admin-documents': ['ROLE_ADMIN']
+    'admin-documents': ['ROLE_ADMIN'],
+    performance: ['ROLE_ADMIN', 'ROLE_MANAGER'],
+    'google-sheet': ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE']
   };
 
   isOpen = false;
   isCollapsed = false;
   isMobileOpen = false;
-  activeLink = 'dashboard';
+  activeLink = 'home';
   openSubmenu: string | null = null;
   isUserMenuOpen = false;
+  isDarkMode$ = this.themeService.isDarkMode$;
   private submenuMap: { [key: string]: string[] } = {
     'leads': ['new-leads', 'qualified', 'junk'],
     'contacts': ['all-contacts', 'my-contacts', 'companies'],
-    'settings': ['general', 'security', 'billing']
+    'settings': ['theme-settings', 'hardware']
   };
-  constructor(private authService: AuthService, private toasterService: ToasterService, public storageService: StorageService, private drawerService: DrawerService, private router: Router) { }
+  total: number = 0;
+  notificationLoading = false;
+  profileImage = '';
+  initials = '';
+  private notificationDataSubscription?: Subscription;
+  private notificationLoadingSubscription?: Subscription;
+  constructor(
+    private authService: AuthService,
+    private toasterService: ToasterService,
+    public storageService: StorageService,
+    private drawerService: DrawerService,
+    private router: Router,
+    private themeService: ThemeService,
+    private notificationDateRangeService: NotificationDateRangeService
+  ) { }
   ngOnInit() {
     const currentRoute = this.getCurrentRoute();
-    const savedLink = sessionStorage.getItem('dsr-active-link');
+    const savedLink = this.normalizeRouteLink(sessionStorage.getItem('dsr-active-link'));
 
     if (currentRoute && this.canAccess(currentRoute)) {
       this.activeLink = currentRoute;
@@ -60,6 +82,22 @@ export class SidebarComponent implements OnInit {
     if (this.isMobileOpen) {
       this.closeSidebar()
     }
+    this.profilePic();
+    this.notificationDataSubscription = this.authService.notificationData$.subscribe(data => {
+      this.total = this.toNumber(data?.ticket_count)
+        + this.toNumber(data?.total_issue_count)
+        + this.toNumber(data?.total_release_count)
+        + this.toNumber(data?.not_send_dsr_count);
+    });
+    this.notificationLoadingSubscription = this.authService.notificationLoading$.subscribe(isLoading => {
+      this.notificationLoading = isLoading;
+    });
+    this.authService.loadNotificationCount();
+  }
+
+  ngOnDestroy(): void {
+    this.notificationDataSubscription?.unsubscribe();
+    this.notificationLoadingSubscription?.unsubscribe();
   }
   closeSidebar() {
     // Mobile
@@ -132,7 +170,14 @@ export class SidebarComponent implements OnInit {
     this.isUserMenuOpen = !this.isUserMenuOpen;
   }
 
+  toggleThemeMode(event?: Event) {
+    event?.stopPropagation();
+    this.themeService.toggleDarkMode();
+  }
+
   activateLink(linkId: string) {
+    linkId = this.normalizeRouteLink(linkId) || linkId;
+
     if (!this.canAccess(linkId)) {
       this.router.navigate(['/main/' + this.getDefaultRoute()]);
       return;
@@ -236,14 +281,54 @@ export class SidebarComponent implements OnInit {
   }
 
   private getDefaultRoute(): string {
-    const fallbackOrder = ['dashboard', 'projects', 'task-overview', 'my-profile'];
-    return fallbackOrder.find(route => this.canAccess(route)) ?? 'dashboard';
+    const fallbackOrder = ['overall', 'home', 'dashboard', 'projects', 'task-overview', 'my-profile'];
+    return fallbackOrder.find(route => this.canAccess(route)) ?? 'overall';
   }
 
   private getCurrentRoute(): string | null {
     const segments = this.router.url.split('?')[0].split('/').filter(Boolean);
     const currentRoute = segments[1];
 
-    return currentRoute && currentRoute !== 'main' ? currentRoute : null;
+    return currentRoute && currentRoute !== 'main' ? this.normalizeRouteLink(currentRoute) : null;
+  }
+
+  private normalizeRouteLink(linkId: string | null): string | null {
+    if (linkId === 'general' || linkId === 'settings' || linkId === 'security') {
+      return 'theme-settings';
+    }
+
+    return linkId;
+  }
+    onImageError() {
+    this.profileImage = '';
+  }
+  openNotification() {
+    this.drawerService.open('notification', this.notificationDateRangeService.currentRange);
+  }
+  profilePic() {
+    const empName = this.storageService.getEmpName();
+    this.initials = this.getInitials(empName);
+
+    const user = this.storageService.getUser();
+    if (!user?.email) return;
+
+    this.authService.getemployeedetails(user.email).subscribe({
+      next: (res: any) => {
+        console.log(res);
+
+        if (res && res.image_url && res.image_url.trim() !== '') {
+          this.profileImage = res.image_url;
+        } else {
+          this.profileImage = '';
+        }
+      },
+      error: () => {
+        this.profileImage = '';
+      }
+    });
+  }
+  private toNumber(value: any): number {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : 0;
   }
 }

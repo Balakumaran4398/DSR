@@ -77,9 +77,11 @@ export class TeammatesComponent implements AfterViewInit, OnDestroy {
   }
 
   initializeTable() {
+    const freezeColumns = !this.isCompactViewport();
     this.table = new Tabulator(this.tableDiv.nativeElement, {
       data: this.tableData,
-      layout: 'fitColumns',
+      layout: 'fitDataStretch',
+      responsiveLayout: false,
       pagination: 'local',
       paginationSize: 10,
       paginationCounter: 'rows',
@@ -95,7 +97,7 @@ export class TeammatesComponent implements AfterViewInit, OnDestroy {
       },
       initialSort: [{ column: 'joining_date', dir: 'asc' }],
       columns: [
-        { title: 'Member', field: 'name', minWidth: 250, formatter: this.nameFormatter, responsive: 0, frozen: true },
+        { title: 'Member', field: 'name', minWidth: 250, formatter: this.nameFormatter, responsive: 0, frozen: freezeColumns },
         { title: 'Mobile', field: 'mobile', width: 140, responsive: 3, formatter: (cell: any) => `<span class="text-gray-600 text-sm font-mono">${cell.getValue() || '-'}</span>` },
         { title: 'Email', field: 'email', responsive: 3, formatter: (cell: any) => `<span class="text-gray-600 text-sm ">${cell.getValue() || '-'}</span>` },
         { title: 'Department', field: 'department_name', width: 160, responsive: 2, formatter: (cell: any) => `<span class="text-gray-700 text-sm">${cell.getValue() || '-'}</span>` },
@@ -247,5 +249,9 @@ export class TeammatesComponent implements AfterViewInit, OnDestroy {
     } catch {
       // ignore
     }
+  }
+
+  private isCompactViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
   }
 }

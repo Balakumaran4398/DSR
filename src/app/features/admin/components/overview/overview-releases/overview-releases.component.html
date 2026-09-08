@@ -3,69 +3,161 @@
     <!-- MAIN DASHBOARD CONTENT -->
     <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 mb-6 sm:mb-8">
         <div class="flex flex-col items-center gap-4 lg:flex-row lg:items-center lg:justify-between flex-wrap">
+            <div *ngIf="showDepartmentTabs" class="w-full">
+                <div class="flex flex-wrap items-center justify-center gap-2" role="tablist"
+                    aria-label="Release department filter">
+                    <button type="button" *ngFor="let department of departmentTabs; trackBy: trackByDepartmentId"
+                        (click)="setDepartmentTab(department)"
+                        [attr.aria-selected]="selectedDepartmentId === department.filter_id"
+                        class="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg shadow-sm border transition-all"
+                        [ngClass]="selectedDepartmentId === department.filter_id
+                            ? 'bg-[var(--text-active)] text-white border-[var(--text-active)] ring-2 ring-blue-100'
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border-slate-200'">
+                        {{ department.department_name }}
+                    </button>
+                </div>
+            </div>
+            <div
+                class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto shrink-0">
+                <app-date-range-filter [initialStartDate]="startDate" [initialEndDate]="endDate"
+                    (rangeChange)="onRangeChange($event)"></app-date-range-filter>
+
+                <form class="example-form w-full sm:w-72">
+                    <mat-form-field class="w-full" appearance="outline">
+                        <mat-select placeholder="Select Employee" [formControl]="employeeControl"
+                            [compareWith]="compareEmployeeById" panelClass="overview-release-select-panel"
+                            (selectionChange)="onEmployeeSelect($event.value)"
+                            (openedChange)="onEmployeeSelectOpened($event)">
+                            <mat-select-trigger>{{ selectedEmployeeLabel }}</mat-select-trigger>
+                            <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100"
+                                (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                                <div class="relative">
+                                    <mat-icon
+                                        class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm !w-4 !h-4"
+                                        style="font-size: 16px;">search</mat-icon>
+                                    <input type="text" [formControl]="employeeFilterControl"
+                                        class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                        placeholder="Search Employee">
+                                </div>
+                            </div>
+                            <mat-option [value]="allEmployeesValue">All Employees</mat-option>
+                            <ng-container *ngIf="filteredEmployeeOptions | async as employeeOptions">
+                                <mat-option *ngFor="let employee of employeeOptions" [value]="employee">
+                                    {{ employee.employee_name }}
+                                </mat-option>
+                                <mat-option *ngIf="!employeeOptions.length" disabled>
+                                    No employees found
+                                </mat-option>
+                            </ng-container>
+                        </mat-select>
+                        <button *ngIf="hasEmployeeSelection" mat-icon-button matSuffix type="button" aria-label="Clear"
+                            (click)="$event.stopPropagation(); clearEmployeeSelection()">
+                            <mat-icon>close</mat-icon>
+                        </button>
+                    </mat-form-field>
+                </form>
+            </div>
+
             <!-- 3. Actions Section (Search & Add) -->
             <div
                 class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto shrink-0">
                 <form class="example-form w-full sm:w-72">
                     <mat-form-field class="w-full" appearance="outline">
-                        <input type="text" matInput placeholder="Select Project" [formControl]="myControl"
-                            [matAutocomplete]="auto">
-                        <button *ngIf="myControl.value" mat-icon-button matSuffix type="button" aria-label="Clear"
-                            (click)="clearSelection()">
+                        <mat-select placeholder="Select Project" [formControl]="myControl"
+                            [compareWith]="compareProjectById" panelClass="overview-release-select-panel"
+                            (selectionChange)="onProjectSelect($event.value)"
+                            (openedChange)="onProjectSelectOpened($event)">
+                            <mat-select-trigger>{{ selectedProjectLabel }}</mat-select-trigger>
+                            <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100"
+                                (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                                <div class="relative">
+                                    <mat-icon
+                                        class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm !w-4 !h-4"
+                                        style="font-size: 16px;">search</mat-icon>
+                                    <input type="text" [formControl]="projectFilterControl"
+                                        class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                        placeholder="Search Project">
+                                </div>
+                            </div>
+                            <mat-option [value]="allProjectsValue">All Projects</mat-option>
+                            <ng-container *ngIf="filteredOptions | async as projectOptions">
+                                <mat-option *ngFor="let emp of projectOptions" [value]="emp">{{ emp.project_title }}
+                                </mat-option>
+                                <mat-option *ngIf="!projectOptions.length" disabled>
+                                    No projects found
+                                </mat-option>
+                            </ng-container>
+                        </mat-select>
+                        <button *ngIf="hasProjectSelection" mat-icon-button matSuffix type="button" aria-label="Clear"
+                            (click)="$event.stopPropagation(); clearSelection()">
                             <mat-icon>close</mat-icon>
                         </button>
-                        <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayFn" autoActiveFirstOption>
-                            <mat-option (onSelectionChange)="onProjectSelect(emp)"
-                                *ngFor="let emp of filteredOptions | async" [value]="emp">{{ emp.project_title }}
-                            </mat-option>
-                        </mat-autocomplete>
                     </mat-form-field>
                 </form>
-
                 <form class="example-form w-full sm:w-auto">
                     <mat-form-field class="w-full sm:w-56" appearance="outline">
-                        <input type="text" matInput placeholder="Select Release Type" [formControl]="releaseTypeControl"
-                            [matAutocomplete]="releaseAuto">
-                        <button *ngIf="releaseTypeControl.value" mat-icon-button matSuffix type="button"
-                            aria-label="Clear" (click)="clearReleaseType()">
+                        <mat-select placeholder="Select Release Type" [formControl]="releaseTypeControl"
+                            panelClass="overview-release-select-panel" (selectionChange)="setReleaseType($event.value)"
+                            (openedChange)="onReleaseTypeSelectOpened($event)">
+                            <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100"
+                                (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                                <div class="relative">
+                                    <mat-icon
+                                        class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm !w-4 !h-4"
+                                        style="font-size: 16px;">search</mat-icon>
+                                    <input type="text" [formControl]="releaseTypeFilterControl"
+                                        class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                        placeholder="Search Release Type">
+                                </div>
+                            </div>
+                            <ng-container *ngIf="filteredReleaseTypeOptions | async as releaseTypeOptions">
+                                <mat-option *ngFor="let type of releaseTypeOptions" [value]="type">
+                                    {{ type === 'All' ? 'All' : type }}
+                                </mat-option>
+                                <mat-option *ngIf="!releaseTypeOptions.length" disabled>
+                                    No release types found
+                                </mat-option>
+                            </ng-container>
+                        </mat-select>
+                        <button *ngIf="selectedReleaseType !== 'All'" mat-icon-button matSuffix type="button"
+                            aria-label="Clear" (click)="$event.stopPropagation(); clearReleaseType()">
                             <mat-icon>close</mat-icon>
                         </button>
-                        <mat-autocomplete #releaseAuto="matAutocomplete" autoActiveFirstOption>
-                            <mat-option (click)="setReleaseType('All')" value="All"> All</mat-option>
-                            <mat-option (click)="setReleaseType('Internal')" value="Internal">Internal</mat-option>
-                            <mat-option (click)="setReleaseType('External')" value="External">External</mat-option>
-                        </mat-autocomplete>
                     </mat-form-field>
                 </form>
-
-            </div>
-            <div class="flex items-center justify-center w-full lg:w-auto my-1 lg:my-0">
-                <app-date-range-filter (rangeChange)="onRangeChange($event)"></app-date-range-filter>
             </div>
 
             <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto">
                 <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto"
                     role="tablist">
-                    <button [disabled]="!canDownloadPdf" title="View PDF" (click)="previewReleaseOverviewPdf()"
+                    <button [disabled]="!canDownloadPdf || pdfPreviewLoading"
+                        [title]="pdfPreviewLoading ? 'Loading PDF...' : 'View PDF'"
+                        (click)="previewReleaseOverviewPdf()"
                         class="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg shadow-sm bg-white text-slate-600 hover:bg-slate-100 border border-slate-200">
-                        <i class="ri-eye-line text-lg mr-2"></i>
+                        <i
+                            [class]="pdfPreviewLoading ? 'ri-loader-4-line app-button-spinner text-lg mr-2' : 'ri-eye-line text-lg mr-2'"></i>
                     </button>
-                    <button [disabled]="!hasViewedPdf || !canDownloadPdf" title="PDF Download"
+                    <button [disabled]="!hasViewedPdf || !canDownloadPdf || pdfDownloadLoading"
+                        [title]="pdfDownloadLoading ? 'Generating PDF...' : 'PDF Download'"
                         (click)="generateReleaseOverviewPdf()"
                         class="cursor-pointer transition-all duration-200 inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg shadow-sm border"
                         [ngClass]="{
-                          'pdf-enabled': hasViewedPdf && canDownloadPdf,
-                          'pdf-disabled': !hasViewedPdf || !canDownloadPdf
+                          'pdf-enabled': hasViewedPdf && canDownloadPdf && !pdfDownloadLoading,
+                          'pdf-disabled': !hasViewedPdf || !canDownloadPdf || pdfDownloadLoading
                         }">
-                        <i class="ri-file-pdf-2-fill !text-2xl"></i>
+                        <i
+                            [class]="pdfDownloadLoading ? 'ri-loader-4-line app-button-spinner !text-2xl' : 'ri-file-pdf-2-fill !text-2xl'"></i>
                     </button>
-                    <button [disabled]="!canDownloadPdf" title="Excel Download" (click)="generateReleaseOverviewExcel()"
+                    <button [disabled]="!canDownloadPdf || excelExporting"
+                        [title]="excelExporting ? 'Generating Excel...' : 'Excel Download'"
+                        (click)="generateReleaseOverviewExcel()"
                         class="cursor-pointer transition-all duration-200 inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg shadow-sm border"
                         [ngClass]="{
-                          'excel-enabled': canDownloadPdf,
-                          'pdf-disabled': !canDownloadPdf
+                          'excel-enabled': canDownloadPdf && !excelExporting,
+                          'pdf-disabled': !canDownloadPdf || excelExporting
                         }">
-                        <i class="ri-file-excel-2-fill !text-2xl"></i>
+                        <i
+                            [class]="excelExporting ? 'ri-loader-4-line app-button-spinner !text-2xl' : 'ri-file-excel-2-fill !text-2xl'"></i>
                     </button>
                     <button *ngFor="let tab of mainTabs" (click)="setActiveTab(tab.id)"
                         [attr.aria-selected]="currentView === tab.id"
@@ -141,15 +233,17 @@
         <div class="flex-1 min-h-0 overflow-hidden px-5 pb-5">
             <!-- VIEW: TABLE -->
             <div *ngIf="currentView === 'table'"
-                class="h-full min-h-[420px] bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+                class="h-full min-h-[420px] bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col app-loading-host"
+                [attr.aria-busy]="releaseLoading">
                 <div class="overflow-auto flex-1">
-                    <div #tableEl class="w-full h-full"></div>
+                    <div #tableEl class="w-full h-full app-tabulator-loading-host"></div>
                 </div>
             </div>
 
             <!-- VIEW: KANBAN -->
             <div *ngIf="currentView === 'kanban'"
-                class="w-full h-full min-h-0 custom-scrollbar overflow-x-auto overflow-y-hidden">
+                class="w-full h-full min-h-0 custom-scrollbar overflow-x-auto overflow-y-hidden app-loading-host"
+                [attr.aria-busy]="releaseLoading">
                 <div class="flex justify-center release_table gap-5 min-w-max pb-2">
                     <ng-container *ngFor="let status of statusList">
                         <div class="overview-kanban-column flex-none w-[86vw] sm:w-80 md:w-96 max-w-[24rem] flex flex-col h-full min-h-0 bg-slate-100/50 border border-slate-200 rounded-xl overflow-hidden"
@@ -176,7 +270,7 @@
                             </div>
                             <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-4 custom-scrollbar">
                                 <div *ngFor="let release of getReleasesByStatus(status); trackBy: trackById"
-                                    draggable="true" (dragstart)="onDragStart($event, release)"
+                                    [draggable]="canDragRelease(release)" (dragstart)="onDragStart($event, release)"
                                     class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-0.5 group">
                                     <h4
                                         class="text-sm border-b border-dashed border-slate-200 pb-1 mb-2 text-center font-semibold text-slate-800 group-hover:text-[var(--text-active)] transition-colors line-clamp-2 leading-tight">
@@ -206,7 +300,8 @@
                                                     class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2">
                                                     <i class="ri-eye-line"></i> View Details
                                                 </a>
-                                                <a href="#" (click)="$event.preventDefault();openDrawer(release)"
+                                                <a *ngIf="canEditRelease(release)" href="#"
+                                                    (click)="$event.preventDefault();openDrawer(release)"
                                                     class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2">
                                                     <i class="ri-edit-line"></i> Edit
                                                 </a>
@@ -271,6 +366,12 @@
                             </div>
                         </div>
                     </ng-container>
+                </div>
+                <div *ngIf="releaseLoading" class="app-local-loading-overlay">
+                    <div class="app-local-loading">
+                        <i class="ri-loader-4-line app-spin"></i>
+                        <span>Loading releases...</span>
+                    </div>
                 </div>
             </div>
         </div>

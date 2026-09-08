@@ -21,7 +21,7 @@ export class LayoutComponent implements OnInit {
   private submenuMap: { [key: string]: string[] } = {
     'leads': ['new-leads', 'qualified', 'junk'],
     'contacts': ['all-contacts', 'my-contacts', 'companies'],
-    'settings': ['general', 'security', 'billing']
+    'settings': ['theme-settings', 'hardware']
   };
   constructor(private authService: AuthService, private storageService: StorageService, private router: Router) { }
   ngOnInit() {

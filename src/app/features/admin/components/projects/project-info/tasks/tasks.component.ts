@@ -1,11 +1,12 @@
 import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { filter, min } from 'rxjs';
+import { filter, finalize, min, Subscription } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { TransientViewStateService } from 'src/app/_core/services/transient-view-state.service';
+import { formatStatusPill } from 'src/app/_core/utils/status-pill.util';
 import Swal from 'sweetalert2';
 declare const Tabulator: any;
 declare const luxon: any;
@@ -51,6 +52,9 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
   private isRestoringTableState = false;
   private suppressInitialRangeFetch = false;
   private tableStateRestoreAttempts = 0;
+  private routeQueryParamSubscription?: Subscription;
+  private navigationRangeKey = '';
+  private hasNavigationDateRange = false;
   selectTask: any
   empid: any = 0;
   version: any = '';
@@ -60,19 +64,29 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
   initialStartDate: string | null = null;
   initialEndDate: string | null = null;
   versionList: any[] = [];
-  taskCategory:any[] = [];
+  taskCategory: any[] = [];
+  tableLoading = false;
+  deletingTaskId: number | null = null;
+  updatingTaskId: number | null = null;
+  movingPhaseId: number | null = null;
   constructor(private authService: AuthService, private route: ActivatedRoute, private router: Router, private toasterService: ToasterService, private storageService: StorageService, private drawerService: DrawerService, private transientViewStateService: TransientViewStateService) {
     this.projectid = this.route.snapshot.paramMap.get('projectid');
     this.empid = this.storageService.getEmpId();
     this.restoreViewState();
+    this.hasNavigationDateRange = this.applyNavigationDateRange();
     if (!this.fromdate || !this.todate) {
       this.setCurrentMondayToSaturdayRange();
     }
   }
 
   ngOnInit() {
-	  this.loadVersionList();  
-	}
+    this.loadVersionList();
+    this.routeQueryParamSubscription = this.route.queryParamMap.subscribe(params => {
+      if (this.applyNavigationDateRange(params)) {
+        this.getTasksByProjectIdNdEmployeeId();
+      }
+    });
+  }
 
   ngAfterViewInit() {
     this.tableCheckInterval = setInterval(() => {
@@ -86,6 +100,9 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
           this.restoreTableState();
         } else {
           this.loadData({ target: { value: this.projectid } });
+          if (this.hasNavigationDateRange) {
+            this.getTasksByProjectIdNdEmployeeId();
+          }
         }
 
       }
@@ -93,54 +110,59 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
     this.drawerService.drawerAction$
       .pipe(filter(a => a.source === 'task'))
       .subscribe(() => { this.getTasksByProjectIdNdEmployeeId() });
-      
+
   }
 
 
   getTasksByProjectIdNdEmployeeId() {     //Mugilan
-	  if (this.fromdate && this.todate) {
-	    const request$ = this.version
-	      ? this.authService.getIsasueByProjectIdNdEmployeeId(
-		  this.projectid, 
-		  this.empid, 
-		  0, 
-		  this.type == 'requirement' ? 'requirement' : this.type,
-		  this.version 
-		)
-	      : this.authService.getTasksByProjectIdNdEmployeeId(
-		  this.projectid, 
-		  this.empid, 
-		  0, 
-		  this.type == 'requirement' ? 'requirement' : this.type, 
-		  this.fromdate, 
-		  this.todate
-		);
+    if (this.fromdate && this.todate) {
+      const request$ = this.version
+        ? this.authService.getIsasueByProjectIdNdEmployeeId(
+          this.projectid,
+          this.empid,
+          0,
+          this.type == 'requirement' ? 'requirement' : this.type,
+          this.version
+        )
+        : this.authService.getTasksByProjectIdNdEmployeeId(
+          this.projectid,
+          this.empid,
+          0,
+          this.type == 'requirement' ? 'requirement' : this.type,
+          this.fromdate,
+          this.todate
+        );
 
-	    request$.subscribe({
-	      next: (res: any) => {
-		this.tableData = Array.isArray(res) ? res : [];
-		if (this.table) {
-		  this.safeReplaceData(this.table, this.tableData);
-		  this.applySearchFilter();
-		  if (this.pendingStateRestore) {
-		    this.restoreTableState();
-		  }
-		}
-		if (!this.pendingStateRestore && !this.isRestoringTableState) {
-		  this.saveViewState();
-		}
-	      },
-	      error: (err: any) => {
-		this.tableData = [];
-		if (this.table) {
-		  this.safeReplaceData(this.table, this.tableData);
-		  this.applySearchFilter();
-		}
-		this.toasterService.error(err?.error?.message || 'Unable to load tasks');
-	      }
-	    });
-	  }
-	}
+      this.tableLoading = true;
+      request$
+        .pipe(finalize(() => {
+          this.tableLoading = false;
+        }))
+        .subscribe({
+        next: (res: any) => {
+          this.tableData = Array.isArray(res) ? res : [];
+          if (this.table) {
+            this.safeReplaceData(this.table, this.tableData);
+            this.applySearchFilter();
+            if (this.pendingStateRestore) {
+              this.restoreTableState();
+            }
+          }
+          if (!this.pendingStateRestore && !this.isRestoringTableState) {
+            this.saveViewState();
+          }
+        },
+        error: (err: any) => {
+          this.tableData = [];
+          if (this.table) {
+            this.safeReplaceData(this.table, this.tableData);
+            this.applySearchFilter();
+          }
+          this.toasterService.error(err?.error?.message || 'Unable to load tasks');
+        }
+      });
+    }
+  }
 
   ngOnDestroy(): void {
     this.saveViewState();
@@ -150,6 +172,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
       clearInterval(this.tableCheckInterval);
       this.tableCheckInterval = null;
     }
+    this.routeQueryParamSubscription?.unsubscribe();
 
     const tableToDestroy = this.table;
     this.table = null;
@@ -165,6 +188,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
 
   initializeTable() {
     if (this.destroyed) return;
+    const freezeColumns = !this.isCompactViewport();
 
     if (this.table) {
       const prev = this.table;
@@ -181,7 +205,8 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
     this.rebuildEmployeeIndex();
     this.table = new Tabulator(this.tableDiv.nativeElement, {
       data: this.tableData,
-      layout: "fitColumns",
+      layout: "fitDataStretch",
+      responsiveLayout: false,
       // height: "500px", 
       pagination: "local",
       paginationSize: 10,
@@ -208,7 +233,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
           field: "task",
           widthGrow: 2,
           minWidth: 350,
-          frozen: true, // Freeze the Project column
+          frozen: freezeColumns, // Freeze the Project column on desktop only
           editor: "textarea",
           formatter: (cell: any) => {
             const data = cell.getData();
@@ -289,6 +314,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
           field: "status",
           editor: "list",
           minWidth: 150,
+          cssClass: "app-status-cell",
           editorParams: {
             values: this.statusList,
             autocomplete: true,
@@ -296,53 +322,15 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
             clearable: true
           },
           formatter: (cell: any) => {
-            const val = cell.getValue();
-
-            // Simple color logic
-            let colorClass = "bg-gray-100 text-gray-700";
-            if (["Active", "On-Track", "Approved", "Completed", "Invoiced", "Open"].includes(val)) {
-              colorClass = "bg-emerald-100 text-emerald-700";
-            } else if (["In-Progress", "In-Review", "In-Testing", "Planning"].includes(val)) {
-              colorClass = "bg-blue-100 text-blue-700";
-            } else if (["On-Hold", "To-be-Tested"].includes(val)) {
-              colorClass = "bg-amber-100 text-amber-700";
-            } else if (["Delayed", "Cancelled", "Rejected", "Closed"].includes(val)) {
-              colorClass = "bg-red-100 text-red-700";
-            }
-
-            return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${val}</span>`;
+            return formatStatusPill(cell.getValue());
           }
         },
         {
           title: "Task Category",
           field: "task_category",
-          editor: "list",
           minWidth: 150,
-          editorParams: {
-            values: this.taskCategory,
-            autocomplete: true,
-            listOnEmpty: true,
-            clearable: true
-          }, formatter: (cell: any) => {
-            const val = cell.getValue();
-
-            let colorClass = "bg-gray-100 text-gray-700";
-            if (["Support"].includes(val)) {
-              colorClass = "bg-emerald-100 text-emerald-700";
-            } else if (["Requirement"].includes(val)) {
-              colorClass = "bg-amber-100 text-amber-700";
-            } else if (["Bug"].includes(val)) {
-              colorClass = "bg-red-100 text-red-700";
-            }
-            // return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${val}</span>`;
-
-            if (!val) {
-              return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium text-slate-500">-</span>`;
-            }
-            return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${val}</span>`;
-
-        }
-       },
+          formatter: (cell: any) => this.taskCategoryFormatter(cell)
+        },
         { title: "Start Date", field: "start_date", width: 120 },
         { title: "End Date", field: "end_date", width: 120, editor: 'date' },
         {
@@ -393,41 +381,36 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
           minWidth: 150,
           formatter: (cell: any) => {
             const data = cell.getData();
-            const total = data.tasks_done + data.tasks_pending;
-            const pct = data.completion_percentage
+            const done = Number(data.tasks_done) || 0;
+            const pending = Number(data.tasks_pending) || 0;
+            const total = done + pending;
+            const rawPct = Number(data.completion_percentage);
+            const pct = Number.isFinite(rawPct)
+              ? Math.max(0, Math.min(100, Math.round(rawPct)))
+              : total === 0 ? 0 : Math.round((done / total) * 100);
 
-            // Color logic
-            let colorClass = "text-blue-600";
-            let strokeClass = "text-blue-600";
-
+            let progressClass = "task-progress--active";
             if (pct === 100) {
-              colorClass = "text-emerald-500";
-              strokeClass = "text-emerald-500";
+              progressClass = "task-progress--complete";
             } else if (pct < 30) {
-              colorClass = "text-amber-500";
-              strokeClass = "text-amber-500";
+              progressClass = "task-progress--warning";
             }
 
-            // SVG parameters for 36x36 viewBox, radius 14
-            // Circumference = 2 * PI * 14 ~= 87.96
-            const radius = 14;
             const circumference = 100;
             const offset = circumference - (pct / 100) * circumference;
 
             return `
-                <div class="flex items-center gap-3 w-full">
-                    <div class="relative w-9 h-9 flex items-center justify-center shrink-0">
-                        <!-- Background Circle -->
+                <div class="task-progress ${progressClass}">
+                    <div class="task-progress__ring">
                         <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                            <path class="text-gray-200" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" />
-                            <!-- Progress Circle -->
-                            <path class="${strokeClass} transition-all duration-1000 ease-out" stroke-dasharray="${circumference}, ${circumference}" stroke-dashoffset="${offset}" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+                            <path class="task-progress__track" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" />
+                            <path class="task-progress__value" stroke-dasharray="${circumference}, ${circumference}" stroke-dashoffset="${offset}" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
                         </svg>
-                        <div class="absolute text-[9px] font-bold text-gray-700">${pct}%</div>
+                        <div class="task-progress__percent">${pct}%</div>
                     </div>
-                    <div class="flex flex-col min-w-0">
-                        <span class="text-xs font-semibold text-gray-700 truncate"> ${pct}</span>
-                        <span class="text-[10px] text-gray-400 font-medium truncate">Completed</span>
+                    <div class="task-progress__copy">
+                        <span>${pct}%</span>
+                        <small>${done}/${total} Completed</small>
                     </div>
                 </div>
                 `;
@@ -450,12 +433,12 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
         },
         {
           title: "Actions",
-          field: "actions", 
+          field: "actions",
           width: 100,
           hozAlign: "center",
           headerSort: false,
-          frozen: true,
-          formatter: this.actionFormatter,
+          frozen: freezeColumns,
+          formatter: (cell: any) => this.actionFormatter(cell),
           cellClick: (e: any, cell: any) => this.handleActionClick(e, cell),
           cssClass: "sticky-col-right",
         }
@@ -508,13 +491,18 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
   }
 
   actionFormatter(cell: any) {
+    const data = cell.getData?.() ?? {};
+    const taskId = Number(data?.id);
+    const isDeleting = this.deletingTaskId === taskId;
+    const isUpdating = this.updatingTaskId === taskId;
+
     return `
       <div class="flex items-center justify-center gap-3 w-full h-full">
-        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit">
-          <i class="ri-pencil-line text-lg pointer-events-none"></i>
+        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit ${isUpdating ? 'tabulator-action-button--loading' : ''}" title="${isUpdating ? 'Updating...' : 'Edit'}" ${isUpdating || isDeleting ? 'disabled' : ''}>
+          <i class="${isUpdating ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-pencil-line text-lg'} pointer-events-none"></i>
         </button>
-        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete" title="Delete">
-          <i class="ri-delete-bin-line text-lg pointer-events-none"></i>
+        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete ${isDeleting ? 'tabulator-action-button--loading' : ''}" title="${isDeleting ? 'Deleting...' : 'Delete'}" ${isDeleting || isUpdating ? 'disabled' : ''}>
+          <i class="${isDeleting ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-delete-bin-line text-lg'} pointer-events-none"></i>
         </button>
       </div>
     `;
@@ -525,6 +513,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
     e.stopPropagation();
     const target = e.target.closest('button');
     if (!target) return;
+    if (target.disabled) return;
 
     const row = cell.getRow();
     const data = row.getData();
@@ -556,12 +545,19 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
         confirmButtonText: "Yes, delete it!"
       }).then((result) => {
         if (result.isConfirmed) {
-          this.authService.deleteTask(this.storageService.getUsername(), data.id).subscribe((res: any) => {
-            this.toasterService.success(res.message);
-            this.getProjects();
-          }, err => {
-            this.toasterService.error(err?.error?.message);
-          })
+          this.deletingTaskId = Number(data.id);
+          this.refreshVisibleRows();
+          this.authService.deleteTask(this.storageService.getUsername(), data.id)
+            .pipe(finalize(() => {
+              this.deletingTaskId = null;
+              this.refreshVisibleRows();
+            }))
+            .subscribe((res: any) => {
+              this.toasterService.success(res.message);
+              this.getTasksByProjectIdNdEmployeeId();
+            }, err => {
+              this.toasterService.error(err?.error?.message);
+            })
         }
       });
     }
@@ -601,27 +597,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
 
   // --- Formatters ---
   statusFormatter(cell: any) {
-    const value = cell.getValue(); // This will be true/false
-    let classes = "";
-    let dotColor = "";
-    let label = "";
-
-    if (value === true) {
-      classes = "bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20";
-      dotColor = "bg-emerald-500";
-      label = "Active";
-    } else {
-      classes = "bg-red-50 text-red-700 border-red-200 ring-red-600/20"; // Changed inactive to red for visibility
-      dotColor = "bg-red-500";
-      label = "Inactive";
-    }
-
-    return `
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${classes}">
-            <span class="w-1.5 h-1.5 rounded-full ${dotColor}"></span>
-            ${label}
-        </span>
-    `;
+    return formatStatusPill(cell.getValue());
   }
 
 
@@ -690,7 +666,12 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    this.authService.swapTask(phaseId, taskIds.join(','), this.storageService.getUsername()).subscribe({
+    this.movingPhaseId = Number(phaseId);
+    this.authService.swapTask(phaseId, taskIds.join(','), this.storageService.getUsername())
+      .pipe(finalize(() => {
+        this.movingPhaseId = null;
+      }))
+      .subscribe({
       next: (res: any) => {
         this.toasterService.success(res?.message || 'Tasks moved successfully.');
         rows.forEach((row: any) => row.update({
@@ -851,7 +832,14 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
 
   updateTask(selectTask: any) {
     selectTask.username = this.storageService.getUsername();
-    this.authService.updateTask(selectTask).subscribe({
+    this.updatingTaskId = Number(selectTask?.id);
+    this.refreshVisibleRows();
+    this.authService.updateTask(selectTask)
+      .pipe(finalize(() => {
+        this.updatingTaskId = null;
+        this.refreshVisibleRows();
+      }))
+      .subscribe({
       next: ((res: any) => {
         this.toasterService.success(res?.message);
         this.getTasksByProjectIdNdEmployeeId()
@@ -860,6 +848,14 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
         this.toasterService.error(err?.error?.message);
       }
     })
+  }
+
+  private refreshVisibleRows(): void {
+    try {
+      this.table?.redraw?.(true);
+    } catch {
+      // ignore redraw timing during table rebuilds
+    }
   }
 
 
@@ -947,6 +943,43 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
     this.initialEndDate = this.todate;
   }
 
+  private applyNavigationDateRange(params = this.route.snapshot.queryParamMap): boolean {
+    const fromDate = params.get('fromdate') || params.get('startDate');
+    const toDate = params.get('todate') || params.get('endDate');
+
+    if (!this.isValidDateRangeValue(fromDate) || !this.isValidDateRangeValue(toDate)) {
+      return false;
+    }
+
+    const nextRangeKey = `${fromDate}|${toDate}`;
+    if (this.navigationRangeKey === nextRangeKey) {
+      return false;
+    }
+
+    this.navigationRangeKey = nextRangeKey;
+    this.hasNavigationDateRange = true;
+    this.fromdate = fromDate;
+    this.todate = toDate;
+    this.initialStartDate = this.fromdate;
+    this.initialEndDate = this.todate;
+    this.version = '';
+    this.tableData = [];
+    this.pendingStateRestore = false;
+    this.isRestoringTableState = false;
+    this.suppressInitialRangeFetch = true;
+    this.tableStateRestoreAttempts = 0;
+    return true;
+  }
+
+  private isValidDateRangeValue(value: string | null): value is string {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return false;
+    }
+
+    const parsed = new Date(`${value}T00:00:00`);
+    return !Number.isNaN(parsed.getTime());
+  }
+
 
   formatDateToYMD(date: Date | string | null): string {
     if (!date) return 'null';
@@ -969,7 +1002,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  
+
 
   private safeReplaceData(table: any, data: any): void {
     if (!table) return;
@@ -1094,22 +1127,51 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
 
 
   onVersionChange(version: any): void {
-	  this.version = version ?? '';
-	  this.getTasksByProjectIdNdEmployeeId();  
-	}
+    this.version = version ?? '';
+    this.getTasksByProjectIdNdEmployeeId();
+  }
 
-	  loadVersionList(): void {
-	  if (!this.projectid) return;
-	  
-	  this.authService.getVersionsById(this.projectid).subscribe({
-	    next: (res: any) => {
-	      this.versionList = Array.isArray(res) ? res : [];
-	      this.version = this.versionList.includes(this.version) ? this.version : '';
-	    },
-	    error: (err: any) => {
-	      this.toasterService.error(err?.error?.message || 'Unable to load versions');
-	    }
-	  });
-	}
+  loadVersionList(): void {
+    if (!this.projectid) return;
+
+    this.authService.getVersionsById(this.projectid).subscribe({
+      next: (res: any) => {
+        this.versionList = Array.isArray(res) ? res : [];
+        this.version = this.versionList.includes(this.version) ? this.version : '';
+      },
+      error: (err: any) => {
+        this.toasterService.error(err?.error?.message || 'Unable to load versions');
+      }
+    });
+  }
+
+  private isCompactViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  taskCategoryFormatter(cell: any) {
+    const value = cell.getValue();
+    const label = value ? this.escapeHtml(value) : '-';
+    const normalized = String(value || '').trim().toLowerCase();
+
+    let colorClass = 'task-category-pill--muted';
+    if (normalized.includes('support')) {
+      colorClass = 'task-category-pill--support';
+    } else if (normalized.includes('requirement') || normalized.includes('req')) {
+      colorClass = 'task-category-pill--requirement';
+    } else if (normalized.includes('bug')) {
+      colorClass = 'task-category-pill--bug';
+    }
+
+    return `<span class="task-category-pill ${colorClass}" title="${label}">${label}</span>`;
+  }
+  private escapeHtml(value: any): string {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
 
 }

@@ -13,6 +13,6 @@ export class RoleGuard implements CanActivate {
 
     return this.storageService.hasAnyRole(allowedRoles)
       ? true
-      : this.router.createUrlTree(['/main/dashboard']);
+      : this.router.createUrlTree(['/main/home']);
   }
 }

@@ -1,3 +1,163 @@
-::ng-deep .gantt-container .grid-header {
+:host {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    color: var(--text-main);
+    background: var(--bg-body);
+    --g-arrow-color: var(--text-muted);
+    --g-bar-color: var(--bg-card);
+    --g-bar-border: var(--border-card);
+    --g-tick-color-thick: var(--table-border);
+    --g-tick-color: color-mix(in srgb, var(--table-border) 68%, transparent);
+    --g-actions-background: var(--bg-elevated);
+    --g-border-color: var(--table-border);
+    --g-text-muted: var(--text-muted);
+    --g-text-light: var(--text-on-active);
+    --g-text-dark: var(--text-main);
+    --g-progress-color: color-mix(in srgb, var(--text-active) 18%, transparent) !important;
+    --g-handle-color: var(--text-active);
+    --g-weekend-label-color: var(--chip-bg);
+    --g-expected-progress: color-mix(in srgb, var(--text-active) 22%, transparent);
+    --g-header-background: var(--bg-card);
+    --g-row-color: var(--table-row-bg);
+    --g-row-border-color: var(--table-border);
+    --g-today-highlight: var(--text-active);
+    --g-popup-actions: var(--bg-elevated);
+    --g-weekend-highlight-color: var(--table-row-alt-bg);
+}
+
+:host > header {
+    background: var(--bg-card) !important;
+    border-color: var(--border-card) !important;
+    color: var(--text-main);
+}
+
+:host > header h1 {
+    color: var(--text-active) !important;
+}
+
+:host > header > div:last-child > div {
+    background: var(--bg-elevated) !important;
+    border: 1px solid var(--border-card);
+}
+
+:host > header button {
+    color: var(--text-muted) !important;
+}
+
+:host > header button:hover {
+    color: var(--text-active) !important;
+}
+
+:host > header button.bg-white,
+:host > header button.text-active {
+    background: var(--bg-card) !important;
+    color: var(--text-active) !important;
+    box-shadow: var(--shadow-card);
+}
+
+.gantt-main-content {
+    background: var(--bg-body);
+}
+
+.gantt-sidebar,
+.gantt-chart-card {
+    background: var(--bg-card) !important;
+    border-color: var(--border-card) !important;
+    box-shadow: var(--shadow-card);
+}
+
+.gantt-employee-list {
+    background: var(--bg-card);
+}
+
+.gantt-employee-item {
+    border-color: transparent;
+}
+
+.gantt-employee-item:hover {
+    background: var(--bg-elevated) !important;
+}
+
+.gantt-employee-item.gantt-active {
+    background: var(--bg-active) !important;
+    border-color: var(--text-active) !important;
+}
+
+.gantt-avatar {
+    background: var(--bg-elevated) !important;
+    border-color: var(--border-card) !important;
+    color: var(--text-muted) !important;
+}
+
+.gantt-employee-item.gantt-active .gantt-avatar {
+    background: var(--text-active) !important;
+    color: var(--text-on-active) !important;
+}
+
+.gantt-employee-name {
+    color: var(--text-main) !important;
+}
+
+.gantt-employee-role,
+.gantt-empty-state {
+    color: var(--text-muted) !important;
+}
+
+.gantt-empty-state {
+    background: var(--bg-card) !important;
+}
+
+::ng-deep .gantt-container {
+    background: var(--bg-card) !important;
+    color: var(--text-main) !important;
+}
+
+::ng-deep .gantt-container .grid-header,
+::ng-deep .gantt-container .side-header,
+::ng-deep .gantt-container .current-upper {
     z-index: 10 !important;
+    background: var(--bg-card) !important;
+}
+
+::ng-deep .gantt-container .popup-wrapper {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-card);
+    box-shadow: var(--shadow-card);
+}
+
+::ng-deep .gantt-container .popup-wrapper .title,
+::ng-deep .gantt-container .popup-wrapper .subtitle,
+::ng-deep .gantt .bar-label {
+    color: var(--text-main) !important;
+    fill: var(--text-main) !important;
+}
+
+::ng-deep .gantt-container .popup-wrapper .details,
+::ng-deep .gantt-container .lower-text {
+    color: var(--text-muted) !important;
+}
+
+::ng-deep .gantt-container .upper-text {
+    color: var(--text-main) !important;
+}
+
+::ng-deep .gantt .grid-row {
+    fill: var(--table-row-bg) !important;
+}
+
+::ng-deep .gantt .row-line,
+::ng-deep .gantt .tick,
+::ng-deep .gantt .tick.thick {
+    stroke: var(--table-border) !important;
+}
+
+::ng-deep .gantt-container .side-header * {
+    background: var(--bg-elevated) !important;
+    color: var(--text-main) !important;
+}
+
+:host-context(.theme-black) {
+    --g-progress-color: color-mix(in srgb, #3b82f6 18%, transparent) !important;
 }

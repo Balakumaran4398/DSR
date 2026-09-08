@@ -165,8 +165,20 @@
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-slate-700 mb-1">Assign To <span class="text-red-500">*</span></label>
               <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                <mat-select formControlName="assigned_to" placeholder="Select Owner">
-                  <mat-option *ngFor="let m of employeeList" [value]="m.id">
+                <mat-select formControlName="assigned_to" placeholder="Select Owner" (openedChange)="onAssignToOpenedChange($event)">
+                  <mat-select-trigger>
+                    {{ getSelectedEmployeeName() }}
+                  </mat-select-trigger>
+                  <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100">
+                    <div class="relative">
+                      <mat-icon class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm !w-4 !h-4"
+                        style="font-size: 16px;">search</mat-icon>
+                      <input [formControl]="employeeFilterControl"
+                        class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                        placeholder="Search Employee.." (keydown)="$event.stopPropagation()">
+                    </div>
+                  </div>
+                  <mat-option *ngFor="let m of filteredEmployees" [value]="m.id">
                     <div class="flex items-center gap-2">
                       <div class="w-6 h-6 rounded-full bg-slate-200 text-xs flex items-center justify-center font-bold text-slate-600">
                         {{ m.employee_name.charAt(0) }}
@@ -174,6 +186,7 @@
                       {{ m.employee_name }}
                     </div>
                   </mat-option>
+                  <mat-option *ngIf="!filteredEmployees.length" disabled>No employees found</mat-option>
                 </mat-select>
                 <mat-error *ngIf="rf.assigned_to?.invalid">Assignee is required.</mat-error>
               </mat-form-field>
@@ -245,7 +258,10 @@
         Cancel
       </button>
       <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="taskForm.invalid || submitting" class="!px-6">
-        Save
+        <span class="app-button-loading">
+          <i *ngIf="submitting" class="ri-loader-4-line app-button-spinner"></i>
+          <span>{{ submitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save') }}</span>
+        </span>
       </button>
     </div>
 

@@ -7,8 +7,7 @@
                 {{ isEditMode ? 'Update Phase' : 'Create New Phase' }}
             </h1>
             <p class="text-sm text-slate-500 mt-1">
-                {{ isEditMode ? 'Modify phase milestones, timeline, and assignment' : 'Define new phase scope, timeline,
-                and assign resources' }}
+                {{ isEditMode ? 'Modify phase milestones, timeline, and assignment' : 'Define new phase scope, timeline and assign resources' }}
             </p>
         </div>
         <button mat-stroked-button *ngIf="false" (click)="toggleEditMode()" class="text-xs">
@@ -168,11 +167,14 @@
 
     <!-- 3. Sticky Footer -->
     <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 sticky bottom-0 z-10">
-        <button mat-stroked-button color="warn" (click)="onCancel()" class="!px-6">
+        <button mat-stroked-button color="warn" (click)="onCancel()" [disabled]="isSubmitting" class="!px-6">
             Cancel
         </button>
-        <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="phaseForm.invalid" class="!px-6">
-            Save Phase
+        <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="phaseForm.invalid || isSubmitting" class="!px-6">
+            <span class="app-button-loading">
+                <i *ngIf="isSubmitting" class="ri-loader-4-line app-button-spinner"></i>
+                <span>{{ isSubmitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save') }}</span>
+            </span>
         </button>
     </div>
 

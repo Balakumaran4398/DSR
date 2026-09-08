@@ -1,9 +1,9 @@
-<div class="min-h-screen">
+<div class="min-h-screen bg-gray-50">
     <!-- Main Card -->
     <div class="mx-auto overflow-hidden">
   
       <!-- Header Section -->
-      <div class="flex items-center gap-3 shrink-0 pb-4">
+      <div class="flex items-center gap-3 shrink-0 px-4 sm:px-6 pt-4 pb-4">
         <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
                      flex items-center justify-center text-white shadow-sm shrink-0">
           <i class="ri-ticket-line dsr-nav-nav-icon"></i>
@@ -20,11 +20,11 @@
   
   
       <!-- Content Body with Tabs -->
-      <div class="bg-white px-6 pb-6">
+      <div class="bg-white px-4 sm:px-6 pb-6">
   
         <!-- Tabs Bar -->
-        <div class="flex items-center border-b border-gray-200 mb-6">
-          <div class="flex gap-6 text-m font-medium text-gray-500 h-12 items-center">
+        <div class="flex items-center overflow-x-auto border-b border-gray-200 mb-6">
+          <div class="flex min-w-max gap-6 text-m font-medium text-gray-500 h-12 items-center">
             <button *ngFor="let tab of tabs" class="h-full border-b-2 whitespace-nowrap px-1" [ngClass]="activeProjectTab === tab.id
                 ? 'border-[var(--text-active)] text-[var(--text-active)] font-semibold'
                 : 'border-transparent hover:text-[var(--text-active)] hover:border-gray-300'"
@@ -35,7 +35,7 @@
         </div>
   
         <!-- Content Switching -->
-        <div class="bg-slate-50 rounded-xl border border-slate-100 p-2">
+        <div class="bg-slate-50 rounded-xl border border-slate-100 p-2 sm:p-3">
           <ng-container [ngSwitch]="activeProjectTab">
             <div *ngSwitchCase="'raisedtickets'" class="h-full">
               <app-tickets [isRaisedTickets]="true"></app-tickets>

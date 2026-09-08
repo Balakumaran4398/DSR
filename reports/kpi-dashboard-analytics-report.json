@@ -1,0 +1,561 @@
+{
+  "report_name": "R-Space Pro KPI Dashboard Analytics Report",
+  "generated_at": "2026-08-08T12:43:59+05:30",
+  "workspace": "/home/user/Angular/R-SPACE-PRO",
+  "report_scope": [
+    "tasks",
+    "releases",
+    "issues",
+    "tickets",
+    "dsr_submissions",
+    "dsr_not_submitted",
+    "employees",
+    "teams"
+  ],
+  "data_collection_status": {
+    "actual_business_rows_included": false,
+    "backend_base_url": "http://192.168.1.113:8082/api/v1",
+    "backend_reachable": true,
+    "authenticated_api_access": false,
+    "observed_http_status": 401,
+    "reason": "The configured backend is reachable, but report endpoints require an authenticated application token. No checked-in JSON, CSV, SQL, or Excel business data was found in the workspace.",
+    "accuracy_policy": "Counts and KPI values are null or empty unless they can be calculated from authenticated API responses. No synthetic employee, task, release, issue, ticket, or DSR counts were invented.",
+    "next_data_requirement": "Provide an authenticated API bearer token/session export, or export the endpoint responses listed in source_endpoints, then populate normalized_rows and rerun the aggregations."
+  },
+  "default_date_windows": {
+    "application_current_date": "2026-08-08",
+    "tasks_and_issues_default_range": {
+      "fromdate": "2026-08-03",
+      "todate": "2026-08-08",
+      "rule": "Current Monday to Saturday range used by task and issue overview components."
+    },
+    "releases_and_tickets_default_range": {
+      "fromdate": "2026-08-03",
+      "todate": "2026-08-09",
+      "rule": "Current Monday to Sunday range used by release and ticket components."
+    },
+    "not_submitted_dsr_default_range": {
+      "fromdate": "2026-08-07",
+      "todate": "2026-08-07",
+      "rule": "Not-send DSR component initializes to yesterday."
+    }
+  },
+  "source_endpoints": {
+    "employees": {
+      "method": "GET",
+      "endpoint": "/user/getemployeelist",
+      "angular_service": "AuthService.getEmployeeList",
+      "source_file": "src/app/_core/services/auth.service.ts"
+    },
+    "team_members": {
+      "method": "GET",
+      "endpoint": "/user/all?employee_id={employee_id}",
+      "angular_service": "AuthService.getUsersAll",
+      "source_file": "src/app/_core/services/auth.service.ts"
+    },
+    "projects": {
+      "method": "GET",
+      "endpoint": "/project/all?employee_id={employee_id}",
+      "angular_service": "AuthService.getAllProjectsByEmployeeId",
+      "source_file": "src/app/_core/services/auth.service.ts"
+    },
+    "tasks": {
+      "method": "GET",
+      "endpoint": "/task/taskoverview?employee_id={employee_id}&selected_emp_id={selected_emp_id}&fromdate={fromdate}&todate={todate}",
+      "angular_service": "AuthService.getTaskOverviewByEmp",
+      "source_file": "src/app/features/admin/components/overview/overview-task/overview-task.component.ts"
+    },
+    "issues": {
+      "method": "GET",
+      "endpoint": "/task/tasklist?project_id={project_id}&employee_id={employee_id}&phase_id=0&task_type=bug&fromdate={fromdate}&todate={todate}",
+      "alternate_endpoint": "/task/issueList?project_id={project_id}&employee_id={employee_id}&phase_id=0&task_type=bug&version={version}",
+      "angular_service": "AuthService.getTasksByProjectIdNdEmployeeId / AuthService.getIsasueByProjectIdNdEmployeeId",
+      "source_file": "src/app/features/admin/components/projects/project-info/issues/issues.component.ts"
+    },
+    "releases": {
+      "method": "GET",
+      "endpoint": "/release/releaseoverview?employee_id={employee_id}&projectid={projectid}&fromdate={fromdate}&todate={todate}",
+      "detail_endpoint": "/release/releaseoverviewList?employee_id={employee_id}&projectid={projectid}&fromdate={fromdate}&todate={todate}",
+      "angular_service": "AuthService.getReleaseOverviewByEmp / AuthService.getReleaseOverviewListByEmp",
+      "source_file": "src/app/features/admin/components/overview/overview-releases/overview-releases.component.ts"
+    },
+    "tickets": {
+      "method": "GET",
+      "endpoint": "/ticket/allTickets?empid={empid}&userId={user_id}&fromDate={fromdate}&toDate={todate}",
+      "angular_service": "AuthService.getAllTickets",
+      "source_file": "src/app/features/admin/components/Tickets/tickets/tickets.component.ts"
+    },
+    "dsr_submissions": {
+      "method": "GET",
+      "endpoint": "/subtask/dsroverview?employee_id={employee_id}&from_date={from_date}&to_date={to_date}&user_id={user_id}",
+      "angular_service": "AuthService.getDsrOverviewByEmpIdNdFromToDateNdUserId",
+      "source_file": "src/app/features/admin/components/task-overview/task-overview.component.ts"
+    },
+    "dsr_not_submitted": {
+      "method": "GET",
+      "endpoint": "/common/getnotsenddsr?employee_id={employee_id}&selected_employee_id={selected_employee_id}&fromdate={fromdate}&todate={todate}",
+      "angular_service": "AuthService.getNotsendTasks",
+      "source_file": "src/app/features/admin/components/projects/project-info/_core/not-send-dsr/not-send-dsr.component.ts"
+    }
+  },
+  "normalized_dimensions": {
+    "employee": {
+      "id_fields": [
+        "id",
+        "employee_id",
+        "employeeid",
+        "empid",
+        "emp_id"
+      ],
+      "name_fields": [
+        "employee_name",
+        "assigned_to_name",
+        "assigned_from_name",
+        "name",
+        "firstname + lastname"
+      ],
+      "team_fields": [
+        "department_name",
+        "department",
+        "department_id",
+        "dept_id",
+        "manager_name",
+        "assigned_manager_name"
+      ]
+    },
+    "date": {
+      "task_fields": [
+        "start_date",
+        "end_date"
+      ],
+      "release_fields": [
+        "planned_date",
+        "released_date",
+        "closed_date"
+      ],
+      "issue_fields": [
+        "start_date",
+        "end_date"
+      ],
+      "ticket_fields": [
+        "created_date"
+      ],
+      "dsr_fields": [
+        "date"
+      ],
+      "format": "YYYY-MM-DD"
+    },
+    "team": {
+      "primary_grouping_field": "department_name",
+      "fallback_grouping_fields": [
+        "department",
+        "manager_name",
+        "assigned_manager_name",
+        "project_title"
+      ]
+    }
+  },
+  "entity_data_contracts": {
+    "tasks": {
+      "row_identity": "id",
+      "required_for_kpi": [
+        "id",
+        "task",
+        "assigned_to",
+        "assigned_to_name",
+        "assigned_from_name",
+        "status",
+        "priority",
+        "task_type",
+        "start_date",
+        "end_date",
+        "estimated_hours",
+        "worked_hours",
+        "tasks_done",
+        "tasks_pending",
+        "completion_percentage",
+        "projectid",
+        "project_title",
+        "phase_title"
+      ],
+      "completion_fields": {
+        "done": "tasks_done",
+        "pending": "tasks_pending",
+        "percent": "completion_percentage"
+      },
+      "done_status_values": [
+        "Completed",
+        "Closed",
+        "Approved",
+        "Pass",
+        "Passed"
+      ],
+      "pending_status_values": [
+        "Open",
+        "In-Progress",
+        "In-Review",
+        "In-Testing",
+        "Planning",
+        "On-Hold",
+        "To-be-Tested",
+        "Delayed"
+      ]
+    },
+    "issues": {
+      "row_identity": "id",
+      "source_task_type": "bug",
+      "required_for_kpi": [
+        "id",
+        "task",
+        "assigned_to",
+        "assigned_to_name",
+        "assigned_from_name",
+        "status",
+        "priority",
+        "task_category",
+        "task_type",
+        "version",
+        "start_date",
+        "end_date",
+        "estimated_hours",
+        "worked_hours",
+        "completion_percentage",
+        "projectid",
+        "phase_title"
+      ],
+      "category_values_seen_in_app": [
+        "Support",
+        "Requirement",
+        "Bug"
+      ]
+    },
+    "releases": {
+      "row_identity": "id",
+      "required_for_kpi": [
+        "id",
+        "code",
+        "title",
+        "version",
+        "status",
+        "planned_date",
+        "released_date",
+        "closed_date",
+        "projectid",
+        "project_name",
+        "assigned_to",
+        "assignee_to_name",
+        "assignee_name",
+        "release_type",
+        "reject_reason"
+      ],
+      "status_values_seen_in_app": [
+        "Upcoming-Release",
+        "On-Hold",
+        "Open",
+        "In-Progress",
+        "To-be-Tested",
+        "Rejected",
+        "Pass",
+        "Failed"
+      ],
+      "completed_status_values": [
+        "Pass"
+      ],
+      "failed_status_values": [
+        "Failed",
+        "Rejected"
+      ],
+      "pending_status_values": [
+        "Upcoming-Release",
+        "On-Hold",
+        "Open",
+        "In-Progress",
+        "To-be-Tested"
+      ]
+    },
+    "tickets": {
+      "row_identity": "id",
+      "required_for_kpi": [
+        "id",
+        "code",
+        "ticket_name",
+        "company_name",
+        "product_name",
+        "version",
+        "type",
+        "department_name",
+        "assigned_from",
+        "assigned_from_name",
+        "assigned_to",
+        "assigned_to_name",
+        "status",
+        "priority",
+        "created_date",
+        "worked_hours",
+        "description",
+        "client_comments",
+        "solution"
+      ],
+      "status_code_map": {
+        "0": "Open",
+        "1": "In-Progress",
+        "2": "To-be-Tested",
+        "3": "Delayed",
+        "4": "Closed",
+        "5": "Cancelled",
+        "6": "Approved",
+        "7": "Completed",
+        "8": "Rejected",
+        "9": "Failed",
+        "10": "Passed"
+      },
+      "completed_status_codes": [
+        4,
+        6,
+        7,
+        10
+      ],
+      "pending_status_codes": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "failed_status_codes": [
+        5,
+        8,
+        9
+      ]
+    },
+    "dsr_submissions": {
+      "row_identity": "id",
+      "required_for_kpi": [
+        "id",
+        "date",
+        "employee_name",
+        "project_title",
+        "task",
+        "sub_task",
+        "comments",
+        "worked_hours",
+        "completion_percentage",
+        "statusText"
+      ],
+      "submitted_status": "Present",
+      "missing_status": "Absent",
+      "holiday_status": "Holiday"
+    },
+    "dsr_not_submitted": {
+      "row_identity": "employee_name + date",
+      "required_for_kpi": [
+        "date",
+        "employee_name"
+      ]
+    },
+    "employees": {
+      "row_identity": "id",
+      "required_for_team_rollup": [
+        "id",
+        "employee_name",
+        "firstname",
+        "lastname",
+        "email",
+        "department_name",
+        "position",
+        "isactive",
+        "shift_type",
+        "joining_date"
+      ]
+    }
+  },
+  "kpi_definitions": {
+    "total_count": "count(rows)",
+    "completion_rate_percent": "round(completed_count / total_count * 100, 2). Return null when total_count is 0 or unavailable.",
+    "pending_rate_percent": "round(pending_count / total_count * 100, 2). Return null when total_count is 0 or unavailable.",
+    "failure_rate_percent": "round(failed_count / total_count * 100, 2). Return null when total_count is 0 or unavailable.",
+    "average_completion_percent": "round(avg(completion_percentage), 2) using rows where completion_percentage is numeric.",
+    "overdue_count": "count(rows where end_date or released_date is before report_date and status is not completed)",
+    "on_time_release_rate_percent": "round(on_time_release_count / completed_release_count * 100, 2), where released_date <= planned_date for non-upcoming completed releases.",
+    "dsr_submission_rate_percent": "round(submitted_employee_days / expected_employee_days * 100, 2)",
+    "dsr_missing_rate_percent": "round(missing_employee_days / expected_employee_days * 100, 2)",
+    "worked_hours_total": "sum(worked_hours converted from HH:mm or HH:mm:ss to decimal hours)",
+    "estimated_hours_total": "sum(estimated_hours converted to decimal hours)"
+  },
+  "chart_ready_aggregations": {
+    "dashboard_summary": {
+      "tasks_total": null,
+      "tasks_completed": null,
+      "tasks_pending": null,
+      "task_completion_rate_percent": null,
+      "issues_total": null,
+      "issues_open": null,
+      "issues_closed": null,
+      "issue_resolution_rate_percent": null,
+      "releases_total": null,
+      "releases_passed": null,
+      "releases_failed": null,
+      "releases_pending": null,
+      "release_success_rate_percent": null,
+      "tickets_total": null,
+      "tickets_closed": null,
+      "tickets_pending": null,
+      "ticket_closure_rate_percent": null,
+      "dsr_submitted_employee_days": null,
+      "dsr_missing_employee_days": null,
+      "dsr_submission_rate_percent": null,
+      "employees_not_submitted_dsr_count": null
+    },
+    "employee_wise": [],
+    "team_wise": [],
+    "date_wise": [],
+    "status_distribution": [],
+    "priority_distribution": [],
+    "release_type_distribution": [],
+    "ticket_product_distribution": [],
+    "dsr_missing_employee_date_matrix": []
+  },
+  "aggregation_row_shapes": {
+    "employee_wise": {
+      "employee_id": "number|string|null",
+      "employee_name": "string",
+      "team_name": "string|null",
+      "tasks_total": "number",
+      "tasks_completed": "number",
+      "tasks_pending": "number",
+      "task_completion_rate_percent": "number|null",
+      "issues_total": "number",
+      "issues_resolved": "number",
+      "issues_pending": "number",
+      "issue_resolution_rate_percent": "number|null",
+      "releases_total": "number",
+      "releases_passed": "number",
+      "releases_failed": "number",
+      "release_success_rate_percent": "number|null",
+      "tickets_total": "number",
+      "tickets_closed": "number",
+      "tickets_pending": "number",
+      "ticket_closure_rate_percent": "number|null",
+      "dsr_submitted_days": "number",
+      "dsr_missing_days": "number",
+      "dsr_submission_rate_percent": "number|null",
+      "worked_hours_total": "number|null",
+      "average_completion_percent": "number|null"
+    },
+    "team_wise": {
+      "team_name": "string",
+      "employee_count": "number",
+      "tasks_total": "number",
+      "issues_total": "number",
+      "releases_total": "number",
+      "tickets_total": "number",
+      "dsr_expected_employee_days": "number",
+      "dsr_submitted_employee_days": "number",
+      "dsr_missing_employee_days": "number",
+      "overall_completion_rate_percent": "number|null"
+    },
+    "date_wise": {
+      "date": "YYYY-MM-DD",
+      "tasks_started": "number",
+      "tasks_due": "number",
+      "issues_created_or_due": "number",
+      "releases_planned": "number",
+      "releases_completed": "number",
+      "tickets_created": "number",
+      "dsr_submitted_count": "number",
+      "dsr_missing_count": "number",
+      "worked_hours_total": "number|null"
+    }
+  },
+  "normalized_rows": {
+    "employees": [],
+    "teams": [],
+    "tasks": [],
+    "issues": [],
+    "releases": [],
+    "tickets": [],
+    "dsr_submissions": [],
+    "dsr_not_submitted": []
+  },
+  "calculation_plan": {
+    "employee_wise": [
+      "Join each entity row to an employee by assigned_to, assigned_to_name, employee_id, employee_name, empid, or emp_id.",
+      "Join employee to team by department_name first, then department, then manager/project fallback.",
+      "Group by employee_id and employee_name.",
+      "Calculate task, issue, release, ticket, and DSR metrics independently before combining into one employee KPI row."
+    ],
+    "team_wise": [
+      "Build team membership from team_members and employees.",
+      "Group employee_wise rows by team_name.",
+      "Sum counts and recompute rates from summed numerator and denominator values."
+    ],
+    "date_wise": [
+      "Normalize all dates to YYYY-MM-DD.",
+      "Tasks and issues can contribute to start_date and due-date charts.",
+      "Releases can contribute to planned_date, released_date, and overdue charts.",
+      "Tickets contribute by created_date.",
+      "DSR contributes by date."
+    ],
+    "dsr_compliance": [
+      "Expected employee-days should exclude weekly holidays when the product policy requires it.",
+      "Submitted employee-days come from dsr_submissions rows with statusText Present or a real DSR id.",
+      "Missing employee-days come from dsr_not_submitted rows and generated absent rows if using PdfService.getProcessedData.",
+      "Employees who have not submitted DSR are the distinct employee_name values in dsr_not_submitted for the selected date range."
+    ]
+  },
+  "validation_checks": [
+    "Verify every endpoint response is an array before aggregation; normalize singleton objects to a one-row array only where the Angular component does so.",
+    "Do not treat null counts as zero. Null means data was not available.",
+    "Use ticket numeric status mapping before calculating ticket completion.",
+    "Use release string statuses before calculating release completion or failure.",
+    "Use task_type equals bug for issues and requirement for normal tasks when separating Tasks from Issues.",
+    "Recompute percentages from counts for grouped chart data; do not average percentages across employees or teams unless the metric explicitly says average_completion_percent.",
+    "Convert worked_hours safely from HH:mm or HH:mm:ss before summing."
+  ],
+  "source_code_lineage": [
+    {
+      "area": "API base URLs",
+      "file": "src/app/api.base.ts",
+      "evidence": "BASE_URL returns http://192.168.1.113:8082/api/v1"
+    },
+    {
+      "area": "API endpoint definitions",
+      "file": "src/app/_core/services/auth.service.ts",
+      "evidence": "Contains task, release, ticket, DSR, employee, and team endpoint methods."
+    },
+    {
+      "area": "Task KPI fields",
+      "file": "src/app/features/admin/components/overview/overview-task/overview-task.component.ts",
+      "evidence": "Uses assigned_to, assigned_to_name, status, priority, start_date, end_date, estimated_hours, tasks_done, tasks_pending, completion_percentage."
+    },
+    {
+      "area": "Issue KPI fields",
+      "file": "src/app/features/admin/components/projects/project-info/issues/issues.component.ts",
+      "evidence": "Loads bug rows with task_type=bug and uses status, priority, task_category, version, dates, worked_hours, completion_percentage."
+    },
+    {
+      "area": "Release KPI fields",
+      "file": "src/app/features/admin/components/overview/overview-releases/overview-releases.component.ts",
+      "evidence": "Uses release statuses, release_type, planned_date, released_date, project, assignee, and overdue calculation."
+    },
+    {
+      "area": "Ticket KPI fields",
+      "file": "src/app/features/admin/components/Tickets/tickets/tickets.component.ts",
+      "evidence": "Uses status code map 0-10, created_date, department_name, assigned_from_name, assigned_to_name, worked_hours, product fields."
+    },
+    {
+      "area": "DSR submitted rows",
+      "file": "src/app/features/admin/components/task-overview/task-overview.component.ts",
+      "evidence": "Loads DSR overview rows with employee_name, project_title, task, date, worked_hours, completion_percentage."
+    },
+    {
+      "area": "DSR not submitted rows",
+      "file": "src/app/features/admin/components/projects/project-info/_core/not-send-dsr/not-send-dsr.component.ts",
+      "evidence": "Loads not submitted DSR rows with date and employee_name."
+    },
+    {
+      "area": "Team dimension fields",
+      "file": "src/app/features/admin/components/team/team.component.ts",
+      "evidence": "Uses department_name, position, isactive, shift_type, employee names, and joining_date for team members."
+    }
+  ]
+}

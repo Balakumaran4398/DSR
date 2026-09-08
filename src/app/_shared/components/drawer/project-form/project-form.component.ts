@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, inject, Input, OnChanges, OnInit, SimpleChanges, ViewChild } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
-import { map, Observable, startWith } from 'rxjs';
+import { finalize, map, Observable, startWith } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
@@ -22,6 +22,7 @@ export class ProjectFormComponent implements OnInit, OnChanges, AfterViewInit {
   filteredManagerList: any[] = [];
   filteredOwnerList: any[] = [];
   filteredDepartmentList: any[] = [];
+  isSubmitting = false;
 
   // Search Control for Autocomplete
   searchControl = new FormControl(' ');
@@ -250,7 +251,10 @@ export class ProjectFormComponent implements OnInit, OnChanges, AfterViewInit {
   }
 
   onSubmit() {
+    if (this.isSubmitting) return;
+
     if (this.projectForm.valid) {
+      this.isSubmitting = true;
       // Date Formatting Logic
       const formData = { ...this.projectForm.value };
       const formatDate = (date: any) => {
@@ -270,7 +274,11 @@ export class ProjectFormComponent implements OnInit, OnChanges, AfterViewInit {
       if (this.hasEditData() && this.isEditMode) {
         this.updateProject()
       } else {
-        this.authService.createProject(this.submittedData).subscribe({
+        this.authService.createProject(this.submittedData)
+          .pipe(finalize(() => {
+            this.isSubmitting = false;
+          }))
+          .subscribe({
           next: ((res: any) => {
             this.toasterService.success(res?.message);
             this.drawerService.notifyAction({
@@ -318,7 +326,11 @@ export class ProjectFormComponent implements OnInit, OnChanges, AfterViewInit {
 
     this.data.username = this.storageService.getUsername();
     this.data = { ...this.data, ...this.submittedData }
-    this.authService.updateProject(this.data).subscribe({
+    this.authService.updateProject(this.data)
+      .pipe(finalize(() => {
+        this.isSubmitting = false;
+      }))
+      .subscribe({
       next: ((res: any) => {
         this.toasterService.success(res?.message);
         this.drawerService.notifyAction({

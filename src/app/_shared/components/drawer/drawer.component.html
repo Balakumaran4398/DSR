@@ -1,21 +1,25 @@
-<div *ngIf="isOpen" (click)="close()"
-    class="fixed inset-0 bg-slate-900/20 backdrop-blur-[2px] z-[90] transition-opacity">
+<div *ngIf="isOpen" class="drawer-backdrop fixed inset-0 bg-slate-900/20 backdrop-blur-[2px] z-[90] transition-opacity">
 </div>
 
 <div [class.translate-x-0]="isOpen" [class.translate-x-full]="!isOpen"
-    class="fixed top-0 right-0 h-full w-full md:w-[600px] bg-white shadow-xl z-[100] transition-transform duration-300 ease-in-out flex flex-col font-sans">
-    <header class="shrink-0 bg-white border-b border-slate-100 relative z-20">
+    class="drawer-shell fixed top-0 right-0 h-full w-full md:w-[600px] bg-white shadow-xl z-[100] transition-transform duration-300 ease-in-out flex flex-col font-sans">
+    <header class="drawer-header shrink-0 bg-white border-b border-slate-100 relative z-20">
         <div class="absolute top-3 right-3 text-right">
-            <button (click)="close()" class="md:hidden text-slate-400 p-1">
+            <button (click)="close()" class="drawer-close-btn md:hidden text-slate-400 p-1">
                 <i class="ri-close-line text-2xl"></i>
             </button>
-            <button (click)="close()" class="hidden md:block ml-2 text-slate-300 hover:text-slate-600 transition">
+            <!-- <button (click)="close()" class="drawer-close-btn hidden md:block ml-2 text-slate-300 hover:text-slate-600 transition">mr-4 mt-9
+                <i class="ri-close-line text-2xl"></i>
+            </button> -->
+            <button (click)="close()" [ngClass]="activeType === 'notification'
+                    ? 'drawer-close-btn hidden md:block ml-2 text-slate-300 hover:text-slate-600 transition mr-4 mt-9'
+                    : 'drawer-close-btn hidden md:block ml-2 text-slate-300 hover:text-slate-600 transition'">
                 <i class="ri-close-line text-2xl"></i>
             </button>
         </div>
     </header>
 
-    <div class="flex-1 overflow-y-auto md:p-4 bg-slate-50">
+    <div class="drawer-body flex-1 overflow-y-auto md:p-4 bg-slate-50">
         <!-- <div
             class="h-[800px] border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-400"> -->
         <ng-container [ngSwitch]="activeType">
@@ -60,6 +64,9 @@
             </ng-template>
             <ng-template [ngSwitchCase]="'products'">
                 <app-product-form [data]="data"></app-product-form>
+            </ng-template>
+            <ng-template [ngSwitchCase]="'notification'">
+                <app-notifications [data]="data"></app-notifications>
             </ng-template>
         </ng-container>
         <!-- </div> -->

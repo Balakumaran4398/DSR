@@ -7,6 +7,7 @@ import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
+import { formatStatusPill, getStatusPillClass } from 'src/app/_core/utils/status-pill.util';
 import Swal from 'sweetalert2';
 declare const Tabulator: any;
 declare const luxon: any;
@@ -456,19 +457,7 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
   }
   // Helpers for Styling
   getStatusColor(status: string | undefined | null): string {
-    const val = status || '';
-
-    if (["Active", "On-Track", "Approved", "Completed", "Invoiced", "Open"].includes(val)) {
-      return "bg-emerald-100 text-emerald-700 border-emerald-200";
-    } else if (["In-Progress", "In-Review", "In-Testing", "Planning"].includes(val)) {
-      return "bg-blue-100 text-blue-700 border-blue-200";
-    } else if (["On-Hold", "To-be-Tested"].includes(val)) {
-      return "bg-amber-100 text-amber-700 border-amber-200";
-    } else if (["Delayed", "Cancelled", "Rejected", "Closed"].includes(val)) {
-      return "bg-red-100 text-red-700 border-red-200";
-    }
-
-    return "bg-gray-100 text-gray-700 border-gray-200";
+    return `app-status-pill ${getStatusPillClass(status)}`;
   }
   // --- Visual Helpers ---
 
@@ -485,12 +474,7 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
 
 
   getStatusBadge(val: string) {
-    let colorClass = "bg-gray-100 text-gray-700";
-    if (["Active", "On-Track", "Approved", "Completed", "Invoiced"].includes(val)) colorClass = "bg-emerald-100 text-emerald-700";
-    else if (["In-Progress", "In-Review", "In-Testing", "Planning"].includes(val)) colorClass = "bg-blue-100 text-blue-700";
-    else if (["On-Hold", "To-be-Tested"].includes(val)) colorClass = "bg-amber-100 text-amber-700";
-    else if (["Delayed", "Cancelled", "Rejected"].includes(val)) colorClass = "bg-red-100 text-red-700";
-    return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${val}</span>`;
+    return formatStatusPill(val);
   }
 
   getPriorityBadge(val: string) {
@@ -743,6 +727,7 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
           field: "status",
           editor: "list",
           minWidth: 150,
+          cssClass: "app-status-cell",
           editorParams: {
             values: this.statusList,
             autocomplete: true,
@@ -750,21 +735,7 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
             clearable: true
           },
           formatter: (cell: any) => {
-            const val = cell.getValue();
-
-            // Simple color logic
-            let colorClass = "bg-gray-100 text-gray-700";
-            if (["Active", "On-Track", "Approved", "Completed", "Invoiced", "Open"].includes(val)) {
-              colorClass = "bg-emerald-100 text-emerald-700";
-            } else if (["In-Progress", "In-Review", "In-Testing", "Planning"].includes(val)) {
-              colorClass = "bg-blue-100 text-blue-700";
-            } else if (["On-Hold", "To-be-Tested"].includes(val)) {
-              colorClass = "bg-amber-100 text-amber-700";
-            } else if (["Delayed", "Cancelled", "Rejected", "Closed"].includes(val)) {
-              colorClass = "bg-red-100 text-red-700";
-            }
-
-            return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${val}</span>`;
+            return formatStatusPill(cell.getValue());
           }
         },
         { title: "Start Date", field: "start_date", width: 120 },
@@ -1001,27 +972,7 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
 
   // --- Formatters ---
   statusFormatter(cell: any) {
-    const value = cell.getValue(); // This will be true/false
-    let classes = "";
-    let dotColor = "";
-    let label = "";
-
-    if (value === true) {
-      classes = "bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20";
-      dotColor = "bg-emerald-500";
-      label = "Active";
-    } else {
-      classes = "bg-red-50 text-red-700 border-red-200 ring-red-600/20"; // Changed inactive to red for visibility
-      dotColor = "bg-red-500";
-      label = "Inactive";
-    }
-
-    return `
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${classes}">
-            <span class="w-1.5 h-1.5 rounded-full ${dotColor}"></span>
-            ${label}
-        </span>
-    `;
+    return formatStatusPill(cell.getValue());
   }
 
 

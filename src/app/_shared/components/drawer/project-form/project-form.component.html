@@ -172,38 +172,39 @@
             <div class="md:col-span-2">
               <label class="block text-sm font-semibold text-slate-700 mb-1">Team Members <span class="text-red-500"
                   *ngIf="!isPublic">*</span></label>
-              <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <mat-form-field appearance="outline" class="w-full project-team-field" subscriptSizing="dynamic">
 
-                <mat-chip-grid #chipGrid aria-label="Employee selection">
-                  <mat-chip-row *ngFor="let empId of selectedEmployeeIds" (removed)="toggleEmployee(empId)">
-                    <div class="flex items-center gap-2">
-                      <span
-                        class="text-[10px] w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                <mat-chip-grid #chipGrid aria-label="Employee selection" class="project-team-chip-grid">
+                  <mat-chip-row *ngFor="let empId of selectedEmployeeIds" class="project-team-chip"
+                    (removed)="toggleEmployee(empId)">
+                    <div class="project-team-chip__content">
+                      <span class="project-team-chip__avatar">
                         {{ getInitials(getEmployeeName(empId)) }}
                       </span>
-                      {{ getEmployeeName(empId) }}
+                      <span class="project-team-chip__name">{{ getEmployeeName(empId) }}</span>
                     </div>
-                    <button matChipRemove [attr.aria-label]="'remove ' + getEmployeeName(empId)">
+                    <button matChipRemove class="project-team-chip__remove"
+                      [attr.aria-label]="'remove ' + getEmployeeName(empId)">
                       <mat-icon>cancel</mat-icon>
                     </button>
                   </mat-chip-row>
                 </mat-chip-grid>
 
-                <input placeholder="Add member..." (cdkObserveContent)="filteredEmployees" #employeeInput
+                <input class="project-team-input" placeholder="Add member..." (cdkObserveContent)="filteredEmployees" #employeeInput
                   [formControl]="searchControl" [matChipInputFor]="chipGrid" [matAutocomplete]="auto"
                   [readonly]="isPublic">
 
-                <mat-autocomplete #auto="matAutocomplete" (optionSelected)="selected($event)">
-                  <mat-option *ngFor="let emp of filteredEmployees | async" [value]="emp">
-                    <div class="flex items-center gap-3">
-                      <div
-                        class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm"
+                <mat-autocomplete #auto="matAutocomplete" class="project-team-autocomplete-panel"
+                  (optionSelected)="selected($event)">
+                  <mat-option *ngFor="let emp of filteredEmployees | async" [value]="emp" class="project-team-option">
+                    <div class="project-team-option__content">
+                      <div class="project-team-option__avatar"
                         [style.background-color]="getAvatarColor(emp.id)">
                         {{ getInitials(emp.employee_name) }}
                       </div>
-                      <div class="flex flex-col leading-tight">
-                        <span class="font-medium">{{ emp.employee_name }}</span>
-                        <span class="text-xs text-slate-500">{{ emp.role }}</span>
+                      <div class="project-team-option__text">
+                        <span class="project-team-option__name">{{ emp.employee_name }}</span>
+                        <span class="project-team-option__role">{{ emp.role }}</span>
                       </div>
                     </div>
                   </mat-option>
@@ -242,8 +243,11 @@
         <!-- Submit Button -->
         <div class="mt-8 flex justify-end gap-3">
           <button mat-button type="button" color="warn" (click)="closeProjectForm()">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="projectForm.invalid" class="!px-8">
-            Save
+          <button mat-flat-button color="primary" type="submit" [disabled]="projectForm.invalid || isSubmitting" class="!px-8">
+            <span class="app-button-loading">
+              <i *ngIf="isSubmitting" class="ri-loader-4-line app-button-spinner"></i>
+              <span>{{ isSubmitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save') }}</span>
+            </span>
           </button>
         </div>
 

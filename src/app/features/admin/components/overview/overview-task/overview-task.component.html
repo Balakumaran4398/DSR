@@ -28,17 +28,17 @@
             </div>
             <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto">
                 <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto" role="tablist">
-                    <button [disabled]="!canDownloadPdf" title="View PDF" (click)="previewOverviewPdf()"
+                    <button [disabled]="!canDownloadPdf || pdfPreviewLoading" [title]="pdfPreviewLoading ? 'Loading PDF...' : 'View PDF'" (click)="previewOverviewPdf()"
                         class="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg shadow-sm bg-white text-slate-600 hover:bg-slate-100 border border-slate-200">
-                        <i class="ri-eye-line text-lg mr-2"></i>
+                        <i [class]="pdfPreviewLoading ? 'ri-loader-4-line app-button-spinner text-lg mr-2' : 'ri-eye-line text-lg mr-2'"></i>
                     </button>
-                    <button [disabled]="!hasViewedPdf || !canDownloadPdf" title="PDF Download" (click)="generateOverviewPdf()"
+                    <button [disabled]="!hasViewedPdf || !canDownloadPdf || pdfDownloadLoading" [title]="pdfDownloadLoading ? 'Generating PDF...' : 'PDF Download'" (click)="generateOverviewPdf()"
                         class="cursor-pointer transition-all duration-200 inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg shadow-sm border"
                         [ngClass]="{
-                            'pdf-enabled': hasViewedPdf && canDownloadPdf,
-                            'pdf-disabled': !hasViewedPdf || !canDownloadPdf
+                            'pdf-enabled': hasViewedPdf && canDownloadPdf && !pdfDownloadLoading,
+                            'pdf-disabled': !hasViewedPdf || !canDownloadPdf || pdfDownloadLoading
                         }">
-                        <i class="ri-file-pdf-2-fill !text-2xl"></i>
+                        <i [class]="pdfDownloadLoading ? 'ri-loader-4-line app-button-spinner !text-2xl' : 'ri-file-pdf-2-fill !text-2xl'"></i>
                     </button>
                     <div class="flex flex-col items-center justify-center gap-3 w-full  sm:flex-row sm:items-center sm:w-auto">
                         <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto" role="tablist">
@@ -66,9 +66,10 @@
         <!-- The Grid -->
 
         <div [class.hidden]="currentView !== 'table'"
-            class="h-full bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+            class="h-full min-h-[420px] bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col app-loading-host"
+            [attr.aria-busy]="tableLoading">
             <div class="overflow-auto flex-1">
-                <div #tableDiv></div>
+                <div #tableDiv class="app-tabulator-loading-host"></div>
             </div>
         </div>
         <div *ngIf="kanbanInitialized" [class.hidden]="currentView !== 'kanban'"

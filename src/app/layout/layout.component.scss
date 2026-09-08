@@ -177,8 +177,8 @@
   font-size: 0.75rem;
   padding: 0.125rem 0.5rem;
   border-radius: 0.375rem;
-  background: #EF4444;
-  color: white;
+  background: var(--text-active);
+  color: var(--text-on-active);
   font-weight: 500;
   opacity: 1;
   transition: opacity 0.2s;
@@ -316,6 +316,15 @@
 .dsr-nav-user-sub-link:hover {
   color: var(--text-active);
   background: #E2E8F0;
+}
+
+.dsr-nav-user-sub-link--danger,
+.dsr-nav-user-sub-link--danger i {
+  color: var(--danger) !important;
+}
+
+.dsr-nav-user-sub-link--danger:hover {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
 }
 
 .dsr-nav-user-sub-link i {

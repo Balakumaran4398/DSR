@@ -1,0 +1,110 @@
+:host {
+  display: block;
+}
+
+:host ::ng-deep .tabulator-tableholder {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+:host ::ng-deep .phase-progress {
+  --phase-progress-color: #2563eb;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 10rem;
+  color: var(--phase-progress-color);
+}
+
+:host ::ng-deep .phase-progress--complete {
+  --phase-progress-color: #059669;
+}
+
+:host ::ng-deep .phase-progress--warning {
+  --phase-progress-color: #d97706;
+}
+
+:host ::ng-deep .phase-progress__ring {
+  position: relative;
+  display: flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 2.5rem;
+  align-items: center;
+  justify-content: center;
+}
+
+:host ::ng-deep .phase-progress__track {
+  color: var(--table-border, #e5e7eb);
+}
+
+:host ::ng-deep .phase-progress__value {
+  color: var(--phase-progress-color);
+  transition: stroke-dashoffset 0.8s ease;
+}
+
+:host ::ng-deep .phase-progress__percent {
+  position: absolute;
+  color: var(--text-main);
+  font-size: 0.625rem;
+  font-weight: 800;
+}
+
+:host ::ng-deep .phase-progress__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+:host ::ng-deep .phase-progress__copy span {
+  color: var(--text-main);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .phase-progress__copy small {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+:host-context(.dark-mode) ::ng-deep .phase-progress,
+:host-context(.dark-mode.theme-black) ::ng-deep .phase-progress {
+  --phase-progress-color: #60a5fa;
+}
+
+:host-context(.dark-mode) ::ng-deep .phase-progress--complete,
+:host-context(.dark-mode.theme-black) ::ng-deep .phase-progress--complete {
+  --phase-progress-color: #10b981;
+}
+
+:host-context(.dark-mode) ::ng-deep .phase-progress--warning,
+:host-context(.dark-mode.theme-black) ::ng-deep .phase-progress--warning {
+  --phase-progress-color: #f59e0b;
+}
+
+
+:host ::ng-deep .phase-name-pill {
+  --phase-name-color: var(--text-active);
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 2rem;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--phase-name-color) 34%, var(--border-card));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--phase-name-color) 13%, var(--bg-card));
+  color: var(--phase-name-color);
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

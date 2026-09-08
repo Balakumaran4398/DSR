@@ -6,8 +6,8 @@
   margin-top: 10px;
   padding: 8px;
   border-radius: 18px !important;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid var(--overlay-border);
+  background: linear-gradient(180deg, var(--overlay-bg) 0%, var(--form-surface) 100%);
   box-shadow: 0 22px 44px rgba(15, 23, 42, 0.14);
 }
 
@@ -22,16 +22,17 @@
 }
 
 :host ::ng-deep .project-form-select-panel .mdc-list-item__primary-text {
-  color: #0f172a;
+  color: var(--text-main);
   font-weight: 500;
 }
 
 :host ::ng-deep .project-form-select-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
-  background: rgba(37, 99, 235, 0.08);
+  background: var(--bg-active);
 }
 
 :host ::ng-deep .project-form-select-panel .mat-mdc-option:hover:not(.mdc-list-item--disabled) {
-  background: rgba(148, 163, 184, 0.12);
+  background: var(--dropdown-hover-bg);
+  color: var(--dropdown-hover-text);
 }
 
 :host ::ng-deep .project-form-select-panel .select-search-option,
@@ -55,8 +56,8 @@
   gap: 10px;
   width: 100%;
   padding: 12px 14px;
-  background: #ffffff;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: var(--form-bg);
+  border: 1px solid var(--form-border);
   border-radius: 14px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
@@ -66,12 +67,12 @@
 }
 
 :host ::ng-deep .project-form-select-panel .select-search-shell:focus-within {
-  border-color: rgba(37, 99, 235, 0.5);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+  border-color: var(--text-active);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--text-active) 18%, transparent);
 }
 
 :host ::ng-deep .project-form-select-panel .select-search-icon {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 20px;
   width: 20px;
   height: 20px;
@@ -82,13 +83,13 @@
   border: 0;
   outline: 0;
   background: transparent;
-  color: #0f172a;
+  color: var(--text-main);
   font-size: 14px;
   font-weight: 500;
 }
 
 :host ::ng-deep .project-form-select-panel .select-search-input::placeholder {
-  color: #94a3b8;
+  color: var(--form-placeholder);
   opacity: 1;
   font-weight: 400;
 }
@@ -96,7 +97,135 @@
 :host ::ng-deep .project-form-select-panel .select-empty-option,
 :host ::ng-deep .project-form-select-panel .select-empty-option.mdc-list-item--disabled {
   justify-content: center;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 13px;
   opacity: 1;
+}
+
+:host ::ng-deep .project-team-field .mat-mdc-chip-grid,
+:host ::ng-deep .project-team-field .mat-mdc-chip-set {
+  color: var(--text-main);
+}
+
+:host ::ng-deep .project-team-field .project-team-chip {
+  --mdc-chip-elevated-container-color: var(--chip-bg);
+  --mdc-chip-label-text-color: var(--chip-text);
+  --mdc-chip-with-trailing-icon-trailing-icon-color: var(--text-muted);
+  --mdc-chip-with-trailing-icon-hover-trailing-icon-color: var(--text-active);
+  --mdc-chip-with-trailing-icon-focus-trailing-icon-color: var(--text-active);
+  border: 1px solid color-mix(in srgb, var(--text-active) 20%, var(--border-card));
+  background: color-mix(in srgb, var(--text-active) 9%, var(--chip-bg)) !important;
+  color: var(--chip-text) !important;
+}
+
+:host ::ng-deep .project-team-field .project-team-chip .mdc-evolution-chip__text-label {
+  color: var(--chip-text) !important;
+}
+
+:host ::ng-deep .project-team-chip__content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  color: var(--chip-text);
+}
+
+:host ::ng-deep .project-team-chip__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 1.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-active) 14%, var(--bg-card));
+  color: var(--text-active);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+:host ::ng-deep .project-team-chip__name {
+  min-width: 0;
+  color: var(--chip-text);
+  font-weight: 600;
+}
+
+:host ::ng-deep .project-team-chip__remove,
+:host ::ng-deep .project-team-chip__remove mat-icon {
+  color: var(--text-muted) !important;
+}
+
+:host ::ng-deep .project-team-chip__remove:hover,
+:host ::ng-deep .project-team-chip__remove:hover mat-icon {
+  color: var(--text-active) !important;
+}
+
+:host ::ng-deep .project-team-input {
+  background: transparent !important;
+  color: var(--text-main) !important;
+  caret-color: var(--text-active);
+}
+
+:host ::ng-deep .project-team-input::placeholder {
+  color: var(--form-placeholder) !important;
+  opacity: 1;
+}
+
+::ng-deep .project-team-autocomplete-panel.mat-mdc-autocomplete-panel {
+  margin-top: 8px;
+  border: 1px solid var(--overlay-border);
+  border-radius: 16px !important;
+  background: linear-gradient(180deg, var(--overlay-bg) 0%, var(--form-surface) 100%) !important;
+  color: var(--text-main) !important;
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.14);
+}
+
+::ng-deep .project-team-autocomplete-panel .mat-mdc-option {
+  min-height: 56px;
+  color: var(--text-main) !important;
+}
+
+::ng-deep .project-team-autocomplete-panel .mat-mdc-option:hover:not(.mdc-list-item--disabled),
+::ng-deep .project-team-autocomplete-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled),
+::ng-deep .project-team-autocomplete-panel .mat-mdc-option.mat-mdc-option-active {
+  background: var(--dropdown-hover-bg) !important;
+  color: var(--text-main) !important;
+}
+
+::ng-deep .project-team-autocomplete-panel .project-team-option__content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+::ng-deep .project-team-autocomplete-panel .project-team-option__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.16);
+}
+
+::ng-deep .project-team-autocomplete-panel .project-team-option__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+::ng-deep .project-team-autocomplete-panel .project-team-option__name {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+::ng-deep .project-team-autocomplete-panel .project-team-option__role {
+  color: var(--text-muted);
+  font-size: 0.75rem;
 }

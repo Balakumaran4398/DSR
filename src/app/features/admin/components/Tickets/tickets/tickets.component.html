@@ -1,11 +1,11 @@
-<div class="w-full animate-fade-in mx-auto bg-gray-50 min-h-screen">
+<div class="tickets-page w-full animate-fade-in mx-auto bg-gray-50 min-h-screen">
 
-    <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 mb-3">
+    <div class="tickets-toolbar bg-white p-3 rounded-2xl shadow-sm border border-slate-200 mb-3">
 
-        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+        <div class="tickets-toolbar-grid">
 
             <!-- LEFT -->
-            <div class="flex items-center gap-2 min-w-0">
+            <div class="tickets-toolbar-title flex items-center gap-2 min-w-0">
                 <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
                    flex items-center justify-center text-white shadow-sm shrink-0">
                     <i class="ri-ticket-line"></i>
@@ -21,16 +21,55 @@
             </div>
 
             <!-- CENTER -->
-            <div class="flex justify-center w-full">
-                <app-date-range-filter class="w-full max-w-[320px]" [initialStartDate]="initialStartDate"
+            <div class="tickets-toolbar-filters">
+                <app-date-range-filter [initialStartDate]="initialStartDate"
                     [initialEndDate]="initialEndDate" (rangeChange)="onRangeChange($event)">
                 </app-date-range-filter>
+
+                <mat-form-field appearance="outline" class="ticket-filter-field" subscriptSizing="dynamic">
+                    <mat-select placeholder="All Employees" [value]="selectedEmployeeId"
+                        (selectionChange)="onEmployeeFilterChange($event.value)"
+                        (openedChange)="onEmployeeSelectOpened($event)">
+                        <div class="sticky top-0 z-10 bg-white px-3 py-2 border-b border-slate-100"
+                            (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                            <input type="text"
+                                class="w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none"
+                                placeholder="Search Employee" [value]="employeeSearchTerm"
+                                (input)="filterEmployees($event)">
+                        </div>
+                        <mat-option value="">All Employees</mat-option>
+                        <mat-option *ngFor="let employee of filteredEmployees" [value]="employee.filter_id">
+                            {{ employee.employee_name }}
+                        </mat-option>
+                        <mat-option *ngIf="!filteredEmployees.length" disabled>No employees found</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                <mat-form-field *ngIf="!isRaisedTickets" appearance="outline" class="ticket-filter-field"
+                    subscriptSizing="dynamic">
+                    <mat-select placeholder="All Departments" [value]="selectedDepartmentId"
+                        (selectionChange)="onDepartmentFilterChange($event.value)"
+                        (openedChange)="onDepartmentSelectOpened($event)">
+                        <div class="sticky top-0 z-10 bg-white px-3 py-2 border-b border-slate-100"
+                            (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                            <input type="text"
+                                class="w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none"
+                                placeholder="Search Department" [value]="departmentSearchTerm"
+                                (input)="filterDepartments($event)">
+                        </div>
+                        <mat-option value="">All Departments</mat-option>
+                        <mat-option *ngFor="let department of filteredDepartments" [value]="department.filter_id">
+                            {{ department.department_name }}
+                        </mat-option>
+                        <mat-option *ngIf="!filteredDepartments.length" disabled>No departments found</mat-option>
+                    </mat-select>
+                </mat-form-field>
             </div>
 
             <!-- RIGHT -->
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 w-full sm:w-auto min-w-0">
+            <div class="tickets-toolbar-actions">
 
-                <div class="relative w-full sm:w-60">
+                <div class="tickets-toolbar-search relative">
                     <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                         <i class="ri-search-line text-gray-400 text-xs"></i>
                     </span>
@@ -42,22 +81,23 @@
                 </div>
 
                 <!-- ACTION BUTTONS WRAPPER -->
-                <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <div class="tickets-toolbar-buttons">
 
-                    <button *ngIf="!isRaisedTickets" (click)="generateTicketsPdf()" [disabled]="!canDownloadPdf"
-                        class="w-full sm:w-auto pdf-enabled inline-flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg">
-                        <i class="ri-file-pdf-2-fill !text-2xl"></i>
+                    <button *ngIf="!isRaisedTickets" (click)="generateTicketsPdf()" [disabled]="!canDownloadPdf || ticketPdfExporting"
+                        [title]="ticketPdfExporting ? 'Preparing PDF' : 'Download PDF'"
+                        class="tickets-toolbar-button pdf-enabled inline-flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg">
+                        <i [class]="ticketPdfExporting ? 'ri-loader-4-line tickets-export-spinner' : 'ri-file-pdf-2-fill tickets-export-icon'"></i>
                     </button>
 
                     <button *ngIf="isRaisedTickets"
-                        class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-1 text-sm font-medium rounded-lg shadow-sm text-white bg-[var(--text-active)] whitespace-nowrap"
+                        class="tickets-toolbar-button inline-flex items-center justify-center px-4 py-1 text-sm font-medium rounded-lg shadow-sm text-white bg-[var(--text-active)] whitespace-nowrap"
                         (click)="openTicket('ticket')">
                         <i class="ri-add-line mr-2 text-lg"></i>
                         Self Ticket
                     </button>
 
                     <button *ngIf=" isRaisedTickets"
-                        class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-1 text-sm font-medium rounded-lg shadow-sm text-white bg-[var(--text-active)] whitespace-nowrap"
+                        class="tickets-toolbar-button inline-flex items-center justify-center px-4 py-1 text-sm font-medium rounded-lg shadow-sm text-white bg-[var(--text-active)] whitespace-nowrap"
                         (click)="openTicket('assignticket')">
                         <i class="ri-add-line mr-2 text-lg"></i>
                         Assign Ticket
@@ -70,8 +110,8 @@
         </div>
     </div>
 
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div #tableDiv></div>
+    <div class="tickets-table-shell bg-white border border-gray-200 rounded-xl shadow-sm">
+        <div #tableDiv class="w-full min-h-[320px]"></div>
     </div>
 
 </div>

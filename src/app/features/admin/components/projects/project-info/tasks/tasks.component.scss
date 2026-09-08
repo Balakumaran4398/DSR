@@ -1,0 +1,108 @@
+:host {
+  display: block;
+}
+
+:host ::ng-deep .tabulator-tableholder {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+:host ::ng-deep .task-progress {
+  --task-progress-color: #2563eb;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-width: 9rem;
+  color: var(--task-progress-color);
+}
+
+:host ::ng-deep .task-progress--complete {
+  --task-progress-color: #059669;
+}
+
+:host ::ng-deep .task-progress--warning {
+  --task-progress-color: #d97706;
+}
+
+:host ::ng-deep .task-progress__ring {
+  position: relative;
+  display: flex;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 2.35rem;
+  align-items: center;
+  justify-content: center;
+}
+
+:host ::ng-deep .task-progress__track {
+  color: var(--table-border, #e5e7eb);
+}
+
+:host ::ng-deep .task-progress__value {
+  color: var(--task-progress-color);
+  transition: stroke-dashoffset 0.8s ease;
+}
+
+:host ::ng-deep .task-progress__percent {
+  position: absolute;
+  color: var(--text-main);
+  font-size: 0.58rem;
+  font-weight: 800;
+}
+
+:host ::ng-deep .task-progress__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+:host ::ng-deep .task-progress__copy span {
+  color: var(--text-main);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+:host ::ng-deep .task-progress__copy small {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+:host-context(.dark-mode) ::ng-deep .task-progress,
+:host-context(.dark-mode.theme-black) ::ng-deep .task-progress {
+  --task-progress-color: #60a5fa;
+}
+
+:host-context(.dark-mode) ::ng-deep .task-progress--complete,
+:host-context(.dark-mode.theme-black) ::ng-deep .task-progress--complete {
+  --task-progress-color: #10b981;
+}
+
+:host-context(.dark-mode) ::ng-deep .task-progress--warning,
+:host-context(.dark-mode.theme-black) ::ng-deep .task-progress--warning {
+  --task-progress-color: #f59e0b;
+}
+
+:host ::ng-deep .task-category-pill {
+  --task-category-color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 1.75rem;
+  padding: 0.28rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--task-category-color) 34%, var(--border-card));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--task-category-color) 13%, var(--bg-card));
+  color: var(--task-category-color);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+ 

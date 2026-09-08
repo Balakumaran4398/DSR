@@ -9,7 +9,7 @@ export class TicketInfoComponent {
   activeProjectTab = 'raisedtickets';
 
   tabs = [
-    { id: 'raisedtickets', label: 'Raised Tickets' },
+    { id: 'raisedtickets', label: 'Active Tickets' },
     { id: 'overalltickets', label: 'Over All Tickets' },
     { id: 'clients', label: 'Clients' },
     { id: 'products', label: 'Products' }

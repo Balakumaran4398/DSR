@@ -8,6 +8,7 @@ import { UserFormComponent } from './components/drawer/user-form/user-form.compo
 import { MaterialModule } from '../_core/modules/material.module';
 import { ProjectFormComponent } from './components/drawer/project-form/project-form.component';
 import { ObserversModule } from "@angular/cdk/observers";
+import { OverlayModule } from '@angular/cdk/overlay';
 import { TaskFormComponent } from './components/drawer/task-form/task-form.component';
 import { AddTeammateFormComponent } from './components/drawer/add-teammate-form/add-teammate-form.component';
 import { DateRangeFilterComponent } from './components/date-range-filter/date-range-filter.component';
@@ -21,6 +22,7 @@ import { SelfTicketFormComponent } from './components/drawer/self-ticket-form/se
 import { AssignTicketFormComponent } from './components/drawer/assign-ticket-form/assign-ticket-form.component';
 import { ClientFormComponent } from './components/drawer/client-form/client-form.component';
 import { ProductFormComponent } from './components/drawer/product-form/product-form.component';
+import { NotificationsComponent } from './components/drawer/notifications/notifications.component';
 @NgModule({
   declarations: [
     LoaderComponent,
@@ -41,11 +43,13 @@ import { ProductFormComponent } from './components/drawer/product-form/product-f
     AssignTicketFormComponent,
     ClientFormComponent,
     ProductFormComponent,
+    NotificationsComponent,
   ],
   imports: [
     CommonModule,
     MaterialModule,
-    ObserversModule
+    ObserversModule,
+    OverlayModule
 ],
   exports: [LoaderComponent, ConfirmAlertComponent,DrawerComponent,DateRangeFilterComponent]
 })

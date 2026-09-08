@@ -31,7 +31,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
 
                     <!-- Client (Read-only) -->
-                    <div>
+                    <div class="col-span-2">
                         <label class="block text-sm font-medium text-slate-700 mb-1">
                             Client <span class="text-red-500">*</span>
                         </label>
@@ -93,7 +93,7 @@
 
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">
-                            Product Version 
+                            Product Version
                         </label>
                         <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
                             <mat-select formControlName="product_version" placeholder="Select Version">
@@ -133,11 +133,21 @@
                     <!-- Ticket Name (Read-only) -->
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">
-                            Ticket Name
+                            Ticket Name<span class="text-red-500">*</span>
                         </label>
-                        <mat-form-field appearance="outline" class="w-full">
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
                             <input matInput formControlName="ticket_name" placeholder="Ticket name">
+                            <mat-error *ngIf="rf.ticket_name?.hasError('required') &&
+                        (rf.ticket_name?.touched || rf.ticket_name?.dirty)">
+                                Ticket name is required
+                            </mat-error>
+
+                            <mat-error *ngIf="rf.ticket_name?.hasError('pattern') &&
+                        (rf.ticket_name?.touched || rf.ticket_name?.dirty)">
+                                Please enter a ticket name containing valid characters.
+                            </mat-error>
                         </mat-form-field>
+
                     </div>
 
                     <!-- Priority -->
@@ -157,6 +167,36 @@
                             <mat-error *ngIf="rf.priority?.invalid">Priority is required</mat-error>
                         </mat-form-field>
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Status <span class="text-red-500">*</span>
+                        </label>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select formControlName="status" placeholder="Select Status">
+                                <mat-option *ngFor="let status of statusList" [value]="status.name">
+                                    {{status.name}}
+                                </mat-option>
+                            </mat-select>
+                            <mat-error *ngIf="rf.status?.invalid">Status is required</mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Worked Hours -->
+                    <!-- <div *ngIf="isEditMode">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Worked Hours<span class="text-red-500">*</span>
+                        </label>
+                        <mat-form-field appearance="outline" class="w-full">
+                            <input matInput type="text" placeholder="HH:mm" formControlName="worked_hours"
+                                maxlength="5">
+                        </mat-form-field>
+                        <mat-error *ngIf="rf.worked_hours?.hasError('required')">
+                            Worked hours is required
+                        </mat-error>
+                        <mat-error *ngIf="rf.worked_hours?.hasError('zeroWorkedHours')">
+                            Worked hours must be greater than 00:00
+                        </mat-error>
+                    </div> -->
 
                     <!-- Department -->
                     <div>
@@ -166,9 +206,18 @@
                         <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
                             <mat-select formControlName="department" placeholder="Select Department"
                                 (selectionChange)="onDepartmentChange()">
-                                <mat-option *ngFor="let dept of departments" [value]="dept.id">
-                                    {{dept.department_name}}
-                                </mat-option>
+                                <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100">
+                                    <div class="relative">
+                                        <mat-icon
+                                            class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm !w-4 !h-4"
+                                            style="font-size: 16px;">search</mat-icon>
+                                        <input [formControl]="departmentFilterControl"
+                                            class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                            placeholder="Search departments..." (keydown)="$event.stopPropagation()">
+                                    </div>
+                                </div>
+                                <mat-option *ngFor="let d of filteredDepartmentList" [value]="d.id">{{
+                                    d.department_name}}</mat-option>
                             </mat-select>
                             <mat-error *ngIf="rf.department?.invalid">Department is required</mat-error>
                         </mat-form-field>
@@ -179,15 +228,29 @@
                         <label class="block text-sm font-medium text-slate-700 mb-1">
                             Select Employee <span class="text-red-500">*</span>
                         </label>
-                        <mat-form-field appearance="outline" class="w-full">
-                            <input matInput formControlName="employeeName" placeholder="Select Employee"
-                                [matAutocomplete]="empAuto" (input)="filterEmployees($event)">
-                            <mat-autocomplete #empAuto="matAutocomplete" (optionSelected)="selectEmployee($event)">
-                                <mat-option *ngFor="let emp of filteredEmployees" [value]="emp">
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select formControlName="assigned_to" placeholder="Select Employee"
+                                (selectionChange)="onEmployeeSelectionChange($event.value)"
+                                (openedChange)="onEmployeeOpenedChange($event)">
+
+                                <!-- Sticky Search Input Header -->
+                                <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100"
+                                    (click)="$event.stopPropagation()">
+                                    <div class="relative">
+                                        <mat-icon
+                                            class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm !w-4 !h-4"
+                                            style="font-size: 16px;">search</mat-icon>
+                                        <input [formControl]="employeeFilterControl"
+                                            class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                            placeholder="Search employee..." (keydown)="$event.stopPropagation()">
+                                    </div>
+                                </div>
+
+                                <mat-option *ngFor="let emp of filteredEmployees" [value]="emp.id">
                                     {{ emp.employee_name }}
                                 </mat-option>
-                            </mat-autocomplete>
-                            <mat-error *ngIf="rf.employeeName?.invalid">Employee is required</mat-error>
+                            </mat-select>
+                            <mat-error *ngIf="rf.assigned_to?.invalid">Employee is required</mat-error>
                         </mat-form-field>
                     </div>
 
@@ -233,7 +296,7 @@
     <!-- Footer -->
     <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
         <button mat-stroked-button color="warn" (click)="onCancel()">Cancel</button>
-        <button mat-flat-button color="primary" [disabled]="assignForm.invalid" (click)="onSubmit()">
+        <button mat-flat-button color="primary" (click)="onSubmit()">
             {{ isEditMode ? 'Update' : 'Assign' }}
         </button>
     </div>

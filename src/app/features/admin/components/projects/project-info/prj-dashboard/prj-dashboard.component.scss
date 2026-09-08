@@ -1,3 +1,155 @@
+.project-dashboard {
+    color: var(--text-main);
+}
+
+.dashboard-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.applied-range {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    min-width: 0;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.applied-range strong {
+    overflow: hidden;
+    color: var(--text-main);
+    font-size: 0.8125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.custom-filter-container {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.preset-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid var(--border-card);
+    border-radius: 0.75rem;
+    background: var(--bg-card);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.preset-button {
+    padding: 0.375rem 0.75rem;
+    border: 0;
+    border-radius: 0.5rem;
+    color: var(--text-muted);
+    background: transparent;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.preset-button:hover {
+    color: var(--text-active);
+    background: var(--bg-active);
+}
+
+.preset-button--active,
+.preset-button--active:hover {
+    color: var(--text-on-active);
+    background: var(--text-active);
+    box-shadow: 0 2px 7px color-mix(in srgb, var(--text-active) 24%, transparent);
+}
+
+.custom-filter-popup {
+    position: absolute;
+    z-index: 50;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    display: flex;
+    width: 20rem;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--overlay-border);
+    border-radius: 1rem;
+    background: var(--overlay-bg);
+    box-shadow: var(--shadow-card);
+}
+
+.apply-filter-button {
+    width: 100%;
+    padding: 0.5rem 1rem;
+    border: 0;
+    border-radius: 0.5rem;
+    color: var(--text-on-active);
+    background: var(--text-active);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+.apply-filter-button:hover:not(:disabled) {
+    opacity: 0.92;
+}
+
+.apply-filter-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.dashboard-state {
+    display: flex;
+    min-height: 19rem;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.75rem;
+    border: 1px solid var(--border-card);
+    border-radius: 0.75rem;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    text-align: center;
+}
+
+.dashboard-state--error {
+    padding: 1.5rem;
+}
+
+.dashboard-state--error>i {
+    color: var(--danger);
+    font-size: 2rem;
+}
+
+.dashboard-state--error strong {
+    color: var(--text-main);
+}
+
+.dashboard-state--error button {
+    padding: 0.45rem 1rem;
+    border: 1px solid color-mix(in srgb, var(--text-active) 35%, var(--border-card));
+    border-radius: 0.5rem;
+    color: var(--text-active);
+    background: var(--bg-active);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+:host ::ng-deep .dashboard-state .mat-mdc-progress-spinner {
+    --mdc-circular-progress-active-indicator-color: var(--text-active);
+}
+
 /* --- Section Dividers --- */
 .dsb-section-divider {
     display: flex;
@@ -50,4 +202,30 @@
 
 .bg-blue {
     background-color: var(--text-active);
+}
+
+@media (max-width: 700px) {
+    .dashboard-filter-bar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .custom-filter-container,
+    .preset-buttons {
+        width: 100%;
+    }
+
+    .preset-buttons {
+        overflow-x: auto;
+    }
+
+    .preset-button {
+        flex: 1 0 auto;
+    }
+
+    .custom-filter-popup {
+        right: auto;
+        left: 0;
+        width: min(20rem, 100%);
+    }
 }

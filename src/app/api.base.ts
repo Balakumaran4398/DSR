@@ -2,7 +2,8 @@ export class URL {
 
     static CURRENT_VERSION(): String {
         // return "v1.0.8"
-        return "v-1.8.1"
+        // return "v-1.8.1"
+        return "v-1.8.4"
     }
 
     static RELEASE_DATE(): String {

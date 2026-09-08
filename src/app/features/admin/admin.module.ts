@@ -1,5 +1,6 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DatePipe } from '@angular/common';
 
 import { AdminRoutingModule } from './admin-routing.module';
 import { DashboardComponent } from './components/dashboard/dashboard.component';
@@ -35,6 +36,7 @@ import { HardwareComponent } from './components/hardware/hardware.component';
 import { NotSendDsrComponent } from './components/projects/project-info/_core/not-send-dsr/not-send-dsr.component';
 import { MyProfileComponent } from './components/my-profile/my-profile.component';
 import { SkillDialogComponent } from './components/my-profile/skill-dialog/skill-dialog.component';
+import { ProfileEditDialogComponent } from './components/my-profile/profile-edit-dialog/profile-edit-dialog.component';
 import { MomComponent } from './components/projects/project-info/mom/mom.component';
 import { HierarchyComponent } from './components/hierarchy/hierarchy.component';
 import { OverviewTaskViewDialogComponent } from './components/overview/overview-task/overview-task-view-dialog/overview-task-view-dialog.component';
@@ -45,6 +47,12 @@ import { TicketInfoComponent } from './components/Tickets/ticket-info/ticket-inf
 import { TicketsComponent } from './components/Tickets/tickets/tickets.component';
 import { ClientsComponent } from './components/Tickets/clients/clients.component';
 import { ProductsComponent } from './components/Tickets/products/products.component';
+import { HomeComponent } from './components/home/home.component';
+import { OverallComponent } from './components/overall/overall.component';
+import { OverallDetailsDialogComponent } from './components/overall/overall-details-dialog/overall-details-dialog.component';
+import { OverallPerformanceReportComponent } from './components/overview/overall-performance-report/overall-performance-report.component';
+import { PerformanceComponent } from './components/performance/performance.component';
+import { GoogleSheetComponent } from './components/google-sheet/google-sheet.component';
 @NgModule({
   declarations: [
     DashboardComponent,
@@ -78,6 +86,7 @@ import { ProductsComponent } from './components/Tickets/products/products.compon
     NotSendDsrComponent,
     MyProfileComponent,
     SkillDialogComponent,
+    ProfileEditDialogComponent,
     MomComponent,
     HierarchyComponent,
     OverviewTaskViewDialogComponent,
@@ -88,6 +97,12 @@ import { ProductsComponent } from './components/Tickets/products/products.compon
     TicketsComponent,
     ClientsComponent,
     ProductsComponent,
+    HomeComponent,
+    OverallComponent,
+    OverallDetailsDialogComponent,
+    OverallPerformanceReportComponent,
+    PerformanceComponent,
+    GoogleSheetComponent,
 
   ],
   imports: [

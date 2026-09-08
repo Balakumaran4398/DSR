@@ -22,6 +22,11 @@
             <div class="nav-item" [class.active]="currentView === 'forgot'" (click)="switchView('forgot')">
                 <i class="ri-key-2-line"></i> <span>Forgot Password</span>
             </div>
+            <button type="button" class="theme-toggle"
+                [attr.aria-label]="(isDarkMode$ | async) ? 'Switch to light mode' : 'Switch to dark mode'"
+                (click)="toggleDarkMode()">
+                <i [class]="(isDarkMode$ | async) ? 'ri-sun-line' : 'ri-moon-line'"></i>
+            </button>
         </div>
     </nav>
 
@@ -116,7 +121,15 @@
                             <span class="forgot-link" (click)="switchView('forgot')">Forgot password?</span>
                         </div>
 
-                        <button type="submit" class="btn-primary">Sign In</button>
+                        <button type="submit" class="btn-primary" [disabled]="loginSubmitting">
+                            <ng-container *ngIf="!loginSubmitting; else loginSubmittingLabel">
+                                Sign In
+                            </ng-container>
+                            <ng-template #loginSubmittingLabel>
+                                <i class="ri-loader-4-line auth-button-spinner"></i>
+                                Signing In
+                            </ng-template>
+                        </button>
                     </form>
                 </div>
 

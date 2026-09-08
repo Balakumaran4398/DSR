@@ -1,0 +1,36 @@
+.drawer-backdrop {
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.drawer-shell {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-left: 1px solid var(--border-card);
+  box-shadow: -24px 0 56px rgba(15, 23, 42, 0.18);
+}
+
+.drawer-header {
+  min-height: 3.25rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-card);
+}
+
+.drawer-body {
+  background: var(--bg-body);
+}
+
+.drawer-close-btn {
+  color: var(--text-muted);
+}
+
+.drawer-close-btn:hover {
+  color: var(--text-active);
+}
+
+:host-context(.dark-mode) .drawer-backdrop {
+  background: rgba(2, 6, 23, 0.62);
+}
+
+:host-context(.dark-mode) .drawer-shell {
+  box-shadow: -28px 0 60px rgba(0, 0, 0, 0.42);
+}

@@ -2,7 +2,7 @@ import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } fro
 import { FormControl } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
-import { filter, map, min, Observable, startWith } from 'rxjs';
+import { filter, finalize, map, min, Observable, startWith } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { PdfService } from 'src/app/_core/services/pdf.service';
@@ -59,6 +59,8 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
   private isRestoringTableState = false;
   private suppressInitialRangeFetch = false;
   private pendingTableRedraw: number | null = null;
+  private taskTableLoadRunId = 0;
+  private taskPdfPreviewLoadRunId = 0;
   hasViewedPdf = false;
   private previewedOverviewPdfRequest: {
     filters: any;
@@ -74,6 +76,10 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
   initialEndDate: string | null = null;
   selectedEmployeeName = '';
   kanbanInitialized = false;
+  tableLoading = false;
+  pdfPreviewLoading = false;
+  pdfDownloadLoading = false;
+  updatingTaskId: number | null = null;
   constructor(private authService: AuthService, private route: ActivatedRoute, private router: Router, private toasterService: ToasterService, private storageService: StorageService, private drawerService: DrawerService, private transientViewStateService: TransientViewStateService, private pdfService: PdfService, private dialog: MatDialog) {
     this.empid = this.storageService.getEmpId();
     this.restoreViewState();
@@ -109,6 +115,9 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
     }
 
     this.currentView = id;
+    console.log("hi from setActiveTab");
+    
+    sessionStorage.setItem('currentView',id);
     this.saveViewState();
 
     if (id === 'table') {
@@ -118,6 +127,10 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
 
   getTaskOverviewByEmp(callback?: (data: any[]) => void) {
     if (this.destroyed) return;
+    const isPreviewRequest = !!callback;
+    const loadRunId = isPreviewRequest
+      ? ++this.taskPdfPreviewLoadRunId
+      : ++this.taskTableLoadRunId;
     const payload = {
       employee_id: this.empid,
       selected_emp_id: this.selected_emp_id,
@@ -125,37 +138,87 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
       todate: this.endDate
     };
 
-    this.authService.getTaskOverviewByEmp(payload).subscribe((res: any) => {
-      const normalized = Array.isArray(res) ? res : res ? [res] : [];
-      this.tableData = normalized;
+    if (isPreviewRequest) {
+      this.pdfPreviewLoading = true;
+    } else {
+      this.tableLoading = true;
+      this.setTableInlineLoading(true, 'Loading time logs...');
+    }
 
-      if (this.table) {
-        this.safeReplaceData(this.table, this.tableData);
-        this.applySearchFilter();
-      }
-      if (!callback) {
-        this.resetPdfPreviewState();
-      }
-      this.saveViewState();
-      callback?.(normalized);
-    });
+    this.authService.getTaskOverviewByEmp(payload)
+      .pipe(finalize(() => {
+        if (isPreviewRequest) {
+          if (loadRunId === this.taskPdfPreviewLoadRunId) {
+            this.pdfPreviewLoading = false;
+          }
+          return;
+        }
+
+        if (loadRunId === this.taskTableLoadRunId) {
+          this.tableLoading = false;
+          this.setTableInlineLoading(false);
+        }
+      }))
+      .subscribe({
+        next: (res: any) => {
+          if (!isPreviewRequest && loadRunId !== this.taskTableLoadRunId) {
+            return;
+          }
+
+          const normalized = Array.isArray(res) ? res : res ? [res] : [];
+          this.tableData = normalized;
+
+          if (this.table) {
+            this.safeReplaceData(this.table, this.tableData);
+            this.applySearchFilter();
+          }
+          if (!callback) {
+            this.resetPdfPreviewState();
+          }
+          this.saveViewState();
+          callback?.(normalized);
+        },
+        error: (err: any) => {
+          if (!isPreviewRequest && loadRunId !== this.taskTableLoadRunId) {
+            return;
+          }
+
+          if (!callback) {
+            this.tableData = [];
+            if (this.table) {
+              this.safeReplaceData(this.table, this.tableData);
+              this.applySearchFilter();
+            }
+          }
+          this.toasterService.error(err?.error?.message || 'Unable to load task overview.');
+        }
+      });
   }
 
   generateOverviewPdf() {
-    if (!this.previewedOverviewPdfRequest) {
+    if (!this.previewedOverviewPdfRequest || this.pdfDownloadLoading) {
       return;
     }
 
-    this.pdfService.generateOverviewPDF(
-      this.previewedOverviewPdfRequest.filters,
-      this.previewedOverviewPdfRequest.startDate,
-      this.previewedOverviewPdfRequest.endDate,
-      this.previewedOverviewPdfRequest.data,
-      'download'
-    );
+    this.pdfDownloadLoading = true;
+    setTimeout(() => {
+      try {
+        this.pdfService.generateOverviewPDF(
+          this.previewedOverviewPdfRequest!.filters,
+          this.previewedOverviewPdfRequest!.startDate,
+          this.previewedOverviewPdfRequest!.endDate,
+          this.previewedOverviewPdfRequest!.data,
+          'download'
+        );
+      } finally {
+        this.pdfDownloadLoading = false;
+      }
+    }, 0);
   }
 
   previewOverviewPdf() {
+    if (this.pdfPreviewLoading) return;
+
     this.getTaskOverviewByEmp((data: any[]) => {
       const request = {
         filters: {
@@ -217,6 +280,7 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
     }
 
     const tableToDestroy = this.table;
+    this.setTableInlineLoading(false);
     this.table = null;
 
     this.resolveTableBuilt?.();
@@ -246,9 +310,11 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
         }
       });
     }
+    const freezeColumns = !this.isCompactViewport();
     this.table = new Tabulator(tableDiv, {
       data: this.tableData,
-      layout: "fitData",
+      layout: "fitDataStretch",
+      responsiveLayout: false,
       pagination: "local",
       paginationSize: 10,
       paginationCounter: "rows",
@@ -272,9 +338,10 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
         {
           title: "Task Name",
           field: "task",
-          widthGrow: 2,
-          minWidth: 200,
-          frozen: true, // Freeze the Project column
+          width: 500,
+          widthGrow: 0.8,
+          minWidth: 380,
+          frozen: freezeColumns, // Freeze the Project column on desktop only
           editor: "textarea",
           formatter: (cell: any) => {
             const data = cell.getData();
@@ -377,21 +444,9 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
           },
           formatter: (cell: any) => {
             const val = this.getStatusDisplayValue(cell.getValue());
-
-            // Simple color logic
-            let colorClass = "bg-gray-100 text-gray-700";
-            if (["Active", "On-Track", "Approved", "Completed", "Invoiced", "Open"].includes(val)) {
-              colorClass = "bg-emerald-100 text-emerald-700";
-            } else if (["In-Progress", "In-Review", "In-Testing", "Planning"].includes(val)) {
-              colorClass = "bg-blue-100 text-blue-700";
-            } else if (["On-Hold", "To-be-Tested"].includes(val)) {
-              colorClass = "bg-amber-100 text-amber-700";
-            } else if (["Delayed", "Cancelled", "Rejected", "Closed"].includes(val)) {
-              colorClass = "bg-red-100 text-red-700";
-            }
-
+            const safeValue = this.escapeHtml(val);
             return val
-              ? `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}">${this.escapeHtml(val)}</span>`
+              ? `<span class="overview-status-pill ${this.getOverviewStatusPillClass(val)}" title="${safeValue}">${safeValue}</span>`
               : '';
           }
         },
@@ -506,13 +561,17 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
           width: 100,
           hozAlign: "center",
           headerSort: false,
-          frozen: true,
-          formatter: this.actionFormatter,
+          frozen: freezeColumns,
+          formatter: (cell: any) => this.actionFormatter(cell),
           cellClick: (e: any, cell: any) => this.handleActionClick(e, cell),
           cssClass: "sticky-col-right",
         }
       ],
     });
+
+    if (this.tableLoading) {
+      this.setTableInlineLoading(true, 'Loading time logs...');
+    }
 
 
     try {
@@ -559,12 +618,16 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
 
 
   actionFormatter(cell: any) {
+    const data = cell.getData?.() ?? {};
+    const taskId = Number(data?.id);
+    const isUpdating = this.updatingTaskId === taskId;
+
     return `
       <div class="flex items-center justify-center gap-3 w-full h-full">
-        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit">
-          <i class="ri-pencil-line text-lg pointer-events-none"></i>
+        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit ${isUpdating ? 'tabulator-action-button--loading' : ''}" title="${isUpdating ? 'Updating...' : 'Edit'}" ${isUpdating ? 'disabled' : ''}>
+          <i class="${isUpdating ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-pencil-line text-lg'} pointer-events-none"></i>
         </button>
-        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete" title="Delete">
+        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete" title="Delete" ${isUpdating ? 'disabled' : ''}>
           <i class="ri-delete-bin-line text-lg pointer-events-none"></i>
         </button>
       </div>
@@ -575,6 +638,7 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
     e.stopPropagation();
     const target = e.target.closest('button');
     if (!target) return;
+    if (target.disabled) return;
 
     const row = cell.getRow();
     const data = row.getData();
@@ -751,7 +815,14 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
   }
   updateTask(selectTask: any) {
     selectTask.username = this.storageService.getUsername();
-    this.authService.updateTask(selectTask).subscribe({
+    this.updatingTaskId = Number(selectTask?.id);
+    this.refreshVisibleRows();
+    this.authService.updateTask(selectTask)
+      .pipe(finalize(() => {
+        this.updatingTaskId = null;
+        this.refreshVisibleRows();
+      }))
+      .subscribe({
       next: ((res: any) => {
         this.toasterService.success(res?.message);
         this.getTaskOverviewByEmp()
@@ -760,6 +831,14 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
         this.toasterService.error(err?.error?.message);
       }
     })
+  }
+
+  private refreshVisibleRows(): void {
+    try {
+      this.table?.redraw?.(true);
+    } catch {
+      // ignore redraw timing during table rebuilds
+    }
   }
 
   onRangeChange(event: { startDate: Date; endDate: Date }) {
@@ -920,6 +999,27 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
       .replace(/'/g, '&#39;');
   }
 
+  private isCompactViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  private getOverviewStatusPillClass(status: string): string {
+    const normalized = `${status ?? ''}`.trim().toLowerCase();
+    if (['active', 'on-track', 'approved', 'completed', 'invoiced', 'open', 'pass', 'passed'].includes(normalized)) {
+      return 'overview-status--success';
+    }
+    if (['in-progress', 'in-review', 'in-testing', 'planning'].includes(normalized)) {
+      return 'overview-status--progress';
+    }
+    if (['on-hold', 'to-be-tested', 'upcoming-release'].includes(normalized)) {
+      return 'overview-status--warning';
+    }
+    if (['delayed', 'cancelled', 'rejected', 'closed', 'failed'].includes(normalized)) {
+      return 'overview-status--danger';
+    }
+    return 'overview-status--muted';
+  }
+
   private buildStatusEditorValues(statuses: any[]): any[] {
     return statuses.map((status: any) => {
       if (!status || typeof status !== 'object') {
@@ -1066,6 +1166,30 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
         // ignore
       }
     }, tableRef);
+  }
+
+  private setTableInlineLoading(loading: boolean, label = 'Loading data...'): void {
+    const host = this.tableDiv?.nativeElement as HTMLElement | undefined;
+    if (!host) return;
+
+    let loader = host.querySelector<HTMLElement>(':scope > .app-table-inline-loader');
+    if (!loading) {
+      loader?.remove();
+      return;
+    }
+
+    if (!loader) {
+      loader = document.createElement('div');
+      loader.className = 'app-table-inline-loader';
+      host.appendChild(loader);
+    }
+
+    loader.innerHTML = `
+      <div class="app-local-loading">
+        <i class="ri-loader-4-line app-spin"></i>
+        <span>${label}</span>
+      </div>
+    `;
   }
 
   private resetTableBuilt(): void {

@@ -1,4 +1,5 @@
 import { DatePipe } from '@angular/common';
+import { ConnectedPosition } from '@angular/cdk/overlay';
 import { AfterViewInit, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 
 @Component({
@@ -25,6 +26,29 @@ export class DateRangeFilterComponent implements AfterViewInit, OnChanges {
   tempStart: Date = new Date();
   tempEnd: Date = new Date();
   private isViewInitialized = false;
+  overlayPositions: ConnectedPosition[] = [
+    {
+      originX: 'end',
+      originY: 'bottom',
+      overlayX: 'end',
+      overlayY: 'top',
+      offsetY: 8
+    },
+    {
+      originX: 'start',
+      originY: 'bottom',
+      overlayX: 'start',
+      overlayY: 'top',
+      offsetY: 8
+    },
+    {
+      originX: 'end',
+      originY: 'top',
+      overlayX: 'end',
+      overlayY: 'bottom',
+      offsetY: -8
+    }
+  ];
 
   /* Configuration */
   presets = [
@@ -47,7 +71,7 @@ export class DateRangeFilterComponent implements AfterViewInit, OnChanges {
   ngAfterViewInit(): void {
     this.isViewInitialized = true;
     this.applyInitialRange();
-    this.emitRange()
+    this.emitRange();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -143,21 +167,36 @@ export class DateRangeFilterComponent implements AfterViewInit, OnChanges {
     }
   }
 
+  closeDropdown(): void {
+    this.isOpen = false;
+  }
+
   updateTempDate(type: 'start' | 'end', dateStr: string) {
     if (!dateStr) return;
-    const date = new Date(dateStr);
+    const date = this.parseInputDate(dateStr);
+    if (!date) return;
 
     if (type === 'start') this.tempStart = date;
     else this.tempEnd = date;
   }
 
   applyCustomRange() {
-    this.startDate = new Date(this.tempStart);
-    this.endDate = new Date(this.tempEnd);
+    const { start, end } = this.normalizeRangeOrder(this.tempStart, this.tempEnd);
+    this.startDate = start;
+    this.endDate = end;
     this.activePreset = 'Custom';
     this.isOpen = false;
 
     this.emitRange(); // ✅ emit
+  }
+
+  private normalizeRangeOrder(startDate: Date, endDate: Date): { start: Date; end: Date } {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    return start <= end
+      ? { start, end }
+      : { start: end, end: start };
   }
 
   applyPreset(preset: any) {

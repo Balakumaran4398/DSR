@@ -2,14 +2,14 @@
   <div class="profile-orb profile-orb-one"></div>
   <div class="profile-orb profile-orb-two"></div>
 
-  <div *ngIf="loading" class="profile-loading">
+  <div *ngIf="profileLoading" class="profile-loading">
     <div class="profile-loading__card"></div>
     <div class="profile-loading__grid">
       <div class="profile-loading__tile" *ngFor="let item of [1, 2, 3, 4]"></div>
     </div>
   </div>
 
-  <ng-container *ngIf="!loading">
+  <ng-container *ngIf="!profileLoading">
     <div *ngIf="!loadFailed && profile; else emptyState" class="profile-layout">
       <section class="profile-content-grid">
         <article class="profile-card profile-card--spotlight">
@@ -18,6 +18,18 @@
               <span class="profile-card__eyebrow">Work Details</span>
               <h2>Professional Information</h2>
             </div>
+            <button type="button"
+              class="inline-flex items-center justify-center
+                   w-full sm:w-auto
+                   px-4 py-1 text-sm font-medium
+                   rounded-lg shadow-sm text-white
+                   bg-[var(--text-active)]
+                   hover:opacity-90 hover:shadow-md
+                   active:scale-95
+                   transition-all" (click)="openProfileEditDialog()">
+              <i class="ri-edit-2-line mr-2 text-lg"></i>
+              Edit Profile
+            </button>
           </div>
           <div class="profile-intro">
             <div class="profile-intro__glow"></div>
@@ -150,8 +162,8 @@
                         <button type="button" class="profile-skill-row__action-btn" (click)="openSkillDialog(skill)" aria-label="Edit skill">
                           <i class="ri-edit-line"></i>
                         </button>
-                        <button type="button" class="profile-skill-row__action-btn profile-skill-row__action-btn--danger" (click)="removeSkill(skill)" aria-label="Delete skill">
-                          <i class="ri-delete-bin-line"></i>
+                        <button type="button" class="profile-skill-row__action-btn profile-skill-row__action-btn--danger" [disabled]="deletingSkillId === skill.id" (click)="removeSkill(skill)" aria-label="Delete skill">
+                          <i [class]="deletingSkillId === skill.id ? 'ri-loader-4-line profile-action-spinner' : 'ri-delete-bin-line'"></i>
                         </button>
                       </div>
                     </div>

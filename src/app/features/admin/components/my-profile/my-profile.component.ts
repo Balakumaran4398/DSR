@@ -1,9 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
+import { finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { SkillDialogComponent, SkillDialogPayload, SkillDialogResult } from './skill-dialog/skill-dialog.component';
+import { ProfileEditDialogComponent, ProfileEditDialogResult } from './profile-edit-dialog/profile-edit-dialog.component';
 import Swal from 'sweetalert2';
 
 interface ProfileHighlight {
@@ -41,8 +43,10 @@ export class MyProfileComponent implements OnInit {
   empid: any = 0;
   username: any;
   profile: any = null;
-  loading = true;
+  profileLoading = true;
   loadFailed = false;
+  savingProfile = false;
+  deletingSkillId: number | null = null;
   skillDetails: ProfileSkillDetail[] = [];
 
   constructor(
@@ -56,29 +60,32 @@ export class MyProfileComponent implements OnInit {
     this.empid = this.storageService.getEmpId();
     this.username = this.storageService.getUsername();
     console.log(this.username);
+    console.log("Position = ",this.storageService.getDesignation());
     
     this.loadProfile();
   }
 
   loadProfile(): void {
     if (!this.empid) {
-      this.loading = false;
+      this.profileLoading = false;
       this.loadFailed = true;
       return;
     }
 
-    this.loading = true;
+    this.profileLoading = true;
     this.loadFailed = false;
 
-    this.authService.getemployeedetails(this.username).subscribe({
+    this.authService.getemployeedetails(this.username).pipe(
+      finalize(() => {
+        this.profileLoading = false;
+      })
+    ).subscribe({
       next: (res: any) => {
         this.profile = this.extractCurrentUser(res);
         this.skillDetails = this.buildSkillDetails(this.profile);
-        this.loading = false;
         this.loadFailed = !this.profile;
       },
       error: (err: any) => {
-        this.loading = false;
         this.loadFailed = true;
         this.toasterService.error(err?.error?.message || 'Unable to load profile details right now.');
       }
@@ -145,7 +152,7 @@ export class MyProfileComponent implements OnInit {
     return [
       // { label: 'Designation', value: this.profile?.position, icon: 'ri-briefcase-4-line' },
       // { label: 'Department', value: this.profile?.department_name, icon: 'ri-building-2-line' },
-      { label: 'Role', value: this.profile?.role, icon: 'ri-shield-user-line' },
+      { label: 'Role', value: this.storageService.getRoleNames()[0], icon: 'ri-shield-user-line' },
       // { label: 'Shift', value: this.profile?.shift_type, icon: 'ri-time-line' },
       // { label: 'Reference No', value: this.profile?.reference_no, icon: 'ri-price-tag-3-line', mono: true },
       { label: 'Attendance ID', value: this.profile?.attendanceid, icon: 'ri-id-card-line', mono: true }
@@ -235,6 +242,48 @@ export class MyProfileComponent implements OnInit {
     return `${item.id || index}-${item.name}-${item.category}`;
   }
 
+  openProfileEditDialog(): void {
+    if (!this.profile) {
+      return;
+    }
+
+    const dialogRef = this.dialog.open(ProfileEditDialogComponent, {
+      width: '100%',
+      maxWidth: '42rem',
+      panelClass: 'profile-edit-dialog-panel',
+      autoFocus: false,
+      data: { profile: this.profile }
+    });
+
+    dialogRef.afterClosed().subscribe((result: ProfileEditDialogResult | undefined) => {
+      if (result?.saved && result.payload) {
+        this.saveProfile(result.payload);
+      }
+    });
+  }
+
+  saveProfile(payload: any): void {
+    if (!payload || this.savingProfile) {
+      return;
+    }
+
+    this.savingProfile = true;
+    this.authService.updateUser(payload).pipe(
+      finalize(() => {
+        this.savingProfile = false;
+      })
+    ).subscribe({
+      next: (res: any) => {
+        this.toasterService.success(res?.message || 'Profile updated successfully.');
+        this.storageService.updateUser(payload);
+        this.loadProfile();
+      },
+      error: (err: any) => {
+        this.toasterService.error(err?.error?.message || 'Unable to update profile right now.');
+      }
+    });
+  }
+
   openSkillDialog(skill?: ProfileSkillDetail): void {
     const dialogRef = this.dialog.open(SkillDialogComponent, {
       width: '100%',
@@ -274,7 +323,12 @@ export class MyProfileComponent implements OnInit {
         return;
       }
 
-      this.authService.deleteSkill(payload).subscribe({
+      this.deletingSkillId = skill.id;
+      this.authService.deleteSkill(payload).pipe(
+        finalize(() => {
+          this.deletingSkillId = null;
+        })
+      ).subscribe({
         next: (res: any) => {
           this.toasterService.success(res?.message || `${skill.name} deleted successfully.`);
           this.loadProfile();

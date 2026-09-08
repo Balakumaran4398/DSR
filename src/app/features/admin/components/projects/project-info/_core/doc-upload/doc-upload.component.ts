@@ -81,6 +81,8 @@ export class DocUploadComponent {
   }
 
   onSubmit() {
+    if (this.isSubmitting) return;
+
     if (this.uploadForm.invalid) {
       this.uploadForm.markAllAsTouched();
       return;

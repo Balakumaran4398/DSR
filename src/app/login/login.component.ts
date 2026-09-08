@@ -1,8 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
+import { ThemeService } from 'src/app/_core/services/theme.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { URL } from 'src/app/api.base';
 
@@ -16,11 +18,12 @@ export class LoginComponent
   VERSION = URL.CURRENT_VERSION();
   RELEASE = URL.RELEASE_DATE()
   today = new Date();
+  isDarkMode$ = this.themeService.isDarkMode$;
   // State Management
   currentView: 'login' | 'register' | 'forgot' = 'login';
-  isDarkMode = false;
   showPassword = false;
   showRegPassword = false;
+  loginSubmitting = false;
   // Reactive Forms
   loginForm!: FormGroup;
   registerForm!: FormGroup;
@@ -32,6 +35,7 @@ export class LoginComponent
     private fb: FormBuilder,
     private storageService: StorageService,
     private authService: AuthService,
+    private themeService: ThemeService,
     private toaster: ToasterService
   ) { }
 
@@ -40,7 +44,8 @@ export class LoginComponent
     this.autoFillRemembered();
 
     if (this.storageService.isLoggedIn()) {
-      this.router.navigate(['/main/dashboard']);
+      sessionStorage.setItem('dsr-active-link', 'overall');
+      this.router.navigate(['/main/overall']);
     }
   }
 
@@ -69,8 +74,7 @@ export class LoginComponent
   }
 
   toggleDarkMode(): void {
-    // this.layoutService.toggleTheme();
-    this.isDarkMode = !this.isDarkMode;
+    this.themeService.toggleDarkMode();
   }
 
   // Toggle Login Password Visibility
@@ -110,12 +114,21 @@ export class LoginComponent
     // LOGIN BLOCK
     // -----------------------------
     if (action === 'Login') {
+      if (this.loginSubmitting) {
+        return;
+      }
+
       const payload = this.loginForm.value;
       const user = {
         username: this.loginForm.get("email")?.value,
         password: this.loginForm.get("password")?.value
       }
-      this.authService.signin(user).subscribe({
+      this.loginSubmitting = true;
+      this.authService.signin(user).pipe(
+        finalize(() => {
+          this.loginSubmitting = false;
+        })
+      ).subscribe({
         next: (res: any) => {
           // Save token
           this.storageService.setToken(res.token);
@@ -123,6 +136,7 @@ export class LoginComponent
           this.storageService.setUser(res);
           this.storageService.setUsername(user.username)
           this.storageService.setDept(res.department)
+          this.authService.loadNotificationCount();
           
           // Handle Remember Me
           if (this.loginForm.value.rememberme) {
@@ -134,9 +148,8 @@ export class LoginComponent
           }
           // Redirect
           this.toaster.success('You have logged in successfully', 'Success!');
-          this.router.navigate(['/main/dashboard']).then(() => {
-            window.location.reload();
-          });
+          sessionStorage.setItem('dsr-active-link', 'overall');
+          this.router.navigate(['/main/overall']);
         },
         error: (err) => {
           console.error(err);
@@ -206,11 +219,4 @@ export class LoginComponent
       });
     }
   }
-
-
-
-
-
-
-
 }

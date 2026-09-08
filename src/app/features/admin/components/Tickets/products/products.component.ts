@@ -2,7 +2,7 @@ import { Component, ElementRef, ViewChild } from '@angular/core';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { AuthService } from 'src/app/_core/services/auth.service';
-import { Subject, takeUntil } from 'rxjs';
+import { finalize, Subject, Subscription, takeUntil } from 'rxjs';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
 import Swal from 'sweetalert2';
 import { ToastrService } from 'ngx-toastr';
@@ -19,11 +19,16 @@ export class ProductsComponent {
   @ViewChild('tableDiv') tableDiv!: ElementRef;
   private table: any;
   private destroy$ = new Subject<void>();
+  private productRequest?: Subscription;
+  private productRequestVersion = 0;
+  private tableInitTimer?: ReturnType<typeof setTimeout>;
   products: any[] = [];
   selectedCount = 0;
   showBar = false;
   showMoveMenu = false;
   searchTerm: any = '';
+  productsLoading = false;
+  deletingProductId: number | null = null;
 
   constructor(
     private storageService: StorageService,
@@ -60,27 +65,78 @@ export class ProductsComponent {
   }
 
   getAllProducts() {
-    this.authService.getAllProducts().subscribe({
-      next: (res: any) => {
-        this.products = this.normalizeProductsResponse(res);
-        console.log(this.products);
+    const requestVersion = ++this.productRequestVersion;
+    this.productRequest?.unsubscribe();
 
-        if (this.table) {
-          this.table.setData(this.products);
-          return;
+    this.productsLoading = true;
+    this.productRequest = this.authService.getAllProducts()
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          if (requestVersion === this.productRequestVersion) {
+            this.productsLoading = false;
+            this.productRequest = undefined;
+          }
+        })
+      )
+      .subscribe({
+        next: (res: any) => {
+          if (requestVersion !== this.productRequestVersion) return;
+
+          this.products = this.normalizeProductsResponse(res);
+          this.renderTable();
+        },
+        error: (err: any) => {
+          if (requestVersion !== this.productRequestVersion) return;
+
+          this.products = [];
+          this.renderTable();
+          console.log('getAllProductsError', err);
+        },
+        complete: () => {
+          if (requestVersion === this.productRequestVersion) {
+            this.productRequest = undefined;
+          }
         }
+      });
+  }
 
-        setTimeout(() => {
-          this.initializeTable();
-        }, 100);
-      },
-      error: (err: any) => {
-        console.log('getAllProductsError', err);
-      }
-    });
+  ngOnDestroy(): void {
+    this.productRequest?.unsubscribe();
+    if (this.tableInitTimer) {
+      clearTimeout(this.tableInitTimer);
+    }
+    if (this.table) {
+      this.table.destroy();
+    }
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private renderTable(): void {
+    if (!this.tableDiv?.nativeElement) {
+      return;
+    }
+
+    if (this.table) {
+      this.table.setData(this.products);
+      this.table.redraw(true);
+      return;
+    }
+
+    if (this.tableInitTimer) {
+      clearTimeout(this.tableInitTimer);
+    }
+
+    this.tableInitTimer = setTimeout(() => {
+      this.initializeTable();
+    }, 100);
   }
 
   initializeTable() {
+    if (this.table) {
+      this.table.destroy();
+    }
     this.table = new Tabulator(this.tableDiv.nativeElement, {
       data: this.products,
       layout: "fitColumns",
@@ -195,16 +251,7 @@ export class ProductsComponent {
           hozAlign: "right",
           frozen: true,
           headerSort: false,
-          formatter: () =>
-            `<div class="flex items-center justify-center gap-3 w-full h-full">
-            <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit">
-              <i class="ri-pencil-line text-lg pointer-events-none"></i>
-            </button>
-            <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete" title="Delete">
-              <i class="ri-delete-bin-line text-lg pointer-events-none"></i>
-            </button>
-          </div>
-        `,
+          formatter: (cell: any) => this.actionFormatter(cell),
           cellClick: (e: any, cell: any) =>
             this.handleActionClick(e, cell),
           cssClass: "sticky-col-right"
@@ -226,6 +273,7 @@ export class ProductsComponent {
       }
     );
   }
+
   handleActionClick(e: any, cell: any) {
     if (this.storageService.roles.isEmployee) {
       return
@@ -233,6 +281,7 @@ export class ProductsComponent {
     e.stopPropagation();
     const target = e.target.closest('button');
     if (!target) return;
+    if (target.disabled) return;
 
     const row = cell.getRow();
     const data = row.getData();
@@ -251,7 +300,14 @@ export class ProductsComponent {
         confirmButtonText: "Yes, delete it!"
       }).then((result: any) => {
         if (result.isConfirmed) {
-          this.authService.deleteProduct(data.id).subscribe({
+          this.deletingProductId = Number(data.id);
+          this.refreshTableActions();
+          this.authService.deleteProduct(data.id)
+            .pipe(finalize(() => {
+              this.deletingProductId = null;
+              this.refreshTableActions();
+            }))
+            .subscribe({
             next: (res: any) => {
               this.toasterService.success(res?.message);
               this.getAllProducts();
@@ -264,6 +320,29 @@ export class ProductsComponent {
           });
         }
       });
+    }
+  }
+
+  actionFormatter(cell: any): string {
+    const data = cell.getData?.() ?? {};
+    const productId = Number(data?.id);
+    const isDeleting = this.deletingProductId === productId;
+
+    return `<div class="flex items-center justify-center gap-3 w-full h-full">
+      <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit" ${isDeleting ? 'disabled' : ''}>
+        <i class="ri-pencil-line text-lg pointer-events-none"></i>
+      </button>
+      <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete ${isDeleting ? 'tabulator-action-button--loading' : ''}" title="${isDeleting ? 'Deleting...' : 'Delete'}" ${isDeleting ? 'disabled' : ''}>
+        <i class="${isDeleting ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-delete-bin-line text-lg'} pointer-events-none"></i>
+      </button>
+    </div>`;
+  }
+
+  private refreshTableActions(): void {
+    try {
+      this.table?.redraw?.(true);
+    } catch {
+      // ignore redraw timing during table rebuilds
     }
   }
 

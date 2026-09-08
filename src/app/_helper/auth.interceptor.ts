@@ -14,6 +14,7 @@ import { StorageService } from '../_core/services/storage.service';
 import { LoaderService } from '../_core/services/loader.service';
 
 const LOADER_SKIP_HEADER = 'X-Skip-Loader';
+const LOADER_SHOW_HEADER = 'X-Show-Loader';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
@@ -25,11 +26,22 @@ export class AuthInterceptor implements HttpInterceptor {
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     const skipLoader = req.headers.has(LOADER_SKIP_HEADER);
-    const cleanedReq = skipLoader
-      ? req.clone({ headers: req.headers.delete(LOADER_SKIP_HEADER) })
-      : req;
+    const showLoader = req.headers.has(LOADER_SHOW_HEADER);
+    let headers = req.headers;
 
-    const shouldShowLoader = !skipLoader && cleanedReq.url.includes('/api/');
+    if (skipLoader) {
+      headers = headers.delete(LOADER_SKIP_HEADER);
+    }
+
+    if (showLoader) {
+      headers = headers.delete(LOADER_SHOW_HEADER);
+    }
+
+    const cleanedReq = headers === req.headers
+      ? req
+      : req.clone({ headers });
+
+    const shouldShowLoader = showLoader && !skipLoader;
     if (shouldShowLoader) this.loader.show();
 
     const token = this.storage.getToken();

@@ -1,0 +1,673 @@
+<section class="overall-analytics">
+  <header class="overall-header">
+    <div class="overall-title">
+      <span class="overall-title__accent"></span>
+      <div>
+        <h1>Dashboard</h1>
+        <p>
+          Company Overview
+          <span></span>
+          Real-time insights across Employees, Tasks, Issues, Releases &amp; Tickets
+        </p>
+      </div>
+    </div>
+  <div class="overall-actions">
+    <div #customDateFilter class="overall-date-filter">
+
+      <!-- Segmented Preset Buttons -->
+      <div class="overall-preset-group">
+        <button type="button" (click)="selectPreset('weekly')"
+          [class.overall-preset-button--active]="selectedPreset === 'weekly'"
+          class="overall-preset-button">
+          Weekly
+        </button>
+
+        <button type="button" (click)="selectPreset('bi-weekly')"
+          [class.overall-preset-button--active]="selectedPreset === 'bi-weekly'"
+          class="overall-preset-button">
+          Bi-Weekly
+        </button>
+
+        <button type="button" (click)="selectPreset('monthly')"
+          [class.overall-preset-button--active]="selectedPreset === 'monthly'"
+          class="overall-preset-button">
+          This Month
+        </button>
+
+         <button type="button" (click)="$event.stopPropagation(); selectPreset('custom')"
+            [class.overall-preset-button--active]="selectedPreset === 'custom'"
+            class="overall-preset-button">
+            Custom
+          </button>
+      </div>
+
+      <!-- Conditional Date Picker & Apply Button Popup (Controlled by isCustomOpen) -->
+       <div *ngIf="isCustomOpen" #customPopup (click)="$event.stopPropagation()"
+        class="overall-custom-date-panel">
+
+          <mat-form-field appearance="outline" class="overall-custom-date-range" subscriptSizing="dynamic">
+            <mat-date-range-input [rangePicker]="picker">
+              <input matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate" />
+              <input matEndDate placeholder="End Date" [(ngModel)]="filterEndDate" />
+            </mat-date-range-input>
+            <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-date-range-picker #picker></mat-date-range-picker>
+          </mat-form-field>
+
+          <div class="overall-custom-date-actions">
+            <button type="button" (click)="applyCustomFilter()" [disabled]="!filterStartDate || !filterEndDate"
+              class="overall-custom-date-apply">
+              Apply Filter
+            </button>
+          </div>
+        </div>
+    </div>
+  </div>
+  </header>
+
+  <div class="overall-metric-grid">
+    <button
+      *ngFor="let metric of metrics; trackBy: trackByLabel"
+      type="button"
+      class="overall-stat-card"
+      [ngClass]="'overall-stat-card--' + metric.tone"
+      [ngStyle]="{ '--metric-color': metric.color, '--metric-soft': metric.softColor }"
+      [class.overall-stat-card--refreshing]="isMetricLoading(metric.dialogType) && metric.numericValue > 0"
+      [attr.aria-busy]="isMetricLoading(metric.dialogType)"
+      [disabled]="isMetricLoading(metric.dialogType) && metric.numericValue === 0"
+      (click)="openMetricDialog(metric.dialogType)">
+      <ng-container *ngIf="!isMetricLoading(metric.dialogType) || metric.numericValue > 0; else metricSkeleton">
+        <div>
+          <span class="overall-stat-card__label">{{ metric.label }}</span>
+          <strong>{{ metric.displayValue || metric.value }}</strong>
+          <!-- <p [class.overall-stat-card__delta--down]="metric.trend === 'down'">
+            <i [class]="metric.trend === 'down' ? 'ri-arrow-down-s-fill' : 'ri-arrow-up-s-fill'"></i>
+            {{ metric.subLabel }}
+          </p> -->
+          <small *ngIf="getMetricError(metric.dialogType)" class="overall-local-error">{{ getMetricError(metric.dialogType) }}</small>
+        </div>
+      </ng-container>
+      <ng-template #metricSkeleton>
+        <div class="overall-card-skeleton">
+          <span></span>
+          <strong></strong>
+          <small></small>
+        </div>
+      </ng-template>
+      <span class="overall-stat-card__icon">
+        <i [class]="isMetricLoading(metric.dialogType) && metric.numericValue > 0 ? 'ri-loader-4-line overall-spin-icon' : metric.icon"></i>
+      </span>
+    </button>
+  </div>
+
+  <section class="overall-panel overall-overview-panel">
+    <div class="overall-panel__header">
+      <h2>Overview</h2>
+    </div>
+
+    <div class="overall-overview-grid">
+      <article class="overall-distribution">
+        <h3>
+          Task Status Distribution
+          <span *ngIf="taskChartLoading && hasDistributionData(taskStatusDistribution)" class="overall-refreshing-pill">
+            <i class="ri-loader-4-line overall-spin-icon"></i>
+            Refreshing
+          </span>
+        </h3>
+        <div *ngIf="taskChartLoading && !hasDistributionData(taskStatusDistribution)" class="overall-chart-skeleton overall-chart-skeleton--donut"></div>
+        <div *ngIf="!taskChartLoading && dashboardErrorMessage && !hasDistributionData(taskStatusDistribution)" class="overall-section-error">
+          <span>{{ dashboardErrorMessage }}</span>
+          <button type="button" (click)="retryOverallDashboard()">Retry</button>
+        </div>
+        <div *ngIf="hasDistributionData(taskStatusDistribution) || (!taskChartLoading && !dashboardErrorMessage)" class="overall-distribution__body">
+          <button
+            type="button"
+            class="overall-donut"
+            [style.background]="taskDistributionDonut"
+            (mousemove)="showDistributionSummaryTooltip($event, 'Task Status Distribution', taskStatusDistribution, taskDistributionTotal)"
+            (mouseleave)="hideChartTooltip()"
+            (click)="openTaskDistributionChartDialog($event)">
+            <div>
+              <strong>{{ animatedTaskDistributionTotal }}</strong>
+              <span>Total Tasks</span>
+            </div>
+          </button>
+          <div class="overall-legend-list">
+            <button
+              *ngFor="let item of taskStatusDistribution; trackBy: trackByLabel"
+              type="button"
+              class="overall-legend-row"
+              [ngStyle]="{ '--item-color': item.color }"
+              (mousemove)="showDistributionTooltip($event, 'Task Status Distribution', item)"
+              (mouseleave)="hideChartTooltip()"
+              (click)="openTaskDistributionDialog(item)">
+              <span></span>
+              <label>{{ item.label }}</label>
+              <strong>{{ item.displayValue || (item.value | number) }}  ({{ item.displayPercent ?? item.percent }}%)</strong>
+             
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <article class="overall-distribution">
+        <h3>
+          Issue Status Distribution
+          <span *ngIf="issueChartLoading && hasDistributionData(issueStatusDistribution)" class="overall-refreshing-pill">
+            <i class="ri-loader-4-line overall-spin-icon"></i>
+            Refreshing
+          </span>
+        </h3>
+        <div *ngIf="issueChartLoading && !hasDistributionData(issueStatusDistribution)" class="overall-chart-skeleton overall-chart-skeleton--donut"></div>
+        <div *ngIf="!issueChartLoading && dashboardErrorMessage && !hasDistributionData(issueStatusDistribution)" class="overall-section-error">
+          <span>{{ dashboardErrorMessage }}</span>
+          <button type="button" (click)="retryOverallDashboard()">Retry</button>
+        </div>
+        <div *ngIf="hasDistributionData(issueStatusDistribution) || (!issueChartLoading && !dashboardErrorMessage)" class="overall-distribution__body">
+          <button
+            type="button"
+            class="overall-donut"
+            [style.background]="issueDistributionDonut"
+            (mousemove)="showDistributionSummaryTooltip($event, 'Issue Status Distribution', issueStatusDistribution, issueDistributionTotal)"
+            (mouseleave)="hideChartTooltip()"
+            (click)="openIssueDistributionChartDialog($event)">
+            <div>
+              <strong>{{ animatedIssueDistributionTotal }}</strong>
+              <span>Total Issues</span>
+            </div>
+          </button>
+          <div class="overall-legend-list">
+            <button
+              *ngFor="let item of issueStatusDistribution; trackBy: trackByLabel"
+              type="button"
+              class="overall-legend-row"
+              [ngStyle]="{ '--item-color': item.color }"
+              (mousemove)="showDistributionTooltip($event, 'Issue Status Distribution', item)"
+              (mouseleave)="hideChartTooltip()"
+              (click)="openIssueDistributionDialog(item)">
+              <span></span>
+              <label>{{ item.label }}</label>
+              <strong>{{ item.displayValue || (item.value | number) }}  ({{ item.displayPercent ?? item.percent }}%)  </strong>
+             
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <article class="overall-distribution overall-pipeline-card">
+        <h3>
+          Release Pipeline
+          <span *ngIf="releaseChartLoading && releasePipeline.length" class="overall-refreshing-pill">
+            <i class="ri-loader-4-line overall-spin-icon"></i>
+            Refreshing
+          </span>
+        </h3>
+        <div *ngIf="releaseChartLoading && !releasePipeline.length" class="overall-chart-skeleton"></div>
+        <div *ngIf="!releaseChartLoading && dashboardErrorMessage && !releasePipeline.length" class="overall-section-error">
+          <span>{{ dashboardErrorMessage }}</span>
+          <button type="button" (click)="retryOverallDashboard()">Retry</button>
+        </div>
+        <div *ngIf="releasePipeline.length || (!releaseChartLoading && !dashboardErrorMessage)" class="overall-pipeline">
+          <button
+            *ngFor="let item of releasePipeline; trackBy: trackByLabel"
+            type="button"
+            class="overall-pipeline__row"
+            [ngStyle]="{ '--item-color': item.color }"
+            (mousemove)="showPipelineTooltip($event, item)"
+            (mouseleave)="hideChartTooltip()"
+            (click)="openReleasePipelineDialog(item)">
+            <span>{{ item.label }}</span>
+            <div>
+              <i [style.width.%]="item.width"></i>
+            </div>
+            <strong>{{ item.displayValue || (item.value | number) }}</strong>
+          </button>
+        </div>
+      </article>
+
+      <article class="overall-distribution overall-pipeline-card overall-ticket-pipeline-panel">
+        <h3>
+          Ticket Pipeline
+          <span *ngIf="ticketChartLoading && ticketPipeline.length" class="overall-refreshing-pill">
+            <i class="ri-loader-4-line overall-spin-icon"></i>
+            Refreshing
+          </span>
+        </h3>
+        <div *ngIf="ticketChartLoading && !ticketPipeline.length" class="overall-chart-skeleton"></div>
+        <div *ngIf="!ticketChartLoading && dashboardErrorMessage && !ticketPipeline.length" class="overall-section-error">
+          <span>{{ dashboardErrorMessage }}</span>
+          <button type="button" (click)="retryOverallDashboard()">Retry</button>
+        </div>
+        <div *ngIf="ticketPipeline.length || (!ticketChartLoading && !dashboardErrorMessage)" class="overall-pipeline">
+          <button
+            *ngFor="let item of ticketPipeline; trackBy: trackByLabel"
+            type="button"
+            class="overall-pipeline__row"
+            [ngStyle]="{ '--item-color': item.color }"
+            (mousemove)="showTicketPipelineTooltip($event, item)"
+            (mouseleave)="hideChartTooltip()"
+            (click)="openTicketPipelineDialog(item)">
+            <span>{{ item.label }}</span>
+            <div>
+              <i [style.width.%]="item.width"></i>
+            </div>
+            <strong>{{ item.displayValue || (item.value | number) }}</strong>
+          </button>
+        </div>
+      </article>
+    </div>
+  </section>
+  <div class="overall-chart-grid">
+    <section class="overall-panel overall-chart-panel">
+      <div class="overall-chart-title">
+        <h2>
+          Task ({{ trendPeriodLabel }})
+          <span *ngIf="taskChartLoading && hasTrendData(taskTrend)" class="overall-refreshing-pill">
+            <i class="ri-loader-4-line overall-spin-icon"></i>
+            Refreshing
+          </span>
+        </h2>
+        <div>
+          <span class="overall-key overall-key--blue">Open</span>
+          <span class="overall-key overall-key--green">Closed</span>
+        </div>
+      </div>
+      <div *ngIf="taskChartLoading && !hasTrendData(taskTrend)" class="overall-chart-skeleton"></div>
+      <div *ngIf="!taskChartLoading && dashboardErrorMessage && !hasTrendData(taskTrend)" class="overall-section-error">
+        <span>{{ dashboardErrorMessage }}</span>
+        <button type="button" (click)="retryOverallDashboard()">Retry</button>
+      </div>
+      <div *ngIf="hasTrendData(taskTrend) || (!taskChartLoading && !dashboardErrorMessage)" class="overall-chart">
+        <div class="overall-chart__axis">
+          <span *ngFor="let tick of taskChartTicks; trackBy: trackByNumber">{{ tick }}</span>
+        </div>
+        <div class="overall-chart__plot">
+          <div class="overall-chart__columns">
+            <div
+              *ngFor="let item of taskTrend; trackBy: trackByLabel"
+              class="overall-chart-column"
+              (mousemove)="showTrendTooltip($event, 'Task Trend', item, 'Open Tasks', 'Closed Tasks')"
+              (mouseleave)="hideChartTooltip()">
+              <div>
+                <span class="overall-bar overall-bar--blue" [style.height.%]="item.primaryHeight"></span>
+                <span class="overall-bar overall-bar--green" [style.height.%]="item.secondaryHeight"></span>
+              </div>
+              <label>{{ item.label }}</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="overall-panel overall-chart-panel overall-chart-panel--issues">
+      <div class="overall-chart-title">
+        <h2>
+          Issue ({{ trendPeriodLabel }})
+          <span *ngIf="issueChartLoading && hasTrendData(issueTrend)" class="overall-refreshing-pill">
+            <i class="ri-loader-4-line overall-spin-icon"></i>
+            Refreshing
+          </span>
+        </h2>
+        <div>
+          <span class="overall-key overall-key--red">Open Bugs</span>
+          <span class="overall-key overall-key--green">Closed Bugs</span>
+        </div>
+      </div>
+      <div *ngIf="issueChartLoading && !hasTrendData(issueTrend)" class="overall-chart-skeleton"></div>
+      <div *ngIf="!issueChartLoading && dashboardErrorMessage && !hasTrendData(issueTrend)" class="overall-section-error">
+        <span>{{ dashboardErrorMessage }}</span>
+        <button type="button" (click)="retryOverallDashboard()">Retry</button>
+      </div>
+      <div *ngIf="hasTrendData(issueTrend) || (!issueChartLoading && !dashboardErrorMessage)" class="overall-chart">
+        <div class="overall-chart__axis">
+          <span *ngFor="let tick of issueChartTicks; trackBy: trackByNumber">{{ tick }}</span>
+        </div>
+        <div class="overall-chart__plot">
+          <div class="overall-chart__columns">
+            <div
+              *ngFor="let item of issueTrend; trackBy: trackByLabel"
+              class="overall-chart-column"
+              (mousemove)="showTrendTooltip($event, 'Issue Trend', item, 'Open Bugs', 'Closed Bugs')"
+              (mouseleave)="hideChartTooltip()">
+              <div>
+                <span class="overall-bar overall-bar--red" [style.height.%]="item.primaryHeight"></span>
+                <span class="overall-bar overall-bar--green" [style.height.%]="item.secondaryHeight"></span>
+              </div>
+              <label>{{ item.label }}</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="overall-panel overall-chart-panel overall-chart-panel--release">
+      <div class="overall-chart-title">
+        <h2>
+          Release ({{ trendPeriodLabel }})
+          <span *ngIf="releaseChartLoading && hasTrendData(releaseTrend)" class="overall-refreshing-pill">
+            <i class="ri-loader-4-line overall-spin-icon"></i>
+            Refreshing
+          </span>
+        </h2>
+        <div>
+          <span class="overall-key overall-key--blue">Total Releases</span>
+          <span class="overall-key overall-key--green">Internal Passed</span>
+          <span class="overall-key overall-key--purple">External Passed</span>
+        </div>
+      </div>
+      <div *ngIf="releaseChartLoading && !hasTrendData(releaseTrend)" class="overall-chart-skeleton"></div>
+      <div *ngIf="!releaseChartLoading && dashboardErrorMessage && !hasTrendData(releaseTrend)" class="overall-section-error">
+        <span>{{ dashboardErrorMessage }}</span>
+        <button type="button" (click)="retryOverallDashboard()">Retry</button>
+      </div>
+      <div *ngIf="hasTrendData(releaseTrend) || (!releaseChartLoading && !dashboardErrorMessage)" class="overall-chart">
+        <div class="overall-chart__axis">
+          <span *ngFor="let tick of releaseChartTicks; trackBy: trackByNumber">{{ tick }}</span>
+        </div>
+        <div class="overall-chart__plot">
+          <div class="overall-chart__columns">
+            <div
+              *ngFor="let item of releaseTrend; trackBy: trackByLabel"
+              class="overall-chart-column"
+              (mousemove)="showTrendTooltip($event, 'Release Trend', item, 'Total Releases', 'Internal Passed', 'External Passed')"
+              (mouseleave)="hideChartTooltip()">
+              <div>
+                <span class="overall-bar overall-bar--blue" [style.height.%]="item.primaryHeight"></span>
+                <span class="overall-bar overall-bar--green" [style.height.%]="item.secondaryHeight"></span>
+                <span class="overall-bar overall-bar--purple" [style.height.%]="item.tertiaryHeight"></span>
+              </div>
+              <label>{{ item.label }}</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="overall-panel overall-chart-panel overall-chart-panel--tickets">
+      <div class="overall-chart-title">
+        <h2>
+          Ticket ({{ trendPeriodLabel }})
+          <span *ngIf="ticketChartLoading && hasTrendData(ticketTrend)" class="overall-refreshing-pill">
+            <i class="ri-loader-4-line overall-spin-icon"></i>
+            Refreshing
+          </span>
+        </h2>
+        <div>
+          <span class="overall-key overall-key--cyan">Open Tickets</span>
+          <span class="overall-key overall-key--green">Closed Tickets</span>
+        </div>
+      </div>
+      <div *ngIf="ticketChartLoading && !hasTrendData(ticketTrend)" class="overall-chart-skeleton"></div>
+      <div *ngIf="!ticketChartLoading && dashboardErrorMessage && !hasTrendData(ticketTrend)" class="overall-section-error">
+        <span>{{ dashboardErrorMessage }}</span>
+        <button type="button" (click)="retryOverallDashboard()">Retry</button>
+      </div>
+      <div *ngIf="hasTrendData(ticketTrend) || (!ticketChartLoading && !dashboardErrorMessage)" class="overall-chart">
+        <div class="overall-chart__axis">
+          <span *ngFor="let tick of ticketChartTicks; trackBy: trackByNumber">{{ tick }}</span>
+        </div>
+        <div class="overall-chart__plot">
+          <div class="overall-chart__columns">
+            <div
+              *ngFor="let item of ticketTrend; trackBy: trackByLabel"
+              class="overall-chart-column"
+              (mousemove)="showTrendTooltip($event, 'Ticket Trend', item, 'Open Tickets', 'Closed Tickets')"
+              (mouseleave)="hideChartTooltip()">
+              <div>
+                <span class="overall-bar overall-bar--cyan" [style.height.%]="item.primaryHeight"></span>
+                <span class="overall-bar overall-bar--green" [style.height.%]="item.secondaryHeight"></span>
+              </div>
+              <label>{{ item.label }}</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <section class="overall-panel overall-company-panel">
+    <div class="overall-panel__header overall-panel__header--stacked">
+      <h2>
+        Project Performance
+      </h2>
+      <!-- <p>Project-wise overview by customer, release scenario and current month tickets</p> -->
+    </div>
+
+    <div class="overall-table-toolbar">
+      <label class="overall-table-search">
+        <i class="ri-search-line"></i>
+        <input
+          type="search"
+          placeholder="Search project, customer, status..."
+          [value]="performanceSearchTerm"
+          (input)="onPerformanceSearch($event)"
+          (keyup.escape)="clearPerformanceSearch()" />
+        <button *ngIf="performanceSearchTerm" type="button" title="Clear table search" (click)="clearPerformanceSearch()">
+          <i class="ri-close-line"></i>
+        </button>
+      </label>
+      <div class="overall-table-actions">
+        <!-- <button
+          type="button"
+          class="overall-export-button"
+          title="Excel Download"
+          [disabled]="excelExporting || projectPerformanceLoading || !filteredCompanyRows.length"
+          (click)="exportOverallPerformanceExcel()">
+          <i [class]="excelExporting ? 'ri-loader-4-line overall-spin-icon' : 'ri-file-excel-2-fill'"></i>
+          <span>{{ excelExporting ? 'Exporting' : 'Excel' }}</span>
+        </button> -->
+        <label class="overall-page-size-control">
+          <span>Rows</span>
+          <select [value]="performancePageSize" (change)="onPerformancePageSizeChange($event)">
+            <option *ngFor="let pageSize of performancePageSizeOptions; trackBy: trackByNumber" [value]="pageSize">
+              {{ pageSize }}
+            </option>
+          </select>
+          <span>/ page</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="app-table-scroll">
+      <table class="app-data-table app-data-table--xwide">
+        <thead>
+          <tr>
+            <th>
+              <button type="button" class="app-data-table__sort" title="Project" (click)="sortPerformanceRows('company')">
+                <span>Project</span>
+                <i [class]="getPerformanceSortIcon('company')"></i>
+              </button>
+            </th>
+            <th>
+              <button type="button" class="app-data-table__sort" title="Customer" (click)="sortPerformanceRows('customerName')">
+                <span>Customer</span>
+                <i [class]="getPerformanceSortIcon('customerName')"></i>
+              </button>
+            </th>
+            <!-- <th class="app-data-table__cell--numeric">
+              <button type="button" class="app-data-table__sort app-data-table__sort--right" title="Working Employees Count" (click)="sortPerformanceRows('employees')">
+                <span>Working Employees Count</span>
+                <i [class]="getPerformanceSortIcon('employees')"></i>
+              </button>
+            </th> -->
+            <th class="app-data-table__cell--numeric">
+              <button type="button" class="app-data-table__sort app-data-table__sort--right" title="Active Tasks" (click)="sortPerformanceRows('activeTasks')">
+                <span>Active Tasks</span>
+                <i [class]="getPerformanceSortIcon('activeTasks')"></i>
+              </button>
+            </th>
+            <th class="app-data-table__cell--numeric">
+              <button type="button" class="app-data-table__sort app-data-table__sort--right" title="Completed Tasks" (click)="sortPerformanceRows('completedTasks')">
+                <span>Completed Tasks</span>
+                <i [class]="getPerformanceSortIcon('completedTasks')"></i>
+              </button>
+            </th>
+            <th class="app-data-table__cell--numeric">
+              <button type="button" class="app-data-table__sort app-data-table__sort--right" title="Open Issues" (click)="sortPerformanceRows('openIssues')">
+                <span>Open Issues</span>
+                <i [class]="getPerformanceSortIcon('openIssues')"></i>
+              </button>
+            </th>
+            <th class="app-data-table__cell--numeric">
+              <button type="button" class="app-data-table__sort app-data-table__sort--right" title="Releases" (click)="sortPerformanceRows('releases')">
+                <span>Releases</span>
+                <i [class]="getPerformanceSortIcon('releases')"></i>
+              </button>
+            </th>
+            <th class="app-data-table__cell--numeric">
+              <button type="button" class="app-data-table__sort app-data-table__sort--right" title="Tickets" (click)="sortPerformanceRows('tickets')">
+                <span>Tickets</span>
+                <i [class]="getPerformanceSortIcon('tickets')"></i>
+              </button>
+            </th>
+            <th>
+              <button type="button" class="app-data-table__sort" title="Current Scenario" (click)="sortPerformanceRows('currentScenario')">
+                <span>Current Scenario</span>
+                <i [class]="getPerformanceSortIcon('currentScenario')"></i>
+              </button>
+            </th>
+            <th class="app-data-table__cell--numeric">
+              <button type="button" class="app-data-table__sort app-data-table__sort--right" title="Completion Rate" (click)="sortPerformanceRows('completionRate')">
+                <span>Completion Rate</span>
+                <i [class]="getPerformanceSortIcon('completionRate')"></i>
+              </button>
+            </th>
+            <th title="Trend">Trend</th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngIf="projectPerformanceLoading && !pagedCompanyRows.length">
+            <tr>
+              <td colspan="11" class="app-data-table__empty">
+                <div class="overall-table-loading">
+                  <i class="ri-loader-4-line overall-spin-icon"></i>
+                  <span>Loading project performance...</span>
+                </div>
+              </td>
+            </tr>
+            <tr *ngFor="let skeletonRow of tableSkeletonRows; trackBy: trackByNumber">
+              <td *ngFor="let skeletonColumn of tableSkeletonColumns; trackBy: trackByNumber">
+                <span class="overall-skeleton-line"></span>
+              </td>
+            </tr>
+          </ng-container>
+
+          <ng-container *ngIf="pagedCompanyRows.length">
+            <tr *ngIf="projectPerformanceLoading">
+              <td colspan="11" class="app-data-table__empty">
+                <div class="overall-table-loading">
+                  <i class="ri-loader-4-line overall-spin-icon"></i>
+                  <span>Refreshing project performance...</span>
+                </div>
+              </td>
+            </tr>
+            <tr *ngFor="let row of pagedCompanyRows; trackBy: trackByCompany">
+              <td class="app-data-table__cell--wrap">
+                <div class="overall-company-cell">
+                  <span class="overall-company-avatar" [style.background]="row.color">{{ row.initials }}</span>
+                  <span class="overall-company-name">
+                    <strong>{{ row.company }}</strong>
+                    <!-- <small>{{ row.productName }}</small> -->
+                  </span>
+                </div>
+              </td>
+              <td class="app-data-table__cell--wrap">{{ row.customerName }}</td>
+              <!-- <td class="app-data-table__cell--numeric">{{ row.employees | number }}</td> -->
+              <td class="app-data-table__cell--numeric">{{ row.activeTasks | number }}</td>
+              <td class="app-data-table__cell--numeric">{{ row.completedTasks | number }}</td>
+              <td class="app-data-table__cell--numeric"><span class="overall-danger-text">{{ row.openIssues | number }}</span></td>
+              <td class="app-data-table__cell--numeric"><span class="overall-release-text">{{ row.releases | number }}</span></td>
+              <td class="app-data-table__cell--numeric"><span class="overall-ticket-text">{{ row.tickets | number }}</span></td>
+              <td class="app-data-table__cell--wrap">
+                <span class="overall-scenario-pill">{{ row.currentScenario }}</span>
+              </td>
+              <td class="app-data-table__cell--numeric">
+                <div class="overall-progress-cell">
+                  <strong>{{ row.completionRate }}%</strong>
+                  <span>
+                    <i [style.width.%]="row.completionRate"></i>
+                  </span>
+                </div>
+              </td>
+              <td>
+                <svg class="overall-sparkline" viewBox="0 0 96 30" preserveAspectRatio="none" aria-hidden="true">
+                  <polyline [attr.points]="row.trendPoints" [style.stroke]="row.color"></polyline>
+                </svg>
+              </td>
+            </tr>
+          </ng-container>
+
+          <tr *ngIf="!projectPerformanceLoading && projectPerformanceErrorMessage && !pagedCompanyRows.length">
+            <td colspan="11" class="app-data-table__empty">
+              <div class="overall-section-error overall-section-error--table">
+                <span>{{ projectPerformanceErrorMessage }}</span>
+                <button type="button" (click)="retryOverallDashboard()">Retry</button>
+              </div>
+            </td>
+          </tr>
+
+          <tr *ngIf="!projectPerformanceLoading && !projectPerformanceErrorMessage && !filteredCompanyRows.length">
+            <td colspan="11" class="app-data-table__empty">No project data available for this filter.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="overall-table-footer">
+      <span>
+        Showing {{ performanceShowingFrom }}-{{ performanceShowingTo }} of {{ filteredCompanyRows.length }} projects
+      </span>
+      <div class="overall-pagination" aria-label="Project performance pagination">
+        <button
+          type="button"
+          title="First page"
+          aria-label="First page"
+          [disabled]="performancePageIndex === 0"
+          (click)="goToPerformancePage(0)">
+          <i class="ri-skip-left-line"></i>
+        </button>
+        <button
+          type="button"
+          title="Previous page"
+          aria-label="Previous page"
+          [disabled]="performancePageIndex === 0"
+          (click)="goToPerformancePage(performancePageIndex - 1)">
+          <i class="ri-arrow-left-s-line"></i>
+        </button>
+        <button
+          *ngFor="let page of performancePageNumbers; trackBy: trackByNumber"
+          type="button"
+          [class.overall-pagination__page--active]="performancePageIndex === page - 1"
+          (click)="goToPerformancePage(page - 1)">
+          {{ page }}
+        </button>
+        <button
+          type="button"
+          title="Next page"
+          aria-label="Next page"
+          [disabled]="performancePageIndex >= performanceTotalPages - 1"
+          (click)="goToPerformancePage(performancePageIndex + 1)">
+          <i class="ri-arrow-right-s-line"></i>
+        </button>
+        <button
+          type="button"
+          title="Last page"
+          aria-label="Last page"
+          [disabled]="performancePageIndex >= performanceTotalPages - 1"
+          (click)="goToPerformancePage(performanceTotalPages - 1)">
+          <i class="ri-skip-right-line"></i>
+        </button>
+      </div>
+    </div>
+  </section>
+
+
+
+  <div
+    *ngIf="chartTooltip.visible"
+    class="overall-chart-tooltip"
+    [style.left.px]="chartTooltip.x"
+    [style.top.px]="chartTooltip.y">
+    <strong>{{ chartTooltip.title }}</strong>
+    <span *ngFor="let line of chartTooltip.lines; trackBy: trackByString">{{ line }}</span>
+  </div>
+</section>

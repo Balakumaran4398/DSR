@@ -13,6 +13,8 @@
   border-radius: 10px;
   display: flex;
   flex-direction: column;
+  background: var(--bg-body);
+  color: var(--text-main);
 }
 
 .overdue-dialog-body {
@@ -26,6 +28,8 @@
   width: 100%;
   min-width: 0;
   overflow: hidden;
+  border-color: var(--border-card) !important;
+  background: var(--bg-card) !important;
 }
 
 .overdue-dialog-table {
@@ -89,37 +93,37 @@
 
 :host ::ng-deep .overdue-dialog-table .tabulator-row.overdue-row-pass,
 :host ::ng-deep .overdue-inline-table .tabulator-row.overdue-row-pass {
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.13), #fff 36%);
+  background: linear-gradient(90deg, color-mix(in srgb, #10b981 13%, var(--bg-card)), var(--bg-card) 36%);
   box-shadow: inset 4px 0 0 #10b981;
 }
 
 :host ::ng-deep .overdue-dialog-table .tabulator-row.overdue-row-progress,
 :host ::ng-deep .overdue-inline-table .tabulator-row.overdue-row-progress {
-  background: linear-gradient(90deg, rgba(59, 130, 246, 0.13), #fff 36%);
+  background: linear-gradient(90deg, color-mix(in srgb, #3b82f6 13%, var(--bg-card)), var(--bg-card) 36%);
   box-shadow: inset 4px 0 0 #3b82f6;
 }
 
 :host ::ng-deep .overdue-dialog-table .tabulator-row.overdue-row-hold,
 :host ::ng-deep .overdue-inline-table .tabulator-row.overdue-row-hold {
-  background: linear-gradient(90deg, rgba(245, 158, 11, 0.17), #fff 36%);
+  background: linear-gradient(90deg, color-mix(in srgb, #f59e0b 17%, var(--bg-card)), var(--bg-card) 36%);
   box-shadow: inset 4px 0 0 #f59e0b;
 }
 
 :host ::ng-deep .overdue-dialog-table .tabulator-row.overdue-row-danger,
 :host ::ng-deep .overdue-inline-table .tabulator-row.overdue-row-danger {
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.14), #fff 36%);
+  background: linear-gradient(90deg, color-mix(in srgb, #ef4444 14%, var(--bg-card)), var(--bg-card) 36%);
   box-shadow: inset 4px 0 0 #ef4444;
 }
 
 :host ::ng-deep .overdue-dialog-table .tabulator-row.overdue-row-muted,
 :host ::ng-deep .overdue-inline-table .tabulator-row.overdue-row-muted {
-  background: linear-gradient(90deg, rgba(100, 116, 139, 0.11), #fff 36%);
+  background: linear-gradient(90deg, color-mix(in srgb, #64748b 11%, var(--bg-card)), var(--bg-card) 36%);
   box-shadow: inset 4px 0 0 #94a3b8;
 }
 
 :host ::ng-deep .overdue-dialog-table .tabulator-row:hover,
 :host ::ng-deep .overdue-inline-table .tabulator-row:hover {
-  background-color: #f8fafc;
+  background-color: var(--table-row-hover-bg);
 }
 
 :host ::ng-deep .overdue-status-pill {
@@ -215,6 +219,28 @@
 
 :host ::ng-deep .overdue-status-muted .overdue-status-dot {
   background: #94a3b8;
+}
+
+:host ::ng-deep .overdue-dialog-table .tabulator-cell[tabulator-field="task_type"],
+:host ::ng-deep .overdue-inline-table .tabulator-cell[tabulator-field="task_type"] {
+  align-items: flex-start;
+  overflow: visible;
+}
+
+:host ::ng-deep .overdue-type-text {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-transform: capitalize;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
 }
 
 ::ng-deep .tabulator-edit-list {

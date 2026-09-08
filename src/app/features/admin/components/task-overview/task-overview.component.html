@@ -27,39 +27,33 @@
                     class="cursor-pointer transition-all duration-200 rounded" [ngClass]="{
                   'pdf-enabled': canDownloadPdf,'pdf-disabled': !canDownloadPdf}">
                     <i class="ri-file-pdf-2-fill !text-2xl"></i></button> -->
-                    <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2">
 
-                        <button
-                            title="Table View"
-                            (click)="openTableView()"
-                            class="cursor-pointer transition-all duration-200 rounded p-1.5"
-                            [ngClass]="viewMode === 'table' ? 'bg-slate-200' : 'hover:bg-slate-100'">
-                            <mat-icon class="!text-[22px] text-slate-600">table_chart</mat-icon>
-                        </button>
-                      
-                        <button
-                            title="Card View"
-                            (click)="openCardView()"
-                            class="cursor-pointer transition-all duration-200 rounded p-1.5"
-                            [ngClass]="viewMode === 'card' ? 'bg-slate-200' : 'hover:bg-slate-100'">
-                            <mat-icon class="!text-[22px] text-slate-600">view_agenda</mat-icon>
-                        </button>
-                      
-                        <button
-                            [disabled]="!canDownloadPdf"
-                            title="PDF Download"
-                            (click)="generateDSRPdf()"
-                            class="cursor-pointer transition-all duration-200 rounded"
-                            [ngClass]="{
-                              'pdf-enabled': canDownloadPdf,
-                              'pdf-disabled': !canDownloadPdf
+                    <button title="Table View" (click)="openTableView()"
+                        class="cursor-pointer transition-all duration-200 rounded p-1.5"
+                        [ngClass]="viewMode === 'table' ? 'bg-slate-200' : 'hover:bg-slate-100'">
+                        <mat-icon class="!text-[22px] text-slate-600">table_chart</mat-icon>
+                    </button>
+
+                    <button title="Card View" (click)="openCardView()"
+                        class="cursor-pointer transition-all duration-200 rounded p-1.5"
+                        [ngClass]="viewMode === 'card' ? 'bg-slate-200' : 'hover:bg-slate-100'">
+                        <mat-icon class="!text-[22px] text-slate-600">view_agenda</mat-icon>
+                    </button>
+
+                    <button [disabled]="!canDownloadPdf || pdfExporting"
+                        [title]="pdfExporting ? 'Generating PDF...' : 'PDF Download'" (click)="generateDSRPdf()"
+                        class="cursor-pointer transition-all duration-200 rounded" [ngClass]="{
+                              'pdf-enabled': canDownloadPdf && !pdfExporting,
+                              'pdf-disabled': !canDownloadPdf || pdfExporting
                             }">
-                            <i class="ri-file-pdf-2-fill !text-2xl"></i>
-                        </button>
-                      
-                      </div>
-                      
-                    
+                        <i
+                            [class]="pdfExporting ? 'ri-loader-4-line app-button-spinner !text-2xl' : 'ri-file-pdf-2-fill !text-2xl'"></i>
+                    </button>
+
+                </div>
+
+
             </div>
             <!-- 1. NAME FILTER -->
             <div class="group">
@@ -124,7 +118,7 @@
         </div>
 
         <!-- Task List -->
-        <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 bg-slate-50/50" #taskList>
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 bg-slate-50/50 app-loading-host" #taskList>
             <div *ngFor="let task of tasks; let i = index" (click)="selectTask(task)" matRipple
                 class="group p-4 rounded-xl border  cursor-pointer transition-all duration-300 relative select-none animate-slide-in"
                 [style.animation-delay]="i * 50 + 'ms'" [ngClass]="{
@@ -132,7 +126,7 @@
           }" [class.bg-gradient-to-r]="selectedTask?.id === task.id" #taskItem
                 [class.border-transparent]="selectedTask?.id === task.id"
                 [class.shadow-md]="selectedTask?.id === task.id"
-                [style.background]="selectedTask?.id === task.id ? 'linear-gradient(to right, color-mix(in srgb, var(--text-active), transparent 95%), white)' : ''"
+                [style.background]="selectedTask?.id === task.id ? 'linear-gradient(to right, color-mix(in srgb, var(--text-active), transparent 95%), var(--bg-card))' : ''"
                 [style.border-color]="selectedTask?.id === task.id ? 'color-mix(in srgb, var(--text-active), transparent 80%)' : ''">
                 <!-- Active Indicator Line -->
                 <div *ngIf="selectedTask?.id === task.id"
@@ -186,16 +180,22 @@
                 <p class="text-sm text-slate-500 mb-6 max-w-[200px]">We couldn't find any tasks matching your filters.
                 </p>
                 <button mat-flat-button (click)="resetFilters()"
-                    class="!rounded-full !px-6 !py-1 !h-10 !font-bold shadow-lg transition-all !text-white"
-                    [style.background-color]="'var(--text-active)'"
+                    class="!rounded-full !px-6 !py-1 !h-10 !font-bold shadow-lg transition-all var(--text-main)"
+                    [style.background-color]="'var(--bg-active)'"
                     [style.box-shadow]="'0 10px 15px -3px color-mix(in srgb, var(--text-active), transparent 80%)'">
                     Reset Filters
                 </button>
             </div>
+            <div *ngIf="taskLoading" class="app-local-loading-overlay">
+                <div class="app-local-loading">
+                    <i class="ri-loader-4-line app-spin"></i>
+                    <span>Loading tasks...</span>
+                </div>
+            </div>
         </div>
     </aside>
     <!-- RIGHT PANEL: Details View -->
-    <main class="flex-1 bg-[#F8FAFC] h-full overflow-hidden  flex flex-col relative w-full"
+    <main class="flex-1 bg-[var(--bg-body)] h-full overflow-hidden  flex flex-col relative w-full"
         [class.hidden]="mobileView && !selectedTask" [class.block]="!mobileView || (mobileView && selectedTask)">
 
         <!-- Mobile Back Button (Sticky & Blurred) -->
@@ -207,85 +207,99 @@
             <span class="ml-2 font-bold text-slate-800 text-base uppercase tracking-wide">Back to List</span>
         </div>
 
-        <div
-            class="flex-1 overflow-y-auto border  rounded-lg shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] flex justify-center items-start custom-scrollbar w-full">
+        <div class="flex-1 overflow-y-auto border border-[color-mix(in_srgb,var(--text-active),transparent_85%)]
+           bg-[var(--bg-body)]
+           rounded-lg
+           shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)]
+           flex justify-center items-start custom-scrollbar w-full">
             <ng-container *ngIf="viewMode === 'card'">
 
-            <!-- Detail Card -->
-            <div *ngIf="selectedTask"
-                class="w-full  bg-white rounded-2xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] border border-slate-100 p-6 md:p-10 lg:p-12 min-h-[600px] animate-scale-in relative overflow-hidden">
+                <!-- Detail Card -->
+                <div *ngIf="selectedTask"
+                    class="w-full  bg-white rounded-2xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] border border-slate-100 p-6 md:p-10 lg:p-12 min-h-[600px] animate-scale-in relative overflow-hidden">
 
-                <!-- Decorative Background Blob -->
-                <div class="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl opacity-60 pointer-events-none"
-                    [style.background-color]="'color-mix(in srgb, var(--text-active), transparent 90%)'"></div>
+                    <!-- Decorative Background Blob -->
+                    <div class="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl opacity-60 pointer-events-none"
+                        [style.background-color]="'color-mix(in srgb, var(--text-active), transparent 90%)'"></div>
 
-                <div
-                    class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-6 border-b border-slate-100 gap-4 relative z-10">
-                    <div class="flex items-center gap-4">
-
-                        <div>
-                            <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Task Details
-                            </h2>
-                            <span class="text-sm text-slate-500 font-semibold mt-1 block">ID: #{{selectedTask.id}} •
-                                <span class="text-slate-700">{{selectedTask.date}}</span></span>
-                        </div>
-                    </div>
                     <div
-                        class="px-4 py-1.5 bg-emerald-50 text-emerald-800 text-xs font-extrabold uppercase rounded-full border border-emerald-200 flex items-center gap-1.5 shadow-sm">
-                        <span class="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-                        Active
-                    </div>
-                </div>
+                        class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-6 border-b border-slate-100 gap-4 relative z-10">
+                        <div class="flex items-center gap-4">
 
-                <div class="space-y-8 relative z-10">
-                    <!-- Reusable Detail Row -->
-                    <ng-container
-                        *ngTemplateOutlet="row; context: { label: 'Employee Name', value: selectedTask.employee_name, icon: 'person' }"></ng-container>
-                    <ng-container
-                        *ngTemplateOutlet="row; context: { label: 'Project Name', value: selectedTask.project_title, icon: 'folder' }"></ng-container>
-                    <!-- Responsive Grid for Dates (Fix applied here: grid-cols-1 by default, split on xl) -->
-                    <div
-                        class="grid grid-cols-1 xl:grid-cols-2 gap-x-12 gap-y-8 p-6 bg-slate-50 rounded-xl border border-slate-200">
-                        <ng-container
-                            *ngTemplateOutlet="row; context: { label: 'Start Date', value: selectedTask.start_date, icon: 'event' }"></ng-container>
-                        <ng-container
-                            *ngTemplateOutlet="row; context: { label: 'End Date', value: selectedTask.end_date, icon: 'event_available' }"></ng-container>
-                    </div>
-                    <!-- Divider with text -->
-                    <div class="relative flex py-2 items-center">
-                        <div class="flex-grow border-t border-slate-200"></div>
-                        <span class="flex-shrink mx-4 text-slate-400 text-xs font-bold uppercase tracking-widest">Task Content</span>
-                        <div class="flex-grow border-t border-slate-200"></div>
-                    </div>
-                    <ng-container
-                        *ngTemplateOutlet="row; context: { label: 'Task Name', value: selectedTask.task, icon: 'title' }"></ng-container>
-                    <!-- Description (Handling long text) -->
-                    <ng-container
-                        *ngTemplateOutlet="row; context: { label: 'Sub Task', value: selectedTask.sub_task, isLong: true, icon: 'notes' }"></ng-container>
-                    <ng-container
-                        *ngTemplateOutlet="row; context: { label: 'Comments', value: selectedTask.comments, icon: 'comment' }"></ng-container>
-                    <ng-container
-                        *ngTemplateOutlet="row; context: { label: 'Worked Hours', value: selectedTask.worked_hours, icon: 'schedule' }"></ng-container>
-
-                    <!-- Simple Progress Bar -->
-                    <div class="mt-8 p-6 bg-slate-50 rounded-xl border border-slate-200">
-                        <div class="flex justify-between items-center mb-3">
-                            <div class="flex items-center gap-2">
-                                <mat-icon class="text-slate-500 !text-base">flag</mat-icon>
-                                <span class="text-xs font-bold text-slate-600 uppercase tracking-wide">Completion</span>
+                            <div>
+                                <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Task
+                                    Details
+                                </h2>
+                                <span class="text-sm text-slate-500 font-semibold mt-1 block">ID: #{{selectedTask.id}} •
+                                    <span class="text-slate-700">{{selectedTask.date}}</span></span>
                             </div>
-                            <span class="text-base font-extrabold"
-                                [style.color]="'var(--text-active)'">{{selectedTask.completion_percentage}}%</span>
                         </div>
-                        <div class="w-full bg-slate-200 rounded-full h-3">
-                            <div class="h-3 rounded-full transition-all duration-500"
-                                [style.width]="selectedTask.completion_percentage + '%'"
-                                [style.background-color]="'var(--text-active)'"></div>
+                        <div
+                            class="px-4 py-1.5 bg-emerald-50 text-emerald-800 text-xs font-extrabold uppercase rounded-full border border-emerald-200 flex items-center gap-1.5 shadow-sm">
+                            <span class="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                            Active
+                        </div>
+                    </div>
+
+                    <div class="space-y-8 relative z-10">
+                        <!-- Reusable Detail Row -->
+                        <ng-container
+                            *ngTemplateOutlet="row; context: { label: 'Employee Name', value: selectedTask.employee_name, icon: 'person' }"></ng-container>
+                        <!-- <ng-container
+                        *ngTemplateOutlet="row; context: { label: 'Project Name', value: selectedTask.project_title, icon: 'folder' }"></ng-container> -->
+                        <div
+                            class="grid grid-cols-1 xl:grid-cols-2 gap-x-12 gap-y-8 p-6 bg-slate-50 rounded-xl border border-slate-200">
+                            <ng-container
+                                *ngTemplateOutlet="row; context: { label: 'Project Name', value: selectedTask.project_title, icon: 'folder' }"></ng-container>
+                            <ng-container
+                                *ngTemplateOutlet="row; context: { label: 'Version', value: selectedTask.version, icon: 'new_releases' }"></ng-container>
+                        </div>
+                        <!-- Responsive Grid for Dates (Fix applied here: grid-cols-1 by default, split on xl) -->
+                        <div
+                            class="grid grid-cols-1 xl:grid-cols-2 gap-x-12 gap-y-8 p-6 bg-slate-50 rounded-xl border border-slate-200">
+                            <ng-container
+                                *ngTemplateOutlet="row; context: { label: 'Start Date', value: selectedTask.start_date, icon: 'event' }"></ng-container>
+                            <ng-container
+                                *ngTemplateOutlet="row; context: { label: 'End Date', value: selectedTask.end_date, icon: 'event_available' }"></ng-container>
+                        </div>
+                        <!-- Divider with text -->
+                        <div class="relative flex py-2 items-center">
+                            <div class="flex-grow border-t border-slate-200"></div>
+                            <span
+                                class="flex-shrink mx-4 text-slate-400 text-xs font-bold uppercase tracking-widest">Task
+                                Content</span>
+                            <div class="flex-grow border-t border-slate-200"></div>
+                        </div>
+                        <ng-container
+                            *ngTemplateOutlet="row; context: { label: 'Task Name', value: selectedTask.task, icon: 'title' }"></ng-container>
+                        <!-- Description (Handling long text) -->
+                        <ng-container
+                            *ngTemplateOutlet="row; context: { label: 'Sub Task', value: selectedTask.sub_task, isLong: true, icon: 'notes' }"></ng-container>
+                        <ng-container
+                            *ngTemplateOutlet="row; context: { label: 'Comments', value: selectedTask.comments, icon: 'comment' }"></ng-container>
+                        <ng-container
+                            *ngTemplateOutlet="row; context: { label: 'Worked Hours', value: selectedTask.worked_hours, icon: 'schedule' }"></ng-container>
+
+                        <!-- Simple Progress Bar -->
+                        <div class="mt-8 p-6 bg-slate-50 rounded-xl border border-slate-200">
+                            <div class="flex justify-between items-center mb-3">
+                                <div class="flex items-center gap-2">
+                                    <mat-icon class="text-slate-500 !text-base">flag</mat-icon>
+                                    <span
+                                        class="text-xs font-bold text-slate-600 uppercase tracking-wide">Completion</span>
+                                </div>
+                                <span class="text-base font-extrabold"
+                                    [style.color]="'var(--text-active)'">{{selectedTask.completion_percentage}}%</span>
+                            </div>
+                            <div class="w-full bg-slate-200 rounded-full h-3">
+                                <div class="h-3 rounded-full transition-all duration-500"
+                                    [style.width]="selectedTask.completion_percentage + '%'"
+                                    [style.background-color]="'var(--text-active)'"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </ng-container>
+            </ng-container>
             <!-- Empty State -->
             <div *ngIf="!selectedTask"
                 class="flex flex-col items-center justify-center h-full text-slate-500 p-4 text-center animate-fade-in">
@@ -296,32 +310,33 @@
                 <p class="text-slate-500 max-w-xs text-sm">Select a task from the list on the left to view full details
                     and progress.</p>
             </div>
-           
+
             <ng-container *ngIf="viewMode === 'table'">
                 <div class="w-full animate-fade-in mx-auto bg-gray-50 min-h-screen p-4">
-                  <div class="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="flex items-center gap-3">
-                      <div class="h-10 w-10 rounded-lg bg-[var(--text-active)] flex items-center justify-center text-white shadow-sm">
-                        <i class="ri-task-line text-xl"></i>
-                      </div>
-                      <div>
-                        <h1 class="text-lg sm:text-xl font-bold text-slate-900">Task Management</h1>
-                        <p class="text-xs sm:text-sm text-slate-500">Track and Manage Employee Tasks</p>
-                      </div>
+                    <div class="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="h-10 w-10 rounded-lg bg-[var(--text-active)] flex items-center justify-center text-white shadow-sm">
+                                <i class="ri-task-line text-xl"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-lg sm:text-xl font-bold text-slate-900">Task Management</h1>
+                                <p class="text-xs sm:text-sm text-slate-500">Track and Manage Employee Tasks</p>
+                            </div>
+                        </div>
+                        <div class="relative w-full sm:w-64">
+                            <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                <i class="ri-search-line text-gray-400 text-sm"></i>
+                            </span>
+                            <input type="text" (input)="onSearch($event)" placeholder="Search tasks..."
+                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--text-active)] placeholder-gray-400 transition" />
+                        </div>
                     </div>
-                    <div class="relative w-full sm:w-64">
-                      <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                        <i class="ri-search-line text-gray-400 text-sm"></i>
-                      </span>
-                      <input type="text" (input)="onSearch($event)" placeholder="Search tasks..."
-                             class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--text-active)] placeholder-gray-400 transition" />
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden app-loading-host" [attr.aria-busy]="taskLoading">
+                        <div #taskTableDiv class="app-tabulator-loading-host"></div>
                     </div>
-                  </div>
-                  <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                    <div #taskTableDiv></div>
-                  </div>
                 </div>
-              </ng-container>  
+            </ng-container>
         </div>
     </main>
 </div>

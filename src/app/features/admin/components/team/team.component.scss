@@ -2,10 +2,15 @@
   min-height: 40px;
 }
 
+:host ::ng-deep .tabulator-tableholder {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
 :host ::ng-deep .member-skills-view-btn {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #dbe3f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: 999px;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
   color: var(--text-active);
@@ -38,7 +43,12 @@
 
 :host ::ng-deep .member-skills-view-btn:hover,
 :host ::ng-deep .member-skills-view-btn:focus-visible {
-  border-color: color-mix(in srgb, var(--text-active) 40%, #dbe3f0);
+  background: var(--bg-active);
+  border-color: color-mix(in srgb, var(--text-active) 40%, var(--border-card));
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
   outline: none;
+}
+
+:host-context(.dark-mode) ::ng-deep .member-skills-view-btn {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
 }

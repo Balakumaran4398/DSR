@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
-import { filter } from 'rxjs';
+import { filter, finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { ActivatedRoute } from '@angular/router';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
@@ -46,6 +46,9 @@ export class MomComponent implements OnInit, AfterViewInit {
   private tableData: MomItem[] = [];
   employee_id: any = 0;
   projectid = 0;
+  tableLoading = false;
+  deletingMomId: number | null = null;
+  downloadingMomId: number | null = null;
 
   constructor(
     private storageService: StorageService,
@@ -72,7 +75,12 @@ export class MomComponent implements OnInit, AfterViewInit {
   }
 
   getMOMListByProjectId() {
-    this.authService.getmomdetails(this.employee_id).subscribe({
+    this.tableLoading = true;
+    this.authService.getmomdetails(this.employee_id)
+      .pipe(finalize(() => {
+        this.tableLoading = false;
+      }))
+      .subscribe({
       next: (res: any) => {
         this.tableData = this.normalizeMomList(res);
         if (this.table) {
@@ -111,11 +119,12 @@ export class MomComponent implements OnInit, AfterViewInit {
   }
 
   initializeTable() {
+    const freezeColumns = !this.isCompactViewport();
     this.table = new Tabulator(this.tableDiv.nativeElement, {
 
       data: this.tableData,
-      layout: 'fitColumns',
-      responsiveLayout: 'collapse',
+      layout: 'fitDataStretch',
+      responsiveLayout: false,
       pagination: 'local',
       paginationSize: 15,
       paginationCounter: 'rows',
@@ -184,7 +193,7 @@ export class MomComponent implements OnInit, AfterViewInit {
           width: 120,
           hozAlign: 'center',
           headerSort: false,
-          frozen: true,
+          frozen: freezeColumns,
           formatter: (cell: any) => this.actionFormatter(cell),
           cellClick: (e: any, cell: any) => this.handleActionClick(e, cell),
           cssClass: 'sticky-col-right',
@@ -200,21 +209,24 @@ export class MomComponent implements OnInit, AfterViewInit {
   actionFormatter(_cell: any) {
     const rowData: MomItem = _cell?.getRow?.().getData?.() || {};
     const hasFile = !!this.getAttachmentPath(rowData);
+    const momId = Number(rowData?.id);
+    const isDeleting = this.deletingMomId === momId;
+    const isDownloading = this.downloadingMomId === momId;
 
     return `
       <div class="flex items-center justify-center gap-3 w-full h-full">
-        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit MOM">
+        <button class="text-slate-400 hover:text-blue-600 transition-colors btn-edit" title="Edit MOM" ${isDeleting || isDownloading ? 'disabled' : ''}>
           <i class="ri-pencil-line text-lg pointer-events-none"></i>
         </button>
           <button
-          class="transition-colors ${hasFile ? 'text-slate-400 hover:text-emerald-600 btn-download' : 'text-slate-300 cursor-not-allowed'}"
-          title="${hasFile ? 'Download attachment' : 'No attachment available'}"
-          ${hasFile ? '' : 'disabled'}
+          class="transition-colors ${hasFile ? 'text-slate-400 hover:text-emerald-600 btn-download' : 'text-slate-300 cursor-not-allowed'} ${isDownloading ? 'tabulator-action-button--loading' : ''}"
+          title="${isDownloading ? 'Downloading...' : (hasFile ? 'Download attachment' : 'No attachment available')}"
+          ${hasFile && !isDownloading && !isDeleting ? '' : 'disabled'}
         >
-              <i class="ri-download-2-line text-lg pointer-events-none"></i>
+              <i class="${isDownloading ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-download-2-line text-lg'} pointer-events-none"></i>
         </button>
-        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete" title="Delete MOM">
-          <i class="ri-delete-bin-line text-lg pointer-events-none"></i>
+        <button class="text-slate-400 hover:text-red-600 transition-colors btn-delete ${isDeleting ? 'tabulator-action-button--loading' : ''}" title="${isDeleting ? 'Deleting...' : 'Delete MOM'}" ${isDeleting || isDownloading ? 'disabled' : ''}>
+          <i class="${isDeleting ? 'ri-loader-4-line tabulator-action-spinner' : 'ri-delete-bin-line text-lg'} pointer-events-none"></i>
         </button>
       </div>
     `;
@@ -224,6 +236,7 @@ export class MomComponent implements OnInit, AfterViewInit {
     e.stopPropagation();
     const target = e.target.closest('button');
     if (!target) return;
+    if (target.disabled) return;
 
     const row = cell.getRow();
     const data: MomItem = row.getData();
@@ -280,7 +293,14 @@ export class MomComponent implements OnInit, AfterViewInit {
         return;
       }
 
-      this.authService.deletemom(momId, this.storageService.getUsername()).subscribe({
+      this.deletingMomId = momId;
+      this.refreshVisibleRows();
+      this.authService.deletemom(momId, this.storageService.getUsername())
+        .pipe(finalize(() => {
+          this.deletingMomId = null;
+          this.refreshVisibleRows();
+        }))
+        .subscribe({
         next: (res: any) => {
           this.toasterService.success(res?.message || 'MOM deleted successfully.');
           this.getMOMListByProjectId();
@@ -309,7 +329,10 @@ export class MomComponent implements OnInit, AfterViewInit {
     }
 
     const downloadUrls = this.buildDownloadUrlCandidates(rawFileUrl);
-    this.tryDownloadFromCandidates(downloadUrls, fileName);
+    const momId = Number(data?.id);
+    this.downloadingMomId = Number.isFinite(momId) ? momId : null;
+    this.refreshVisibleRows();
+    this.tryDownloadFromCandidates(downloadUrls, fileName, 0, this.downloadingMomId);
   }
 
   private triggerBrowserDownload(url: string, fileName: string): void {
@@ -508,17 +531,19 @@ export class MomComponent implements OnInit, AfterViewInit {
   }
 
 
-  private tryDownloadFromCandidates(downloadUrls: string[], fileName: string, index = 0): void {
+  private tryDownloadFromCandidates(downloadUrls: string[], fileName: string, index = 0, momId?: number | null): void {
 
 
     if (index >= downloadUrls.length) {
       const directUrl = this.getPreferredDirectUrl(downloadUrls);
       if (directUrl) {
         this.openFileDirectly(directUrl);
+        this.clearMomDownload(momId);
         return;
       }
 
       this.toasterService.error('Unable to download attachment.');
+      this.clearMomDownload(momId);
       return;
     }
 
@@ -528,7 +553,7 @@ export class MomComponent implements OnInit, AfterViewInit {
     }).subscribe({
       next: (blob: Blob) => {
         if (!blob || blob.size === 0) {
-          this.tryDownloadFromCandidates(downloadUrls, fileName, index + 1);
+          this.tryDownloadFromCandidates(downloadUrls, fileName, index + 1, momId);
           return;
         }
 
@@ -537,11 +562,19 @@ export class MomComponent implements OnInit, AfterViewInit {
         );
         this.triggerBrowserDownload(blobUrl, fileName);
         window.URL.revokeObjectURL(blobUrl);
+        this.clearMomDownload(momId);
       },
       error: () => {
-        this.tryDownloadFromCandidates(downloadUrls, fileName, index + 1);
+        this.tryDownloadFromCandidates(downloadUrls, fileName, index + 1, momId);
       }
     });
+  }
+
+  private clearMomDownload(momId?: number | null): void {
+    if (momId === undefined || momId === null || this.downloadingMomId === momId) {
+      this.downloadingMomId = null;
+      this.refreshVisibleRows();
+    }
   }
 
   private getPreferredDirectUrl(downloadUrls: string[]): string {
@@ -570,6 +603,14 @@ export class MomComponent implements OnInit, AfterViewInit {
       } catch {
         // ignore
       }
+    }
+  }
+
+  private refreshVisibleRows(): void {
+    try {
+      this.table?.redraw?.(true);
+    } catch {
+      // ignore redraw timing during table rebuilds
     }
   }
 
@@ -709,6 +750,16 @@ export class MomComponent implements OnInit, AfterViewInit {
     `;
   }
 
+  private formatNumberedText(value: string | null | undefined): string {
+    if (!value) return '';
+    return value
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .replace(/[ \t]+$/gm, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/(\d+)\s*\.\s*/g, '$1. ');
+  }
+
   private openMomDetailsDialog(rowData: MomItem): void {
     const summaryCards = [
       { label: 'Meeting Date', value: this.getDisplayDate(rowData?.date) },
@@ -717,235 +768,239 @@ export class MomComponent implements OnInit, AfterViewInit {
       { label: 'Created By', value: this.getCreatedByDisplayValue(rowData) }
     ];
 
-    const summaryHtml = summaryCards.map((item) => `
-      <div style="
-        background:linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-        border:1px solid rgba(59,130,246,0.12);
-        border-radius:14px;
-        padding:12px 14px;
-        box-shadow:0 8px 24px rgba(15,23,42,0.05);
-      ">
-        <div style="font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:#64748b; margin-bottom:6px;">
-          ${this.escapeHtml(item.label)}
-        </div>
-        <div style="font-size:14px; font-weight:600; color:#0f172a; line-height:1.45; word-break:break-word; white-space:pre-wrap;">
-          ${this.escapeHtml(item.value)}
-        </div>
-      </div>
-    `).join('');
+    const summaryHtml = summaryCards.map(item => `
+  <div style="
+    background:var(--bg-card,#fff);
+    border:1px solid var(--border-card,rgba(59,130,246,.12));
+    border-radius:14px;
+    padding:12px 14px;
+    box-shadow:var(--shadow-card,0 8px 24px rgba(15,23,42,.05));
+  ">
+    <div style="
+      font-size:14px;
+      color:var(--text-main,#0f172a);
+      margin-bottom:6px;
+      line-height:1.5;
+    ">
+      <strong style="
+        font-weight:700;
+      ">${this.escapeHtml(item.label)}</strong>
+    </div>
+
+    <div style="
+      font-size:14px;
+      font-weight:400;
+      color:var(--text-main,#0f172a);
+      line-height:1.5;
+      word-break:break-word;
+      white-space:normal;
+    ">${this.escapeHtml(item.value)}</div>
+  </div>
+`).join('');
 
     const detailsSections = [
-      {
-        label: 'Agenda',
-        value: rowData?.agenda || 'No agenda available',
-        variant: 'standard'
-      },
-      {
-        label: 'Discussion Notes',
-        value: rowData?.discussion || 'No discussion available',
-        variant: 'email'
-      },
-      {
-        label: 'Decisions & Action Items',
-        value: rowData?.decisions || 'No decisions available',
-        variant: 'standard'
-      }
+      { label: 'Agenda', value: rowData?.agenda || 'No agenda available', variant: 'standard' },
+      { label: 'Discussion Notes', value: rowData?.discussion || 'No discussion available', variant: 'email' },
+      { label: 'Decisions & Action Items', value: rowData?.decisions || 'No decisions available', variant: 'standard' }
     ] as const;
 
     const detailsHtml = detailsSections.map((section, index) => `
+    <div style="
+      background:var(--bg-card,#fff);
+      border:1px solid var(--border-card,rgba(59,130,246,.12));
+      border-radius:18px;
+      padding:20px 20px 18px;
+      box-shadow:var(--shadow-card,0 10px 28px rgba(15,23,42,.06));
+      ${section.variant === 'email' || index === 2 ? 'grid-column:1/-1;' : ''}
+    ">
       <div style="
-        background:linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(248,250,252,1) 100%);
-        border:1px solid rgba(59,130,246,0.12);
-        border-radius:18px;
-        padding:20px 20px 18px;
-        box-shadow:0 10px 28px rgba(15,23,42,0.06);
-        ${section.variant === 'email' || index === 2 ? 'grid-column:1 / -1;' : ''}
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        margin-bottom:12px;
       ">
         <div style="
-          display:flex;
-          align-items:center;
-          justify-content:space-between;
-          gap:12px;
-          margin-bottom:12px;
-        ">
-          <div style="
-            display:inline-flex;
-            align-items:center;
-            gap:8px;
-            padding:6px 10px;
-            border-radius:999px;
-            background:rgba(255,255,255,0.72);
-            border:1px solid rgba(59,130,246,0.14);
-            font-size:12px;
-            font-weight:800;
-            text-transform:uppercase;
-            letter-spacing:0.08em;
-            color:#334155;
-          ">
-            <span style="display:block; width:8px; height:8px; border-radius:999px; background:var(--text-active);"></span>
-            ${this.escapeHtml(section.label)}
-          </div>
-        </div>
-        ${section.variant === 'email'
-          ? this.buildDiscussionEmailHtml(rowData, section.value)
-          : `
-            <div style="
-              font-size:14px;
-              line-height:1.75;
-              color:#1e293b;
-              white-space:pre-wrap;
-              word-break:break-word;
-              max-height:260px;
-              overflow-y:auto;
-              padding-right:8px;
-              scrollbar-width:thin;
-            ">
-              ${this.escapeHtml(section.value)}
-            </div>
-          `}
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  background:var(--chip-bg,rgba(255,255,255,.72));
+  border:1px solid var(--border-card,rgba(59,130,246,.14));
+  font-size:12px;
+  color:var(--chip-text,#334155);
+">
+  <span style="
+    display:block;
+    width:8px;
+    height:8px;
+    border-radius:999px;
+    background:#000;
+  "></span>
+  <strong style="font-weight:700;">
+    ${this.escapeHtml(section.label)}
+  </strong>
+</div>
       </div>
-    `).join('');
+      ${section.variant === 'email'
+        ? this.buildDiscussionEmailHtml(rowData, section.value)
+        : `
+          <div style="
+            font-size:14px;
+            line-height:1.75;
+            color:var(--text-soft,#1e293b);
+            white-space:pre-wrap;
+            word-break:break-word;
+            max-height:260px;
+            overflow-y:auto;
+            padding-right:8px;
+            scrollbar-width:thin;
+          ">${this.escapeHtml(this.formatNumberedText(section.value))}</div>
+        `
+      }
+    </div>
+  `).join('');
 
     Swal.fire({
       showCloseButton: false,
       showConfirmButton: false,
       width: 1180,
       padding: 0,
-      backdrop: 'rgba(0,0,0,0.4)',
+      backdrop: 'rgba(0,0,0,.4)',
       html: `
+      <div style="
+        --header-text:var(--text-on-active,#fff);
+        text-align:left;
+        background:var(--bg-body,linear-gradient(180deg,#eef6ff 0%,#f8fafc 100%));
+        border-radius:24px;
+        overflow:hidden;
+        box-shadow:0 24px 80px rgba(15,23,42,.18);
+        border:1px solid var(--border-card,#dbe3f0);
+      ">
         <div style="
-          text-align:left;
-          background:linear-gradient(180deg, #eef6ff 0%, #f8fafc 100%);
-          border-radius:24px;
+          padding:28px 32px 22px;
+          background:var(--text-active);
+          border-bottom:1px solid color-mix(in srgb,var(--header-text) 12%,transparent);
+          color:var(--header-text);
+          position:relative;
           overflow:hidden;
-          box-shadow:0 24px 80px rgba(15,23,42,0.18);
-          border:1px solid #dbe3f0;
         ">
           <div style="
-            padding:28px 32px 22px;
-            // background:linear-gradient(135deg, #0f172a 0%, var(--text-active) 58%, #38bdf8 100%);
-            background:var(--text-active);
-            border-bottom:1px solid rgba(255,255,255,0.12);
-            color:#ffffff;
-            position:relative;
-            overflow:hidden;
-          ">
-            <div style="
-              position:absolute;
-              top:-56px;
-              right:-24px;
-              width:160px;
-              height:160px;
-              border-radius:999px;
-              background:rgba(255,255,255,0.10);
-            "></div>
-            <div style="
-              position:absolute;
-              bottom:-70px;
-              left:-12px;
-              width:180px;
-              height:180px;
-              border-radius:999px;
-              background:rgba(255,255,255,0.08);
-            "></div>
-            <button type="button" class="mom-dialog-close" style="
-              position:absolute;
-              top:20px;
-              right:20px;
-              width:40px;
-              height:40px;
-              border:1px solid rgba(255,255,255,0.16);
-              border-radius:999px;
-              background:rgba(255,255,255,0.16);
-              color:#ffffff;
-              display:flex;
-              align-items:center;
-              justify-content:center;
-              cursor:pointer;
-              transition:background 0.2s ease, transform 0.2s ease;
-              z-index:2;
-              backdrop-filter:blur(8px);
-            ">
-              <i class="ri-close-line" style="font-size:18px;"></i>
-            </button>
-            <div style="
-              padding-right:52px;
-              position:relative;
-              z-index:1;
-            ">
-              <div style="min-width:0;">
-                <div style="
-                  display:inline-flex;
-                  align-items:center;
-                  gap:8px;
-                  padding:6px 12px;
-                  border-radius:999px;
-                  background:rgba(255,255,255,0.14);
-                  border:1px solid rgba(255,255,255,0.18);
-                  font-size:10px;
-                  font-weight:800;
-                  letter-spacing:0.1em;
-                  text-transform:uppercase;
-                  color:rgba(255,255,255,0.88);
-                  margin-bottom:14px;
-                ">
-                  <span style="display:block; width:8px; height:8px; border-radius:999px; background:#ffffff;"></span>
-                  Minutes of Meeting
-                </div>
-                <div style="font-size:28px; font-weight:800; line-height:1.2; word-break:break-word; color:#ffffff;">
-                  ${this.escapeHtml(rowData?.title || 'Untitled MOM')}
-                </div>
-              </div>
-            </div>
-          </div>
-
+            position:absolute;
+            top:-56px;
+            right:-24px;
+            width:160px;
+            height:160px;
+            border-radius:999px;
+            background:color-mix(in srgb,var(--header-text) 10%,transparent);
+          "></div>
           <div style="
-            padding:24px 28px 28px;
-            max-height:72vh;
-            overflow:auto;
-            background:
-              radial-gradient(circle at top right, rgba(59,130,246,0.08), transparent 26%),
-              linear-gradient(180deg, rgba(255,255,255,0.68) 0%, rgba(248,250,252,0.96) 100%);
+            position:absolute;
+            bottom:-70px;
+            left:-12px;
+            width:180px;
+            height:180px;
+            border-radius:999px;
+            background:color-mix(in srgb,var(--header-text) 8%,transparent);
+          "></div>
+          <button type="button" class="mom-dialog-close" style="
+            position:absolute;
+            top:20px;
+            right:20px;
+            width:40px;
+            height:40px;
+            border:1px solid color-mix(in srgb,var(--header-text) 16%,transparent);
+            border-radius:999px;
+            background:color-mix(in srgb,var(--header-text) 16%,transparent);
+            color:var(--header-text);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            cursor:pointer;
+            transition:background .2s ease,transform .2s ease;
+            z-index:2;
+            backdrop-filter:blur(8px);
           ">
-            <div style="
-              display:grid;
-              grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
-              gap:12px;
-              margin-bottom:20px;
-            ">
-              ${summaryHtml}
-            </div>
-
-            <div style="
-              display:grid;
-              grid-template-columns:minmax(240px, 0.82fr) minmax(320px, 1.18fr);
-              gap:18px;
-            ">
-              ${detailsHtml}
+            <i class="ri-close-line" style="font-size:18px;"></i>
+          </button>
+          <div style="padding-right:52px;position:relative;z-index:1;">
+            <div style="min-width:0;">
+              <div style="
+                display:inline-flex;
+                align-items:center;
+                gap:8px;
+                padding:6px 12px;
+                border-radius:999px;
+                background:color-mix(in srgb,var(--header-text) 14%,transparent);
+                border:1px solid color-mix(in srgb,var(--header-text) 18%,transparent);
+                font-size:10px;
+                font-weight:800;
+                letter-spacing:.1em;
+                text-transform:uppercase;
+                color:color-mix(in srgb,var(--header-text) 88%,transparent);
+                margin-bottom:14px;
+              ">
+                <span style="
+                  display:block;
+                  width:8px;
+                  height:8px;
+                  border-radius:999px;
+                  background:var(--header-text);
+                "></span>
+                Minutes of Meeting
+              </div>
+              <div style="
+                font-size:28px;
+                font-weight:800;
+                line-height:1.2;
+                word-break:break-word;
+                color:var(--header-text);
+              ">${this.escapeHtml(rowData?.title || 'Untitled MOM')}</div>
             </div>
           </div>
         </div>
-      `,
-      didOpen: (popup) => {
-        const swalPopup = popup.parentElement as HTMLElement | null;
-        // if (swalPopup) {
-        //   swalPopup.style.background = 'transparent';
-        //   swalPopup.style.boxShadow = 'none';
-        // }
-        popup.style.setProperty('--swal2-background', 'transparent', 'important');  //removed everything added this
+        <div style="
+          padding:24px 28px 28px;
+          max-height:72vh;
+          overflow:auto;
+          background:var(
+            --bg-body,
+            radial-gradient(circle at top right,rgba(59,130,246,.08),transparent 26%),
+            linear-gradient(180deg,rgba(255,255,255,.68) 0%,rgba(248,250,252,.96) 100%)
+          );
+        ">
+          <div style="
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+            gap:12px;
+            margin-bottom:20px;
+          ">${summaryHtml}</div>
+          <div style="
+            display:grid;
+            grid-template-columns:minmax(240px,.82fr) minmax(320px,1.18fr);
+            gap:18px;
+          ">${detailsHtml}</div>
+        </div>
+      </div>
+    `,
+      didOpen: popup => {
+        popup.style.setProperty('--swal2-background', 'transparent', 'important');
 
         const closeButton = popup.querySelector('.mom-dialog-close') as HTMLButtonElement | null;
-        if (closeButton) {
-          closeButton.addEventListener('mouseenter', () => {
-            closeButton.style.background = 'rgba(255,255,255,0.24)';
-            closeButton.style.transform = 'scale(1.04)';
-          });
-          closeButton.addEventListener('mouseleave', () => {
-            closeButton.style.background = 'rgba(255,255,255,0.16)';
-            closeButton.style.transform = 'scale(1)';
-          });
-          closeButton.addEventListener('click', () => Swal.close());
-        }
+        if (!closeButton) return;
+
+        closeButton.addEventListener('mouseenter', () => {
+          closeButton.style.background = 'color-mix(in srgb,var(--header-text) 24%,transparent)';
+          closeButton.style.transform = 'scale(1.04)';
+        });
+
+        closeButton.addEventListener('mouseleave', () => {
+          closeButton.style.background = 'color-mix(in srgb,var(--header-text) 16%,transparent)';
+          closeButton.style.transform = 'scale(1)';
+        });
+
+        closeButton.addEventListener('click', () => Swal.close());
       }
     });
   }
@@ -1016,160 +1071,297 @@ export class MomComponent implements OnInit, AfterViewInit {
     return createdBy || '-';
   }
 
-  private buildDiscussionEmailHtml(rowData: MomItem, discussionValue: string): string {
-    const senderName = this.escapeHtml(this.getCreatedByDisplayValue(rowData));
-    const attendeeNames = this.escapeHtml(this.getAttendeesDisplayValue(rowData));
-    const meetingDate = this.escapeHtml(this.getDisplayDate(rowData?.date));
-    const subject = this.escapeHtml(`${rowData?.title || 'Meeting Discussion Notes'} - Discussion Notes`);
+  private buildDiscussionEmailHtml(
+    rowData: MomItem,
+    discussionValue: string,
+    isDarkMode = false
+  ): string {
+    const senderName = this.escapeHtml(
+      this.getCreatedByDisplayValue(rowData)
+    );
+
+    const attendeeNames = this.escapeHtml(
+      this.getAttendeesDisplayValue(rowData)
+    );
+
+    const meetingDate = this.escapeHtml(
+      this.getDisplayDate(rowData?.date)
+    );
+
+    const subject = this.escapeHtml(
+      `${rowData?.title || 'Meeting Discussion Notes'} - Discussion Notes`
+    );
+
     const introLine = this.escapeHtml(
       `Please find below the discussion summary for the meeting "${rowData?.title || 'this meeting'}".`
     );
-    const closingName = senderName === '-' ? 'Project Team' : senderName;
 
-    return `
-      <div style="
-        border:1px solid #e2e8f0;
-        border-radius:16px;
-        background:#ffffff;
-        overflow:hidden;
-      ">
-        <div style="
-          background:linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-          border-bottom:1px solid #e2e8f0;
-          padding:16px 18px;
-        ">
-          ${this.buildEmailMetaRow('From', senderName)}
-          ${this.buildEmailMetaRow('To', attendeeNames)}
-          ${this.buildEmailMetaRow('Date', meetingDate)}
-          ${this.buildEmailMetaRow('Subject', subject, true)}
-        </div>
+    const closingName =
+      senderName === '-' ? 'Project Team' : senderName;
 
-        <div style="
-          padding:22px 22px 18px;
-          max-height:320px;
-          overflow-y:auto;
-          color:#1e293b;
-          font-size:14px;
-          font-weight:400;
-          line-height:1.8;
-          word-break:break-word;
-          scrollbar-width:thin;
-        ">
-          <p style="margin:0 0 14px; font-size:14px; font-weight:400;">Dear Team,</p>
-          <p style="margin:0 0 14px; font-size:14px; font-weight:400;">${introLine}</p>
-          ${this.formatDiscussionContentAsEmailBody(discussionValue)}
-          <p style="margin:16px 0 0; font-size:14px; font-weight:400;">Regards,</p>
-          <p style="margin:4px 0 0; font-size:14px; font-weight:400;">${closingName}</p>
-        </div>
-      </div>
-    `;
-  }
-
-  private buildEmailMetaRow(label: string, value: string, isLast = false): string {
-    return `
-      <div style="
-        display:grid;
-        grid-template-columns:92px minmax(0, 1fr);
-        gap:12px;
-        align-items:start;
-        padding:${isLast ? '0' : '0 0 10px'};
-        margin:${isLast ? '0' : '0 0 10px'};
-        border-bottom:${isLast ? '0' : '1px solid rgba(226,232,240,0.9)'};
-      ">
-        <div style="
-          font-size:14px;
-          font-weight:800;
-          color:#334155;
-          letter-spacing:0.02em;
-          line-height:1.6;
-        ">${this.escapeHtml(label)}:</div>
-        <div style="
-          font-size:14px;
-          font-weight:400;
-          color:#0f172a;
-          line-height:1.6;
-          word-break:break-word;
-        ">${value}</div>
-      </div>
-    `;
-  }
-
-  private formatDiscussionContentAsEmailBody(value: string): string {
-    const normalized = `${value ?? ''}`.replace(/\r\n/g, '\n').trim();
-    if (!normalized) {
-      return '<p style="margin:0; font-size:14px; font-weight:400;">No discussion available.</p>';
-    }
-
-    const lines = normalized.split('\n');
-    const htmlParts: string[] = [];
-    let listItems: string[] = [];
-
-    const flushList = () => {
-      if (!listItems.length) {
-        return;
-      }
-
-      htmlParts.push(`
-        <ul style="
-          margin:0 0 14px 18px;
-          padding:0;
-          color:#1e293b;
-          font-size:14px;
-          font-weight:400;
-          line-height:1.8;
-        ">
-          ${listItems.map((item) => `<li style="margin:0 0 6px;">${this.formatDiscussionEmailLine(item)}</li>`).join('')}
-        </ul>
-      `);
-      listItems = [];
+    const theme = {
+      cardBg: 'var(--bg-card, #ffffff)',
+      cardBorder: 'var(--border-card, #e2e8f0)',
+      headerBg:
+        'linear-gradient(180deg, var(--bg-elevated, #f8fafc) 0%, var(--bg-card, #ffffff) 100%)',
+      headerBorder: 'var(--border-card, #e2e8f0)',
+      bodyText: 'var(--text-main, #1e293b)',
+      introText: 'var(--text-soft, #1e293b)',
     };
 
-    for (const line of lines) {
-      const trimmedLine = line.trim();
+    return `
+    <div
+      class="mom-copy-content"
+      style="
+        border:1px solid ${theme.cardBorder};
+        border-radius:16px;
+        background:${theme.cardBg};
+        overflow:hidden;
+      "
+    >
 
-      if (!trimmedLine) {
-        flushList();
-        continue;
-      }
+      <div style="
+        background:${theme.headerBg};
+        border-bottom:1px solid ${theme.headerBorder};
+        padding:16px 18px;
+      ">
+        ${this.buildEmailMetaRow('From', senderName, false, isDarkMode)}
+        ${this.buildEmailMetaRow('To', attendeeNames, false, isDarkMode)}
+        ${this.buildEmailMetaRow('Date', meetingDate, false, isDarkMode)}
+        ${this.buildEmailMetaRow('Subject', subject, true, isDarkMode)}
+      </div>
 
-      const bulletMatch = trimmedLine.match(/^([-*•]|\d+[.)])\s+(.*)$/);
-      if (bulletMatch) {
-        listItems.push(bulletMatch[2].trim());
-        continue;
-      }
+      <div style="
+        padding:22px;
+        max-height:320px;
+        overflow-y:auto;
+        color:${theme.bodyText};
+        font-size:14px;
+        font-weight:400;
+        line-height:1.8;
+        word-break:break-word;
+        scrollbar-width:thin;
+      ">
 
-      flushList();
-      htmlParts.push(`
         <p style="
           margin:0 0 14px;
+          padding:0;
           font-size:14px;
           font-weight:400;
-          color:#1e293b;
-          line-height:1.8;
-        ">${this.formatDiscussionEmailLine(trimmedLine)}</p>
-      `);
-    }
+        ">Dear Team,</p>
 
-    flushList();
-    return htmlParts.join('') || '<p style="margin:0; font-size:14px; font-weight:400;">No discussion available.</p>';
+        <p style="
+          margin:0 0 14px;
+          padding:0;
+          font-size:14px;
+          font-weight:400;
+          color:${theme.introText};
+        ">${introLine}</p>
+
+        ${this.formatDiscussionContentAsEmailBody(
+      discussionValue,
+      isDarkMode
+    )}
+
+        <div style="
+          height:8px;
+          line-height:8px;
+        "></div>
+
+        <p style="
+          margin:0 0 4px;
+          padding:0;
+          font-size:14px;
+          font-weight:400;
+        ">Regards,</p>
+
+        <p style="
+          margin:0;
+          padding:0;
+          font-size:14px;
+          font-weight:400;
+        ">${closingName}</p>
+
+      </div>
+    </div>
+  `;
   }
 
-  private formatDiscussionEmailLine(value: string): string {
-    const trimmedValue = `${value ?? ''}`.trim();
-    const colonIndex = trimmedValue.indexOf(':');
-
-    if (colonIndex <= 0) {
-      return this.escapeHtml(trimmedValue);
-    }
-
-    const title = this.escapeHtml(trimmedValue.slice(0, colonIndex).trim());
-    const body = this.escapeHtml(trimmedValue.slice(colonIndex + 1).trim());
+  private buildEmailMetaRow(
+    label: string,
+    value: string,
+    isLast = false,
+    isDarkMode = false
+  ): string {
+    const labelColor = 'var(--text-main, #0f172a)';
+    const valueColor = 'var(--text-main, #0f172a)';
+    const dividerColor = 'var(--border-card, rgba(226,232,240,0.9))';
 
     return `
-      <span style="font-weight:700; font-size:15px; color:#0f172a;">${title}:</span>
-      ${body ? `<span style="font-size:14px; font-weight:400; color:#1e293b;"> ${body}</span>` : ''}
+    <div style="
+      display:flex;
+      align-items:flex-start;
+      gap:12px;
+      padding:0 0 ${isLast ? '0' : '10px'};
+      margin:0 0 ${isLast ? '0' : '10px'};
+      border-bottom:${isLast ? '0' : `1px solid ${dividerColor}`};
+      line-height:1.6;
+    ">
+      <strong style="
+        flex:0 0 92px;
+        font-size:14px;
+        font-weight:700;
+        color:${labelColor};
+        line-height:1.6;
+      ">${this.escapeHtml(label)}:</strong><span style="
+        flex:1;
+        font-size:14px;
+        font-weight:400;
+        color:${valueColor};
+        line-height:1.6;
+        word-break:break-word;
+      ">${value}</span>
+    </div>
+  `;
+  }
+
+ private formatDiscussionContentAsEmailBody(
+  value: string,
+  isDarkMode = false
+): string {
+  const textColor = 'var(--text-soft, #1e293b)';
+
+  const normalized = `${value ?? ''}`
+    .replace(/\r\n/g, '\n')
+    .trim();
+
+  if (!normalized) {
+    return `
+      <p style="
+        margin:0;
+        padding:0;
+        font-size:14px;
+        font-weight:400;
+        color:${textColor};
+      ">No discussion available.</p>
     `;
   }
+
+  const lines = normalized.split('\n');
+  const htmlParts: string[] = [];
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+
+    if (!trimmedLine) {
+      htmlParts.push(`
+        <div style="
+          height:6px;
+          line-height:6px;
+        "></div>
+      `);
+      continue;
+    }
+
+    /*
+     * Detect numbered/bullet lines:
+     *
+     * 1.Add something
+     * 1. Add something
+     * 1) Add something
+     * - Add something
+     * * Add something
+     * • Add something
+     */
+    const bulletMatch = trimmedLine.match(
+      /^(?:\d+[.)]\s*|[-*•]\s+)(.*)$/
+    );
+
+    if (bulletMatch) {
+      const bulletText = bulletMatch[1].trim();
+
+      htmlParts.push(`
+        <p style="
+          margin:0 0 7px;
+          padding:0;
+          font-size:14px;
+          font-weight:400;
+          color:${textColor};
+          line-height:1.8;
+          word-break:break-word;
+        "><span style="
+          font-weight:400;
+        ">• </span>${this.formatDiscussionEmailLine(
+          bulletText,
+          isDarkMode
+        )}</p>
+      `);
+
+      continue;
+    }
+
+    /*
+     * Normal paragraph
+     */
+    htmlParts.push(`
+      <p style="
+        margin:0 0 14px;
+        padding:0;
+        font-size:14px;
+        font-weight:400;
+        color:${textColor};
+        line-height:1.8;
+        word-break:break-word;
+      ">${this.formatDiscussionEmailLine(
+        trimmedLine,
+        isDarkMode
+      )}</p>
+    `);
+  }
+
+  return htmlParts.join('');
+}
+
+  private formatDiscussionEmailLine(
+  value: string,
+  isDarkMode = false
+): string {
+  const titleColor = 'var(--text-main, #0f172a)';
+  const bodyColor = 'var(--text-soft, #1e293b)';
+
+  const trimmedValue = `${value ?? ''}`.trim();
+
+  if (!trimmedValue) {
+    return '';
+  }
+
+  const colonIndex = trimmedValue.indexOf(':');
+
+  // Normal text
+  if (colonIndex <= 0) {
+    return this.escapeHtml(trimmedValue);
+  }
+
+  const title = this.escapeHtml(
+    trimmedValue.slice(0, colonIndex).trim()
+  );
+
+  const body = this.escapeHtml(
+    trimmedValue.slice(colonIndex + 1).trim()
+  );
+
+  return `
+    <strong style="
+      font-weight:700;
+      color:${titleColor};
+    ">${title}:</strong>${body ? `<span style="
+      display:inline;
+      margin-left:5px;
+      font-weight:400;
+      color:${bodyColor};
+    ">${body}</span>` : ''}
+  `;
+}
 
   // private getDownloadFileName(data: MomItem, fileUrl: string): string {
   //   const providedFileName = `${data?.file_name ?? ''}`.trim();
@@ -1233,5 +1425,9 @@ export class MomComponent implements OnInit, AfterViewInit {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  private isCompactViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
   }
 }

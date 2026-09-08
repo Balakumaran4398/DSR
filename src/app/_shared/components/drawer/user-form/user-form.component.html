@@ -7,7 +7,7 @@
             <div class="flex flex-col">
 
                 <!-- Header Section (Top) -->
-                <div class="w-full bg-slate-50/80 p-8 border-b border-slate-200">
+                <div class="w-full  p-8 border-b border-slate-200">
                     <div class="mb-6">
                         <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
                             <mat-icon class="!w-8 !h-8 !text-3xl">account_circle</mat-icon>
@@ -357,15 +357,18 @@
 
                         <div class="flex items-center justify-end gap-3 pt-4">
                             <!-- Reset Button -->
-                            <button type="button" (click)="resetForm()"
+                            <button type="button" (click)="resetForm()" [disabled]="isSubmitting"
                                 class="h-8 px-4 text-sm font-medium text-red-600 bg-red-50 rounded hover:bg-red-100 transition">
                                 Reset
                             </button>
 
                             <!-- Save Button -->
-                            <button type="submit" [disabled]="userForm.invalid"
+                            <button type="submit" [disabled]="userForm.invalid || isSubmitting"
                                 class="h-8 px-6 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition">
-                                Save
+                                <span class="app-button-loading">
+                                    <i *ngIf="isSubmitting" class="ri-loader-4-line app-button-spinner"></i>
+                                    <span>{{ isSubmitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save') }}</span>
+                                </span>
                             </button>
                         </div>
 

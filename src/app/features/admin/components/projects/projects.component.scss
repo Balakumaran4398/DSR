@@ -1,0 +1,195 @@
+:host {
+  display: block;
+}
+
+:host ::ng-deep .tabulator-tableholder {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+:host ::ng-deep .projects-department-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 1.75rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--text-active) 26%, var(--border-card));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-active) 11%, var(--bg-card));
+  color: var(--text-active);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+:host ::ng-deep .projects-status-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  width: 100%;
+}
+
+:host ::ng-deep .tabulator-row .tabulator-cell.projects-status-cell {
+  background: color-mix(in srgb, var(--text-active) 4%, var(--table-row-bg, var(--bg-card)));
+  transition: background 0.2s ease;
+}
+
+:host ::ng-deep .tabulator-row:hover .tabulator-cell.projects-status-cell {
+  background: color-mix(in srgb, var(--text-active) 9%, var(--table-row-hover-bg, var(--bg-hover)));
+}
+
+:host ::ng-deep .projects-status {
+  --projects-status-color: #047857;
+  --projects-status-bg: #ECFDF5;
+  --projects-status-border: #A7F3D0;
+  --projects-status-glow: rgba(16, 185, 129, 0.18);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-width: 5.75rem;
+  min-height: 1.95rem;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--projects-status-border);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.58), transparent 58%),
+    var(--projects-status-bg);
+  color: var(--projects-status-color);
+  box-shadow: 0 8px 20px var(--projects-status-glow);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+:host ::ng-deep .projects-status:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px var(--projects-status-glow);
+}
+
+:host ::ng-deep .projects-status__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, currentColor 16%, transparent);
+}
+
+:host ::ng-deep .projects-status__label {
+  color: inherit;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .projects-status--closed {
+  --projects-status-color: #B91C1C;
+  --projects-status-bg: #FEF2F2;
+  --projects-status-border: #FECACA;
+  --projects-status-glow: rgba(239, 68, 68, 0.18);
+}
+
+:host-context(.dark-mode) ::ng-deep .projects-status {
+  --projects-status-color: #34D399;
+  --projects-status-bg: color-mix(in srgb, #10B981 18%, var(--bg-card));
+  --projects-status-border: color-mix(in srgb, #34D399 36%, var(--border-card));
+  --projects-status-glow: rgba(16, 185, 129, 0.16);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.07), transparent 56%),
+    var(--projects-status-bg);
+}
+
+:host-context(.dark-mode) ::ng-deep .tabulator-row .tabulator-cell.projects-status-cell {
+  background: color-mix(in srgb, var(--text-active) 8%, var(--table-row-bg, var(--bg-card)));
+}
+
+:host-context(.dark-mode) ::ng-deep .tabulator-row:hover .tabulator-cell.projects-status-cell {
+  background: color-mix(in srgb, var(--text-active) 13%, var(--table-row-hover-bg, var(--bg-hover)));
+}
+
+:host-context(.dark-mode) ::ng-deep .projects-status--closed {
+  --projects-status-color: #F87171;
+  --projects-status-bg: color-mix(in srgb, #EF4444 18%, var(--bg-card));
+  --projects-status-border: color-mix(in srgb, #F87171 36%, var(--border-card));
+  --projects-status-glow: rgba(239, 68, 68, 0.16);
+}
+
+:host ::ng-deep .projects-progress {
+  --projects-progress-color: #2563eb;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  color: var(--projects-progress-color);
+}
+
+:host ::ng-deep .projects-progress--complete {
+  --projects-progress-color: #059669;
+}
+
+:host ::ng-deep .projects-progress--warning {
+  --projects-progress-color: #d97706;
+}
+
+:host ::ng-deep .projects-progress__track {
+  color: var(--table-border, #e5e7eb);
+}
+
+:host ::ng-deep .projects-progress__value {
+  color: var(--projects-progress-color);
+  transition: stroke-dashoffset 1s ease;
+}
+
+:host ::ng-deep .projects-progress__percent {
+  position: absolute;
+  color: var(--text-main);
+  font-size: 0.625rem;
+  font-weight: 800;
+}
+
+:host ::ng-deep .projects-progress__count {
+  color: var(--text-main);
+  font-size: 0.75rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .projects-progress__label {
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:host-context(.theme-black) ::ng-deep .projects-progress {
+  --projects-progress-color: #2563eb;
+}
+
+:host-context(.dark-mode.theme-black) ::ng-deep .projects-progress {
+  --projects-progress-color: #3b82f6;
+}
+
+:host-context(.theme-black) ::ng-deep .projects-progress--complete {
+  --projects-progress-color: #059669;
+}
+
+:host-context(.dark-mode.theme-black) ::ng-deep .projects-progress--complete {
+  --projects-progress-color: #10b981;
+}
+
+:host-context(.theme-black) ::ng-deep .projects-progress--warning {
+  --projects-progress-color: #d97706;
+}
+
+:host-context(.dark-mode.theme-black) ::ng-deep .projects-progress--warning {
+  --projects-progress-color: #f59e0b;
+}

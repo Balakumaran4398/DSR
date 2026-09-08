@@ -1,5 +1,6 @@
 import { Component, inject, Input, SimpleChanges } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
+import { finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
@@ -17,6 +18,7 @@ export class ClientFormComponent {
   clientForm!: FormGroup;
   isEditMode = false;
   submitted = false;
+  isSubmitting = false;
 
 
 
@@ -108,6 +110,7 @@ export class ClientFormComponent {
   private resetCustomerForm() {
     this.isEditMode = false;
     this.submitted = false;
+    this.isSubmitting = false;
     this.clientForm.reset({
       companyName: '',
       address: '',
@@ -128,6 +131,8 @@ export class ClientFormComponent {
   // Submit
 
   onSubmit() {
+    if (this.isSubmitting) return;
+
     this.submitted = true;
 
     if (this.clientForm.invalid) {
@@ -137,6 +142,7 @@ export class ClientFormComponent {
     }
 
     if (this.clientForm.valid) {
+      this.isSubmitting = true;
       const raw = this.clientForm.value;
       const payload = {
         companyName: raw.companyName,
@@ -164,6 +170,9 @@ export class ClientFormComponent {
         this.updateCustomer(updatePayload);
       } else {
         this.authService.createClient(payload)
+          .pipe(finalize(() => {
+            this.isSubmitting = false;
+          }))
           .subscribe({
             next: (res: any) => {
               this.toasterService.success(res?.message);
@@ -208,6 +217,9 @@ export class ClientFormComponent {
 
   updateCustomer(data: any) {
     this.authService.updateClient(data)
+      .pipe(finalize(() => {
+        this.isSubmitting = false;
+      }))
       .subscribe({
         next: (res: any) => {
           this.toasterService.success(

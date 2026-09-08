@@ -47,9 +47,15 @@
     </div>
 
     <!-- Table Card -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden app-loading-host">
         <!-- The Grid -->
         <div #tableDiv></div>
+        <div *ngIf="tableLoading" class="app-local-loading-overlay">
+            <div class="app-local-loading">
+                <i class="ri-loader-4-line app-spin"></i>
+                <span>Loading documents...</span>
+            </div>
+        </div>
     </div>
 
 </div>

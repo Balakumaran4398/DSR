@@ -1,0 +1,125 @@
+<div class="profile-edit-dialog">
+  <button type="button" class="profile-edit-dialog__close" (click)="close()" aria-label="Close dialog">
+    <i class="ri-close-line"></i>
+  </button>
+
+  <div class="profile-edit-dialog__hero">
+    <div class="profile-edit-dialog__badge">
+      <i class="ri-user-settings-line"></i>
+    </div>
+    <h2>Edit Profile</h2>
+    <p>Update your contact and personal details, then save your changes.</p>
+  </div>
+
+  <form [formGroup]="profileForm" (ngSubmit)="submit()" class="profile-edit-dialog__form">
+    <div class="profile-edit-dialog__grid">
+      <div class="profile-edit-dialog__field">
+        <label for="firstname">First Name <span class="text-red-500">*</span></label>
+        <div class="profile-edit-dialog__input-wrap">
+          <i class="ri-user-line"></i>
+          <input id="firstname" type="text" formControlName="firstname" placeholder="John" />
+        </div>
+        <span class="profile-edit-dialog__error" *ngIf="pf.firstname?.invalid && (pf.firstname?.dirty || pf.firstname?.touched)">
+          First name is required
+        </span>
+      </div>
+
+      <div class="profile-edit-dialog__field">
+        <label for="lastname">Last Name <span class="text-red-500">*</span></label>
+        <div class="profile-edit-dialog__input-wrap">
+          <i class="ri-user-line"></i>
+          <input id="lastname" type="text" formControlName="lastname" placeholder="Doe" />
+        </div>
+        <span class="profile-edit-dialog__error" *ngIf="pf.lastname?.invalid && (pf.lastname?.dirty || pf.lastname?.touched)">
+          Last name is required
+        </span>
+      </div>
+
+      <div class="profile-edit-dialog__field">
+        <label>Gender</label>
+        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+          <mat-select formControlName="gender" placeholder="Select">
+            <mat-option value="Male">Male</mat-option>
+            <mat-option value="Female">Female</mat-option>
+            <mat-option value="Other">Other</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="profile-edit-dialog__field">
+        <label>Date of Birth <span class="text-red-500">*</span></label>
+        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+          <input matInput [matDatepicker]="dobPicker" formControlName="date_of_birth" placeholder="MM/DD/YYYY" />
+          <mat-datepicker-toggle matIconSuffix [for]="dobPicker"></mat-datepicker-toggle>
+          <mat-datepicker #dobPicker></mat-datepicker>
+        </mat-form-field>
+        <span class="profile-edit-dialog__error"
+          *ngIf="pf.date_of_birth?.invalid && (pf.date_of_birth?.dirty || pf.date_of_birth?.touched)">
+          Date of birth is required
+        </span>
+      </div>
+
+      <div class="profile-edit-dialog__field">
+        <label>Blood Group</label>
+        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+          <mat-select formControlName="blood_group" placeholder="Select">
+            <mat-option *ngFor="let bg of bloodGroups" [value]="bg">{{ bg }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="profile-edit-dialog__field">
+        <label>Marital Status</label>
+        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+          <mat-select formControlName="marital_status" placeholder="Select">
+            <mat-option value="Single">Single</mat-option>
+            <mat-option value="Married">Married</mat-option>
+            <mat-option value="Divorced">Divorced</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="profile-edit-dialog__field">
+        <label for="email">Email <span class="text-red-500">*</span></label>
+        <div class="profile-edit-dialog__input-wrap">
+          <i class="ri-mail-line"></i>
+          <input id="email" type="email" formControlName="email" placeholder="you@ridsys.in" />
+        </div>
+        <span class="profile-edit-dialog__error" *ngIf="pf.email?.invalid && (pf.email?.dirty || pf.email?.touched)">
+          <span *ngIf="pf.email?.errors?.['required']">Email is required</span>
+          <span *ngIf="pf.email?.errors?.['email']">Enter a valid email</span>
+        </span>
+      </div>
+
+      <div class="profile-edit-dialog__field">
+        <label for="alternate_email">Alternate Email</label>
+        <div class="profile-edit-dialog__input-wrap">
+          <i class="ri-mail-add-line"></i>
+          <input id="alternate_email" type="email" formControlName="alternate_email" placeholder="alternate@ridsys.in" />
+        </div>
+        <span class="profile-edit-dialog__error"
+          *ngIf="pf.alternate_email?.invalid && (pf.alternate_email?.dirty || pf.alternate_email?.touched)">
+          Enter a valid email
+        </span>
+      </div>
+
+      <div class="profile-edit-dialog__field">
+        <label for="mobile">Mobile Number <span class="text-red-500">*</span></label>
+        <div class="profile-edit-dialog__input-wrap">
+          <i class="ri-smartphone-line"></i>
+          <input id="mobile" type="tel" formControlName="mobile" placeholder="9876543210" />
+        </div>
+        <span class="profile-edit-dialog__error" *ngIf="pf.mobile?.invalid && (pf.mobile?.dirty || pf.mobile?.touched)">
+          Mobile number is required
+        </span>
+      </div>
+    </div>
+
+    <div class="profile-edit-dialog__actions">
+      <button type="button" mat-stroked-button color="warn" class="!px-6" (click)="close()">Cancel</button>
+      <button type="submit" mat-flat-button color="primary" class="!px-6">
+        Save Changes
+      </button>
+    </div>
+  </form>
+</div>

@@ -1,0 +1,8 @@
+:host {
+  display: block;
+}
+
+:host ::ng-deep .tabulator-tableholder {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}

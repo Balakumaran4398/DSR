@@ -211,8 +211,11 @@
     <button type="button" mat-stroked-button color="warn" (click)="close()" [disabled]="submitting" class="!px-6">
       Cancel
     </button>
-    <button type="submit" form="mom-dialog-form" mat-flat-button color="primary" [disabled]="submitting" class="!px-6">
-      {{ submitting ? 'Saving...' : (isEditMode ? 'Update MOM' : 'Save MOM') }}
+    <button type="submit" form="mom-dialog-form" mat-flat-button color="primary" [disabled]="momForm.invalid || submitting" class="!px-6">
+      <span class="app-button-loading">
+        <i *ngIf="submitting" class="ri-loader-4-line app-button-spinner"></i>
+        <span>{{ submitting ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save') }}</span>
+      </span>
     </button>
   </div>
 </div>

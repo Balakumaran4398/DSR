@@ -63,9 +63,15 @@
     </div>
 
     <!-- Table Card -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden app-loading-host">
         <!-- The Grid -->
         <div #tableDiv></div>
+        <div *ngIf="tableLoading" class="app-local-loading-overlay">
+            <div class="app-local-loading">
+                <i class="ri-loader-4-line app-spin"></i>
+                <span>Loading issues...</span>
+            </div>
+        </div>
     </div>
 </div>
 <div class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-white text-slate-900 px-2 py-2 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] flex items-center gap-4 min-w-[380px] border border-slate-200 transition-all duration-300 ease-out"
@@ -98,8 +104,10 @@
                 </div>
 
                 <button *ngFor="let phase of phaseList" (click)="moveTo(phase)"
+                    [disabled]="movingPhaseId == (phase.id ?? phase.phaseid ?? phase.phase_id)"
                     class="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition flex items-center gap-2">
-                    <i class="ri-code-line opacity-70"></i> {{ phase.phase_title +"-"+phase.code }}
+                    <i [class]="movingPhaseId == (phase.id ?? phase.phaseid ?? phase.phase_id) ? 'ri-loader-4-line app-button-spinner opacity-70' : 'ri-code-line opacity-70'"></i>
+                    <span>{{ movingPhaseId == (phase.id ?? phase.phaseid ?? phase.phase_id) ? 'Moving...' : (phase.phase_title +"-"+phase.code) }}</span>
                 </button>
 
             </div>
