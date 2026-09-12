@@ -38,6 +38,8 @@ export class UserFormComponent implements OnInit, OnChanges {
 
   // Mock data for dropdowns
   bloodGroups = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+  readonly genderOptions = ['Male', 'Female', 'Other'];
+  readonly maritalStatusOptions = ['Single', 'Married', 'Divorced'];
 
   private readonly defaultRole = 'ROLE_EMPLOYEE';
   private readonly allRoles: RoleOption[] = [
@@ -47,6 +49,14 @@ export class UserFormComponent implements OnInit, OnChanges {
   ];
 
   roles: RoleOption[] = [...this.allRoles];
+  filteredGenders = [...this.genderOptions];
+  filteredBloodGroups = [...this.bloodGroups];
+  filteredMaritalStatuses = [...this.maritalStatusOptions];
+  filteredRoles: RoleOption[] = [...this.roles];
+  filteredDepartments: any[] = [];
+  filteredPositions: any[] = [];
+  filteredShifts: any[] = [];
+  selectSearch: Record<string, string> = {};
 
   departments: any = [];
 
@@ -255,6 +265,7 @@ export class UserFormComponent implements OnInit, OnChanges {
     this.previewUrl = null;
     this.submittedData = null;
     this.positions = [];
+    this.filteredPositions = [];
     this.skillDetails = [];
     this.applyRoleAccess();
     this.userForm.markAsPristine();
@@ -268,6 +279,7 @@ export class UserFormComponent implements OnInit, OnChanges {
     this.roles = this.canManageSystemRole
       ? [...this.allRoles]
       : this.allRoles.filter(role => role.value !== 'ROLE_ADMIN');
+    this.filteredRoles = [...this.roles];
 
     if (this.canManageSystemRole) {
       return;
@@ -287,12 +299,14 @@ export class UserFormComponent implements OnInit, OnChanges {
   getAllShifts() {
     this.authService.getAllShifts().subscribe(res => {
       console.log(res);
-      this.shifts = res
+      this.shifts = Array.isArray(res) ? res : [];
+      this.filteredShifts = [...this.shifts];
     })
   }
   getAllDepartments() {
     this.authService.getAllDepartments().subscribe(res => {
-      this.departments = res;
+      this.departments = Array.isArray(res) ? res : [];
+      this.filteredDepartments = [...this.departments];
     })
   }
   getDesignationByDepartment(e: any) {
@@ -300,9 +314,46 @@ export class UserFormComponent implements OnInit, OnChanges {
 
     if (e.value) {
       this.authService.getDesignationByDepartment(e.value).subscribe(res => {
-        this.positions = res
+        this.positions = Array.isArray(res) ? res : [];
+        this.filteredPositions = [...this.positions];
       })
+    } else {
+      this.positions = [];
+      this.filteredPositions = [];
     }
+  }
+
+  filterSelect(event: Event, field: string): void {
+    const input = event.target as HTMLInputElement;
+    const query = (input.value ?? '').trim().toLowerCase();
+    this.selectSearch[field] = input.value;
+
+    if (field === 'gender') {
+      this.filteredGenders = this.filterByLabel(this.genderOptions, query, item => item);
+    } else if (field === 'bloodGroup') {
+      this.filteredBloodGroups = this.filterByLabel(this.bloodGroups, query, item => item);
+    } else if (field === 'maritalStatus') {
+      this.filteredMaritalStatuses = this.filterByLabel(this.maritalStatusOptions, query, item => item);
+    } else if (field === 'role') {
+      this.filteredRoles = this.filterByLabel(this.roles, query, item => item.name);
+    } else if (field === 'department') {
+      this.filteredDepartments = this.filterByLabel(this.departments, query, item => item?.department_name);
+    } else if (field === 'position') {
+      this.filteredPositions = this.filterByLabel(this.positions, query, item => item?.position);
+    } else if (field === 'shift') {
+      this.filteredShifts = this.filterByLabel(this.shifts, query, item => item?.shift_type);
+    }
+  }
+
+  resetSelectFilter(opened: boolean, field: string): void {
+    if (!opened) return;
+    this.selectSearch[field] = '';
+    this.filterSelect({ target: { value: '' } } as unknown as Event, field);
+  }
+
+  private filterByLabel<T>(items: T[], query: string, label: (item: T) => any): T[] {
+    const source = Array.isArray(items) ? items : [];
+    return query ? source.filter(item => `${label(item) ?? ''}`.toLowerCase().includes(query)) : [...source];
   }
   patchForm(user: any) {
     this.userForm.patchValue({

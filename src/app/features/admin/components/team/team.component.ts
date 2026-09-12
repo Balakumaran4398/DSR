@@ -70,11 +70,13 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
   }
   getTeamInfo() {
     this.teamTableLoading = true;
+    this.setTeamTableInlineLoading(true, 'Loading team...');
     this.authService.getUsersAll(this.empid)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
           this.teamTableLoading = false;
+          this.setTeamTableInlineLoading(false);
         })
       )
       .subscribe({
@@ -119,6 +121,7 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.setTeamTableInlineLoading(false);
     this.destroy$.next();
     this.destroy$.complete();
 
@@ -147,12 +150,12 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       layout: "fitDataStretch",
       responsiveLayout: false,
       pagination: "local",
-      paginationSize: 15,
+      paginationSize: 10,
       paginationCounter: "rows",
       movableColumns: true,
       selectable: true,
       editTriggerEvent: "dblclick",
-      paginationSizeSelector: [10, 15, 25, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       placeholder: "No Data Found",
       maxHeight: "800px",
       headerSortElement: function (col: any, dir: any) {
@@ -240,6 +243,9 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
           : [])
       ],
     });
+    if (this.teamTableLoading) {
+      this.setTeamTableInlineLoading(true, 'Loading team...');
+    }
     attachTabulatorPaginationPersistence(this.table, buildTabulatorPaginationKey('team-table'));
     this.table.on("rowSelectionChanged", (data: any[], rows: any[]) => {
       this.selectedCount = rows.length;
@@ -492,6 +498,31 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       }
     });
   }
+
+  private setTeamTableInlineLoading(loading: boolean, label = 'Loading data...'): void {
+    const host = this.tableDiv?.nativeElement as HTMLElement | undefined;
+    if (!host) return;
+
+    let loader = host.querySelector<HTMLElement>(':scope > .app-table-inline-loader');
+    if (!loading) {
+      loader?.remove();
+      return;
+    }
+
+    if (!loader) {
+      loader = document.createElement('div');
+      loader.className = 'app-table-inline-loader';
+      host.appendChild(loader);
+    }
+
+    loader.innerHTML = `
+      <div class="app-local-loading">
+        <i class="ri-loader-4-line app-spin"></i>
+        <span>${label}</span>
+      </div>
+    `;
+  }
+
   private escapeHtml(value: any): string {
     return String(value ?? '-')
       .replace(/&/g, '&amp;')
@@ -1095,8 +1126,6 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       }
       return false;
     }
-
     return true;
   }
-
 }

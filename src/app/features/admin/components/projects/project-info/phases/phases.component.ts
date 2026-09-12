@@ -7,6 +7,7 @@ import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { TransientViewStateService } from 'src/app/_core/services/transient-view-state.service';
 import { formatStatusPill } from 'src/app/_core/utils/status-pill.util';
+import { attachStandardTabulatorPagination } from 'src/app/_core/utils/tabulator-pagination.util';
 declare const Tabulator: any;
 declare const luxon: any;
 
@@ -94,7 +95,7 @@ export class PhasesComponent {
       movableColumns: true,
       selectable: true,
       editTriggerEvent: "dblclick",
-      paginationSizeSelector: [10, 15, 25, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       placeholder: "No Data Found",
       headerSortElement: function (col: any, dir: any) {
         if (dir === "asc") return '<i class="ri-arrow-up-line text-xs ml-1"></i>';
@@ -182,15 +183,9 @@ export class PhasesComponent {
         {
           title: "Status",
           field: "status",
-          editor: "list",
+          editable: false,
           minWidth: 150,
           cssClass: "app-status-cell",
-          editorParams: {
-            values: this.statusList,
-            autocomplete: true,
-            listOnEmpty: true,
-            clearable: true
-          },
           formatter: (cell: any) => {
             return formatStatusPill(cell.getValue());
           }
@@ -302,6 +297,8 @@ export class PhasesComponent {
         }
       ],
     });
+
+    attachStandardTabulatorPagination(this.table);
 
     this.table.on("rowSelectionChanged", (data: any[], rows: any[]) => {
       this.selectedCount = rows.length;

@@ -235,19 +235,19 @@ export class ReleaseMailsListComponent implements OnInit {
   }
   // Helpers for Styling
   getStatusColor(status: string | undefined | null): string {
-    const val = status || '';
+    const val = `${status ?? ''}`.trim().toLowerCase().replace(/\s+/g, '-');
 
-    if (["Active", "On-Track", "Approved", "Completed", "Invoiced", "Open"].includes(val)) {
-      return "bg-emerald-100 text-emerald-700 border-emerald-200";
-    } else if (["In-Progress", "In-Review", "In-Testing", "Planning"].includes(val)) {
-      return "bg-blue-100 text-blue-700 border-blue-200";
-    } else if (["On-Hold", "To-be-Tested"].includes(val)) {
-      return "bg-amber-100 text-amber-700 border-amber-200";
-    } else if (["Delayed", "Cancelled", "Rejected", "Closed"].includes(val)) {
-      return "bg-red-100 text-red-700 border-red-200";
+    if (['active', 'on-track', 'approved', 'completed', 'invoiced', 'open', 'pass', 'passed'].includes(val)) {
+      return 'release-mail-status release-mail-status--success';
+    } else if (['in-progress', 'in-review', 'in-testing', 'planning'].includes(val)) {
+      return 'release-mail-status release-mail-status--info';
+    } else if (['on-hold', 'to-be-tested'].includes(val)) {
+      return 'release-mail-status release-mail-status--warning';
+    } else if (['delayed', 'cancelled', 'rejected', 'closed', 'failed'].includes(val)) {
+      return 'release-mail-status release-mail-status--danger';
     }
 
-    return "bg-gray-100 text-gray-700 border-gray-200";
+    return 'release-mail-status release-mail-status--neutral';
   }
   // --- Visual Helpers ---
 
@@ -279,10 +279,10 @@ export class ReleaseMailsListComponent implements OnInit {
 
   getTimelineDotColor(status: string): string {
     const val = status || '';
-    if (["Active", "On-Track", "Approved", "Completed", "Invoiced"].includes(val)) return "bg-emerald-500 border-emerald-100";
+    if (["Active", "On-Track", "Approved", "Completed", "Invoiced", "Pass", "Passed"].includes(val)) return "bg-emerald-500 border-emerald-100";
     if (["In-Progress", "In-Review", "In-Testing", "Planning"].includes(val)) return "bg-blue-500 border-blue-100";
     if (["On-Hold", "To-be-Tested"].includes(val)) return "bg-amber-500 border-amber-100";
-    if (["Delayed", "Cancelled", "Rejected"].includes(val)) return "bg-red-500 border-red-100";
+    if (["Delayed", "Cancelled", "Rejected", "Closed", "Failed"].includes(val)) return "bg-red-500 border-red-100";
     return "bg-slate-300 border-slate-100";
   }
 

@@ -1,7 +1,7 @@
-<div class="flex flex-col bg-white font-sans text-slate-900 h-full h-[70vh]">
+<div class="release-mails-list flex flex-col bg-white font-sans text-slate-900 h-full h-[70vh]">
 
     <!-- Sticky Tab Header (Optimized for MatDialog) -->
-    <div class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b-2 border-slate-100 shrink-0">
+    <div class="release-mails-list__header sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b-2 border-slate-100 shrink-0">
         <div class="flex justify-between items-center px-6 pt-4">
             <h2 class="text-lg font-bold text-slate-800">Audit & Logs</h2>
             <!-- Close icon for dialog feel -->
@@ -11,7 +11,8 @@
         <div class="mx-auto px-4 sm:px-6">
             <nav class="flex space-x-1 overflow-x-auto no-scrollbar" aria-label="Tabs">
                 <button *ngFor="let tab of tabs"
-                    class="py-4 px-4 text-sm font-bold border-b-2 transition-all duration-200 focus:outline-none whitespace-nowrap flex items-center gap-2"
+                    class="release-mails-list__tab py-4 px-4 text-sm font-bold border-b-2 transition-all duration-200 focus:outline-none whitespace-nowrap flex items-center gap-2"
+                    [class.release-mails-list__tab--active]="activeTab === tab.id"
                     [class.border-blue-600]="activeTab === tab.id" [class.text-blue-600]="activeTab === tab.id"
                     [class.border-transparent]="activeTab !== tab.id" [class.text-slate-500]="activeTab !== tab.id"
                     [class.hover:text-slate-700]="activeTab !== tab.id" (click)="setActiveTab(tab.id)">
@@ -22,7 +23,7 @@
     </div>
 
     <!-- Main Content (Scrollable) -->
-    <div class="flex-1 overflow-y-auto bg-slate-50/30">
+    <div class="release-mails-list__content flex-1 overflow-y-auto bg-slate-50/30">
         <div class="mx-auto p-6 md:p-8 ">
             <ng-container [ngSwitch]="activeTab">
 

@@ -140,14 +140,13 @@ export class ProductsComponent {
     this.table = new Tabulator(this.tableDiv.nativeElement, {
       data: this.products,
       layout: "fitColumns",
-      height: "100%",
       pagination: "local",
-      paginationSize: 15,
+      paginationSize: 10,
       paginationCounter: "rows",
       movableColumns: true,
       selectable: true,
       editTriggerEvent: "dblclick",
-      paginationSizeSelector: [10, 15, 25, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       placeholder: "No Products Found",
       headerSortElement: function (col: any, dir: any) {
         if (dir === "asc")

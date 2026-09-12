@@ -4,7 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { Employee } from '../projects/project-info/release-manager/release-manager.component';
-import { finalize, map, Observable, startWith } from 'rxjs';
+import { finalize } from 'rxjs';
 import { PdfService } from 'src/app/_core/services/pdf.service';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
 interface Task {
@@ -38,7 +38,8 @@ export class TaskOverviewComponent implements OnInit {
   @ViewChildren('taskItem') taskItems!: QueryList<ElementRef<HTMLDivElement>>;
   empId: any = 0
   myControl = new FormControl<string | Employee | number>('');
-  filteredOptions!: Observable<Employee[]>;
+  filteredEmployees: Employee[] = [];
+  employeeSearchText = '';
   viewMode: 'card' | 'table' = 'card';
 
   constructor(private authService: AuthService, private storageService: StorageService, private pdfService: PdfService, private route: ActivatedRoute) {
@@ -276,22 +277,6 @@ export class TaskOverviewComponent implements OnInit {
   }
 
 
-  private _filter(value: string): Employee[] {
-    const filterValue = value.toLowerCase();
-    return this.employees.filter((emp: any) =>
-      emp.employee_name.toLowerCase().includes(filterValue)
-    );
-  }
-
-  displayFn(employee: Employee | number | string): string {
-    if (employee === 0) return 'Select all';
-    if (typeof employee === 'string') return employee;
-    if (typeof employee === 'number') return '';
-
-    return employee && employee.employee_name
-      ? employee.employee_name
-      : '';
-  }
   clearSelection(): void {
     this.myControl.setValue('');
     this.selectedEmployee = {};
@@ -300,26 +285,29 @@ export class TaskOverviewComponent implements OnInit {
   }
   getEmployeeList() {
     this.authService.getEmployeeList().subscribe((res: any) => {
-      this.employees = res;
-      this.filteredOptions = this.myControl.valueChanges.pipe(
-        startWith(''),
-        map(value => {
-          const name =
-            typeof value === 'string'
-              ? value
-              : typeof value === 'number'
-                ? ''
-                : value?.employee_name || '';
-          this.searchTerm = name;
-          return name ? this._filter(name) : [...this.employees];
-        })
-      );
+      this.employees = Array.isArray(res) ? res : [];
+      this.filteredEmployees = [...this.employees];
     })
   }
   selectedEmployee: any = { id: 0, employee_name: 'All Employee' };
   onEmployeeSelection(emp: any) {
     this.selectedEmployee = emp === 0 ? { id: 0, employee_name: 'All Employee' } : emp;
+    this.searchTerm = emp === 0 ? '' : (emp?.employee_name ?? '');
     this.filterTask();
+  }
+
+  filterEmployees(event: Event): void {
+    this.employeeSearchText = (event.target as HTMLInputElement).value;
+    const query = this.employeeSearchText.trim().toLowerCase();
+    this.filteredEmployees = query
+      ? this.employees.filter((employee: any) => `${employee?.employee_name ?? ''}`.toLowerCase().includes(query))
+      : [...this.employees];
+  }
+
+  onEmployeeSelectOpened(opened: boolean): void {
+    if (!opened) return;
+    this.employeeSearchText = '';
+    this.filteredEmployees = [...this.employees];
   }
 
   get hasEmployeeSelection(): boolean {
@@ -454,6 +442,7 @@ export class TaskOverviewComponent implements OnInit {
       pagination: "local",
       paginationSize: 10,
       paginationCounter: "rows",
+      paginationSizeSelector: [10, 25, 50, 100],
       movableColumns: true,
       placeholder: "<div class='py-10 text-slate-500'>No tasks available</div>",
       columns: [

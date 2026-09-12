@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { catchError, finalize, forkJoin, of, Subscription } from 'rxjs';
+import { catchError, EMPTY, finalize, forkJoin, mergeMap, Observable, of, Subject, Subscription, tap, timeout } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { ExcelService, OverallPerformanceExcelSection } from 'src/app/_core/services/excel.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
+import { APP_TABLE_DEFAULT_PAGE_SIZE, APP_TABLE_PAGE_SIZE_OPTIONS, APP_TABLE_VISIBLE_ROW_COUNT, buildTablePageNumbers } from 'src/app/_core/utils/tabulator-pagination.util';
 
 type ReportSectionId = string;
 type SummaryTone = 'neutral' | 'blue' | 'green' | 'amber' | 'red' | 'cyan';
@@ -61,6 +62,7 @@ interface ReportSection {
   filteredRows: ReportRow[];
   loading: boolean;
   errorMessage: string;
+  warningMessage: string;
   summary: SummaryCard[];
   emptyMessage: string;
   buildSummary: (rows: ReportRow[]) => SummaryCard[];
@@ -124,6 +126,19 @@ interface LoadReportOptions {
   clearExistingData?: boolean;
 }
 
+interface ReportLoadJob {
+  employeeId: number;
+  department: DepartmentOption;
+  releaseDepartments?: DepartmentOption[];
+  releaseScopeDepartments?: DepartmentOption[];
+  releaseDepartmentId?: any;
+  dashboardDepartments?: DepartmentOption[];
+  dashboardDepartmentId?: any;
+  loadRunId: number;
+  reportCacheKey: string;
+  requestKind: 'release' | 'dashboard';
+}
+
 @Component({
   selector: 'app-overall-performance-report',
   templateUrl: './overall-performance-report.component.html',
@@ -158,7 +173,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   departmentFilterPlaceholder = 'All Department';
   noDepartmentOptionMessage = 'No departments found';
   emptyPageTitle = 'No department reports available';
-  emptyPageMessage = 'Select one or more departments or change the date range to view report data.';
+  emptyPageMessage = 'Select a department or change the date range to view report data.';
   dateRangeLabel = '';
   dateRangeDisplayLabel = '';
   selectedPresetLabel = 'Weekly';
@@ -175,7 +190,8 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   sections: ReportSection[] = [];
   departments: DepartmentOption[] = [];
   filteredDepartments: DepartmentOption[] = [];
-  readonly pageSizeOptions = [10, 25, 50, 100];
+  readonly pageSizeOptions = APP_TABLE_PAGE_SIZE_OPTIONS;
+  readonly tableVisibleRowCount = APP_TABLE_VISIBLE_ROW_COUNT;
   readonly skeletonRows = Array.from({ length: 6 }, (_value, index) => index);
   readonly datePresets: Array<{ id: DatePreset; label: string }> = [
     { id: 'weekly', label: 'Weekly' },
@@ -192,15 +208,21 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   private employeeList: any[] = [];
   private tableLoadingState: Record<string, Partial<Record<ReportKind, boolean>>> = {};
   private tableErrorState: Record<string, Partial<Record<ReportKind, string>>> = {};
+  private tableWarningState: Record<string, Partial<Record<ReportKind, string>>> = {};
   private sectionExportingState: Record<string, Partial<Record<ExportKind, boolean>>> = {};
   private activeLoadRunId = 0;
   private activeReportRequestKey: string | null = null;
   private activeReportRequestCount = 0;
   private readonly activeTableRequestKeys = new Set<string>();
   private rebuildSectionsTimeoutId: number | null = null;
+  private readonly pendingDepartmentRebuildIds = new Set<string>();
   private departmentRecordCountById: Record<string, number> = {};
   private managerDepartmentRestricted = false;
+  private managerRole = false;
   private readonly maxSessionCacheCharacters = 4_000_000;
+  private readonly maxConcurrentReportRequests = 4;
+  private readonly requestTimeoutMs = 30_000;
+  private reportJobQueue?: Subject<ReportLoadJob>;
 
   private readonly releaseKeys = [
     'total_release_list',
@@ -282,9 +304,19 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.generatedBy = this.getGeneratedByLabel();
     this.updateDepartmentAccessFlags();
+    const isAdmin = !!this.storageService.roles?.isAdmin;
+    const isManager = !!this.storageService.roles?.isManager && !isAdmin;
 
     if (!this.restoreViewState()) {
       this.setDefaultDateRange();
+    }
+
+    // An admin page load always starts with the complete organization scope.
+    // The marker is expanded to the current department IDs after metadata loads.
+    if (isAdmin) {
+      this.selectedDepartmentIds = [this.allDepartmentsValue];
+    } else if (isManager) {
+      this.selectedDepartmentIds = [];
     }
 
     this.refreshComputedState();
@@ -293,6 +325,8 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.activeLoadRunId++;
+    this.reportJobQueue?.complete();
+    this.reportJobQueue = undefined;
     this.loadSubscription?.unsubscribe();
     this.metadataSubscription?.unsubscribe();
     this.activeReportRequestKey = null;
@@ -360,7 +394,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       ? 'Preparing report data for this tab.'
       : this.managerDepartmentRestricted && !this.departments.length
         ? 'Your manager account does not have a department assigned for this report.'
-        : 'Select one or more departments or change the date range to view report data.';
+        : 'Select a department or change the date range to view report data.';
     this.dateRangeLabel = `${this.formatDisplayDate(this.startDate)} to ${this.formatDisplayDate(this.endDate)}`;
     this.dateRangeDisplayLabel = `${this.formatDisplayDate(this.startDate)} - ${this.formatDisplayDate(this.endDate)}`;
     this.selectedPresetLabel = this.datePresets.find(preset => preset.id === this.selectedPreset)?.label || 'Weekly';
@@ -395,6 +429,10 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     this.applySearch();
   }
 
+  isDepartmentSelected(departmentId: string): boolean {
+    return this.selectedDepartmentIds.includes(departmentId);
+  }
+
   onDepartmentFilterChange(value: any): void {
     if (this.managerDepartmentRestricted) {
       this.selectedDepartmentIds = this.departments.length ? [this.departments[0].filter_id] : [];
@@ -407,22 +445,27 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
 
     const selectedValues = Array.isArray(value) ? value.map(item => `${item ?? ''}`) : [];
     const actualDepartmentIds = this.getValidDepartmentIds(selectedValues);
-    const hadAllSelected = this.isAllDepartmentsSelected();
+    const previouslySelectedDepartmentIds = this.getValidDepartmentIds(this.selectedDepartmentIds);
+    const hadAllSelected = this.selectedDepartmentIds.includes(this.allDepartmentsValue);
     const hasAllSelected = selectedValues.includes(this.allDepartmentsValue);
     let nextDepartmentIds: string[];
 
     if (hasAllSelected && !hadAllSelected) {
       nextDepartmentIds = this.getAllDepartmentSelectionValues();
-    } else if (hadAllSelected && !hasAllSelected && actualDepartmentIds.length === this.departments.length) {
+    } else if (hadAllSelected && !hasAllSelected) {
       nextDepartmentIds = [];
-    } else if (hasAllSelected && actualDepartmentIds.length < this.departments.length) {
-      nextDepartmentIds = actualDepartmentIds;
+    } else if (hadAllSelected && hasAllSelected) {
+      const toggledDepartmentId = previouslySelectedDepartmentIds.find(
+        departmentId => !actualDepartmentIds.includes(departmentId)
+      );
+      nextDepartmentIds = toggledDepartmentId ? [toggledDepartmentId] : [];
     } else {
-      nextDepartmentIds = actualDepartmentIds;
-
-      if (actualDepartmentIds.length && actualDepartmentIds.length === this.departments.length) {
-        nextDepartmentIds = this.getAllDepartmentSelectionValues();
-      }
+      const newlySelectedDepartmentIds = actualDepartmentIds.filter(
+        departmentId => !previouslySelectedDepartmentIds.includes(departmentId)
+      );
+      nextDepartmentIds = newlySelectedDepartmentIds.length
+        ? [newlySelectedDepartmentIds[newlySelectedDepartmentIds.length - 1]]
+        : actualDepartmentIds.slice(0, 1);
     }
 
     if (this.areSameStringSets(nextDepartmentIds, this.selectedDepartmentIds)) {
@@ -434,7 +477,10 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     this.applyDepartmentSearch();
     this.saveViewState();
     this.requestViewUpdate();
-    this.loadReportData({ forceRefresh: true, clearExistingData: true });
+
+    if (this.metadataLoaded && this.getReportDepartmentOptions().length) {
+      this.loadReportData({ forceRefresh: true, clearExistingData: true });
+    }
   }
 
   filterDepartments(event: Event): void {
@@ -668,11 +714,28 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     this.activeReportRequestKey = reportCacheKey;
 
     if (section.reportKind === 'release') {
-      this.loadReleaseReportData(employeeId, department, this.activeLoadRunId, reportCacheKey);
+      const reportDepartments = this.getReportDepartmentOptions();
+      const releaseDepartments = reportDepartments.filter(item =>
+        this.getApplicableReportKinds(item).includes('release')
+      );
+      this.loadReleaseReportData(
+        employeeId,
+        releaseDepartments,
+        reportDepartments,
+        this.activeLoadRunId,
+        reportCacheKey
+      );
       return;
     }
 
-    this.loadDashboardReportData(employeeId, department, this.activeLoadRunId, reportCacheKey);
+    const reportDepartments = this.getReportDepartmentOptions();
+    this.loadDashboardReportData(
+      employeeId,
+      reportDepartments,
+      this.activeLoadRunId,
+      reportCacheKey,
+      this.getDepartmentSelectionRequestValue(reportDepartments)
+    );
   }
 
   private isSectionExporting(section: ReportSection, exportKind: ExportKind): boolean {
@@ -933,24 +996,31 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
 
   private loadDepartmentMetadata(): void {
     this.metadataSubscription?.unsubscribe();
+    const restoredMetadata = this.restoreMetadataCache();
+    const previousDepartmentIds = this.departments.map(department => department.filter_id);
 
-    if (this.restoreMetadataCache()) {
+    if (restoredMetadata) {
+      // loadReportData restores any report cache immediately and now also
+      // revalidates it through dashboarddetails in the background.
       this.loadReportData();
-      return;
+    } else {
+      this.metadataLoading = true;
+      this.requestViewUpdate();
     }
 
-    this.metadataLoading = true;
-    this.requestViewUpdate();
-
     this.metadataSubscription = forkJoin({
-      departments: this.authService.getAllDepartments().pipe(catchError(error => {
+      departments: this.authService.getAllDepartments().pipe(
+        timeout(this.requestTimeoutMs),
+        catchError(error => {
         console.error('Overall performance department metadata load error:', error);
         this.toasterService.error('Unable to load departments');
-        return of([]);
+        return of(this.departmentList);
       })),
-      employees: this.authService.getUsersAll(Number(this.storageService.getEmpId() || 0)).pipe(catchError(error => {
+      employees: this.authService.getUsersAll(Number(this.storageService.getEmpId() || 0)).pipe(
+        timeout(this.requestTimeoutMs),
+        catchError(error => {
         console.error('Overall performance employee metadata load error:', error);
-        return of([]);
+        return of(this.employeeList);
       }))
     }).subscribe({
       next: ({ departments, employees }) => {
@@ -971,7 +1041,14 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
         this.saveMetadataCache();
         this.saveViewState();
         this.metadataLoading = false;
-        this.loadReportData();
+        const currentDepartmentIds = this.departments.map(department => department.filter_id);
+        const departmentsChanged = !this.areSameStringSets(previousDepartmentIds, currentDepartmentIds);
+
+        if (!restoredMetadata) {
+          this.loadReportData();
+        } else if (departmentsChanged) {
+          this.loadReportData({ forceRefresh: true });
+        }
         this.requestViewUpdate();
       },
       error: error => {
@@ -1049,6 +1126,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     this.activeTableRequestKeys.clear();
     this.tableLoadingState = {};
     this.tableErrorState = {};
+    this.tableWarningState = {};
     this.departmentReportData = cachedReports.map(report => ({
       ...report,
       department: departmentsById.get(report.department.filter_id) || report.department
@@ -1239,6 +1317,32 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     });
   }
 
+  private buildReleaseRequestKey(
+    employeeId: number,
+    departments: DepartmentOption[],
+    departmentId: any
+  ): string {
+    return JSON.stringify({
+      employeeId,
+      startDate: this.startDate,
+      endDate: this.endDate,
+      departmentId,
+      targetDepartmentIds: departments.map(department => department.filter_id),
+      requestKind: 'release'
+    });
+  }
+
+  private buildDashboardRequestKey(employeeId: number, departments: DepartmentOption[], departmentId: any): string {
+    return JSON.stringify({
+      employeeId,
+      startDate: this.startDate,
+      endDate: this.endDate,
+      departmentId: `${departmentId ?? ''}`,
+      targetDepartmentIds: departments.map(department => department.filter_id),
+      requestKind: 'dashboard'
+    });
+  }
+
   private getDepartmentAccessCacheScope(): string {
     if (!this.managerDepartmentRestricted) {
       return 'all-departments';
@@ -1271,24 +1375,28 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     );
   }
 
-  private scheduleRebuildSections(): void {
+  private scheduleRebuildSections(departmentId: string): void {
+    this.pendingDepartmentRebuildIds.add(departmentId);
+
     if (this.rebuildSectionsTimeoutId !== null) {
       return;
     }
 
     this.rebuildSectionsTimeoutId = window.setTimeout(() => {
       this.rebuildSectionsTimeoutId = null;
-      this.rebuildSections();
+      this.rebuildPendingDepartmentSections();
     });
   }
 
   private clearScheduledRebuild(): void {
     if (this.rebuildSectionsTimeoutId === null) {
+      this.pendingDepartmentRebuildIds.clear();
       return;
     }
 
     window.clearTimeout(this.rebuildSectionsTimeoutId);
     this.rebuildSectionsTimeoutId = null;
+    this.pendingDepartmentRebuildIds.clear();
   }
 
   private flushScheduledRebuild(): void {
@@ -1298,7 +1406,16 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
 
     window.clearTimeout(this.rebuildSectionsTimeoutId);
     this.rebuildSectionsTimeoutId = null;
-    this.rebuildSections();
+    this.rebuildPendingDepartmentSections();
+  }
+
+  private rebuildPendingDepartmentSections(): void {
+    const departmentIds = [...this.pendingDepartmentRebuildIds];
+    this.pendingDepartmentRebuildIds.clear();
+
+    departmentIds.forEach(departmentId => this.rebuildDepartmentSections(departmentId));
+    this.updateDepartmentRecordCounts();
+    this.requestViewUpdate();
   }
 
   private extractResponseList(response: any, keys: string[]): any[] {
@@ -1318,6 +1435,23 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   private refreshDepartmentOptions(reloadOnSelectionChange = true): void {
     this.updateDepartmentAccessFlags();
     this.departments = this.applyDepartmentAccessRestriction(this.normalizeDepartmentOptions(this.departmentList));
+
+    if (this.managerRole && !this.getValidDepartmentIds(this.selectedDepartmentIds).length) {
+      const managerDepartmentKeys = this.getLoggedInDepartmentKeys();
+      let managerDepartment = this.departments.find(department =>
+        this.doFilterKeysOverlap(this.getDepartmentOptionKeys(department), managerDepartmentKeys)
+      );
+
+      if (!managerDepartment) {
+        const fallbackDepartment = this.buildLoggedInDepartmentFallbackOption();
+        if (fallbackDepartment) {
+          this.departments = this.sortDepartmentsForReport([...this.departments, fallbackDepartment]);
+          managerDepartment = fallbackDepartment;
+        }
+      }
+
+      this.selectedDepartmentIds = managerDepartment ? [managerDepartment.filter_id] : [];
+    }
 
     if (this.managerDepartmentRestricted) {
       this.departmentSearchTerm = '';
@@ -1343,9 +1477,9 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const validSelectedIds = this.getValidDepartmentIds(this.selectedDepartmentIds);
+    const validSelectedIds = this.getValidDepartmentIds(this.selectedDepartmentIds).slice(0, 1);
 
-    if (!validSelectedIds.length || validSelectedIds.length !== this.selectedDepartmentIds.length) {
+    if (!this.areSameStringSets(validSelectedIds, this.selectedDepartmentIds)) {
       this.selectedDepartmentIds = validSelectedIds;
 
       if (this.metadataLoaded && reloadOnSelectionChange) {
@@ -1410,13 +1544,12 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
 
   private updateDepartmentAccessFlags(): void {
     const roles = this.storageService.roles;
-    this.managerDepartmentRestricted = !!roles?.isManager && !roles?.isAdmin;
-    this.canSelectAllDepartments = !this.managerDepartmentRestricted;
-    this.isDepartmentSelectionLocked = this.managerDepartmentRestricted;
-    this.departmentFilterPlaceholder = this.managerDepartmentRestricted ? 'Manager Department' : 'All Department';
-    this.noDepartmentOptionMessage = this.managerDepartmentRestricted
-      ? 'No assigned department found'
-      : 'No departments found';
+    this.managerRole = !!roles?.isManager && !roles?.isAdmin;
+    this.managerDepartmentRestricted = false;
+    this.canSelectAllDepartments = true;
+    this.isDepartmentSelectionLocked = false;
+    this.departmentFilterPlaceholder = this.managerRole ? 'Manager Department' : 'All Department';
+    this.noDepartmentOptionMessage = 'No departments found';
   }
 
   private applyDepartmentAccessRestriction(departments: DepartmentOption[]): DepartmentOption[] {
@@ -1626,10 +1759,15 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     const forceRefresh = !!options.forceRefresh;
 
     if (!selectedDepartments.length) {
+      this.activeLoadRunId++;
+      this.reportJobQueue?.complete();
+      this.reportJobQueue = undefined;
+      this.loadSubscription?.unsubscribe();
       this.departmentReportData = [];
       this.sections = [];
       this.tableLoadingState = {};
       this.tableErrorState = {};
+      this.tableWarningState = {};
       this.departmentRecordCountById = {};
       this.activeReportRequestKey = null;
       this.activeReportRequestCount = 0;
@@ -1644,47 +1782,79 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     }
 
     if (!forceRefresh && this.restoreReportCache(reportCacheKey, selectedDepartments)) {
+      // Keep the cached report visible, then replace it incrementally with the
+      // latest API values. This also runs after a full browser refresh.
+      this.loadReportData({ forceRefresh: true });
       return;
     }
 
     const loadRunId = ++this.activeLoadRunId;
+    this.reportJobQueue?.complete();
     this.loadSubscription?.unsubscribe();
-    this.loadSubscription = new Subscription();
+    this.reportJobQueue = new Subject<ReportLoadJob>();
+    this.loadSubscription = this.reportJobQueue.pipe(
+      mergeMap(job => this.executeReportLoadJob(job), this.maxConcurrentReportRequests)
+    ).subscribe();
     this.activeReportRequestKey = reportCacheKey;
     this.activeReportRequestCount = 0;
     this.activeTableRequestKeys.clear();
+    this.tableWarningState = {};
     this.generatedAt = new Date();
     this.saveViewState();
     this.clearReportCache(reportCacheKey);
 
     this.prepareDepartmentReportsForLoad(selectedDepartments, !options.clearExistingData);
     this.rebuildSections();
+    const releaseDepartments: DepartmentOption[] = [];
 
     selectedDepartments.forEach(department => {
       const applicableKinds = this.getApplicableReportKinds(department);
 
       if (applicableKinds.includes('release')) {
-        this.loadReleaseReportData(employeeId, department, loadRunId, reportCacheKey);
+        releaseDepartments.push(department);
       }
 
-      if (applicableKinds.some(kind => kind !== 'release')) {
-        this.loadDashboardReportData(employeeId, department, loadRunId, reportCacheKey);
-      }
     });
+
+    if (releaseDepartments.length) {
+      this.loadReleaseReportData(
+        employeeId,
+        releaseDepartments,
+        selectedDepartments,
+        loadRunId,
+        reportCacheKey
+      );
+    }
+
+    const dashboardDepartments = selectedDepartments.filter(department =>
+      this.getApplicableReportKinds(department).some(kind => kind !== 'release')
+    );
+
+    if (dashboardDepartments.length) {
+      this.loadDashboardReportData(
+        employeeId,
+        dashboardDepartments,
+        loadRunId,
+        reportCacheKey,
+        this.getDepartmentSelectionRequestValue(selectedDepartments)
+      );
+    }
   }
 
   private loadReleaseReportData(
     employeeId: number,
-    department: DepartmentOption,
+    departments: DepartmentOption[],
+    scopeDepartments: DepartmentOption[],
     loadRunId: number,
     reportCacheKey: string
   ): void {
-    const departmentId = this.getDepartmentRequestApiValue(department);
-    const managerName = this.shouldUseManagerBasedDepartmentScope() && !this.isSqaDepartment(department)
-      ? this.getDepartmentManagerNameParam(department)
-      : '';
-    const sectionKey = this.getDepartmentSectionStateKey(department);
-    const requestKey = this.buildTableRequestKey(employeeId, department, 'release');
+    if (!departments.length || !scopeDepartments.length) {
+      return;
+    }
+
+    const department = departments[0];
+    const departmentId = this.getDepartmentSelectionRequestValue(scopeDepartments);
+    const requestKey = this.buildReleaseRequestKey(employeeId, departments, departmentId);
 
     if (this.activeTableRequestKeys.has(requestKey)) {
       return;
@@ -1692,64 +1862,38 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
 
     this.activeTableRequestKeys.add(requestKey);
     this.activeReportRequestCount++;
-    this.setTableError(sectionKey, 'release', '');
-    this.setTableLoading(sectionKey, 'release', true);
-
-    const subscription = this.authService
-      .getReleaseOverviewListByEmp(this.getReleaseOverviewPayload(employeeId, departmentId, managerName))
-      .pipe(finalize(() => {
-        if (loadRunId === this.activeLoadRunId) {
-          this.flushScheduledRebuild();
-          this.setTableLoading(sectionKey, 'release', false);
-        }
-        this.finishReportRequest(loadRunId, reportCacheKey, requestKey);
-      }))
-      .subscribe({
-        next: releases => {
-          if (loadRunId !== this.activeLoadRunId) {
-            return;
-          }
-
-          this.patchDepartmentReportData(department, {
-            releaseOverviewRows: this.normalizeReleaseOverviewResponse(releases),
-            releaseOverviewLoaded: true,
-            releaseLoadFailed: false,
-            loadFailed: false
-          });
-          this.scheduleRebuildSections();
-        },
-        error: error => {
-          if (loadRunId !== this.activeLoadRunId) {
-            return;
-          }
-
-          console.error(`Overall performance release load error for ${department.department_name}:`, error);
-          this.patchDepartmentReportData(department, {
-            releaseOverviewLoaded: false,
-            releaseLoadFailed: true,
-            loadFailed: true
-          });
-          this.setTableError(sectionKey, 'release', 'Unable to load Release Report.');
-          this.scheduleRebuildSections();
-        }
-      });
-
-    this.loadSubscription?.add(subscription);
+    departments.forEach(targetDepartment => {
+      const sectionKey = this.getDepartmentSectionStateKey(targetDepartment);
+      this.setTableError(sectionKey, 'release', '');
+      this.setTableWarning(sectionKey, 'release', '');
+      this.setTableLoading(sectionKey, 'release', true);
+    });
+    this.reportJobQueue?.next({
+      employeeId,
+      department,
+      releaseDepartments: departments,
+      releaseScopeDepartments: scopeDepartments,
+      releaseDepartmentId: departmentId,
+      loadRunId,
+      reportCacheKey,
+      requestKind: 'release'
+    });
   }
 
   private loadDashboardReportData(
     employeeId: number,
-    department: DepartmentOption,
+    departments: DepartmentOption[],
     loadRunId: number,
-    reportCacheKey: string
+    reportCacheKey: string,
+    departmentId?: any
   ): void {
-    const departmentId = this.getDepartmentRequestApiValue(department);
-    const managerName = this.shouldUseManagerBasedDepartmentScope() && !this.isSqaDepartment(department)
-      ? this.getDepartmentManagerNameParam(department)
-      : '';
-    const sectionKey = this.getDepartmentSectionStateKey(department);
-    const affectedKinds = this.getApplicableReportKinds(department).filter(kind => kind !== 'release');
-    const requestKey = this.buildTableRequestKey(employeeId, department, 'dashboard');
+    if (!departments.length) {
+      return;
+    }
+
+    const department = departments[0];
+    const requestDepartmentId = departmentId ?? this.getDepartmentRequestApiValue(department);
+    const requestKey = this.buildDashboardRequestKey(employeeId, departments, requestDepartmentId);
 
     if (this.activeTableRequestKeys.has(requestKey)) {
       return;
@@ -1758,49 +1902,161 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     this.activeTableRequestKeys.add(requestKey);
     this.activeReportRequestCount++;
 
-    affectedKinds.forEach(kind => {
-      this.setTableError(sectionKey, kind, '');
-      this.setTableLoading(sectionKey, kind, true);
-    });
-
-    const subscription = this.authService
-      .getDashboardDetailsByEmployeeId(employeeId, 0, this.startDate, this.endDate, departmentId, managerName)
-      .pipe(finalize(() => {
-        if (loadRunId === this.activeLoadRunId) {
-          this.flushScheduledRebuild();
-          affectedKinds.forEach(kind => this.setTableLoading(sectionKey, kind, false));
-        }
-        this.finishReportRequest(loadRunId, reportCacheKey, requestKey);
-      }))
-      .subscribe({
-        next: dashboard => {
-          if (loadRunId !== this.activeLoadRunId) {
-            return;
-          }
-
-          this.patchDepartmentReportData(department, {
-            dashboardData: dashboard || {},
-            dashboardLoadFailed: false,
-            loadFailed: false
-          });
-          this.scheduleRebuildSections();
-        },
-        error: error => {
-          if (loadRunId !== this.activeLoadRunId) {
-            return;
-          }
-
-          console.error(`Overall performance dashboard load error for ${department.department_name}:`, error);
-          this.patchDepartmentReportData(department, {
-            dashboardLoadFailed: true,
-            loadFailed: true
-          });
-          affectedKinds.forEach(kind => this.setTableError(sectionKey, kind, `Unable to load ${this.getReportKindTitle(kind)}.`));
-          this.scheduleRebuildSections();
-        }
+    departments.forEach(targetDepartment => {
+      const sectionKey = this.getDepartmentSectionStateKey(targetDepartment);
+      this.getApplicableReportKinds(targetDepartment).filter(kind => kind !== 'release').forEach(kind => {
+        this.setTableError(sectionKey, kind, '');
+        this.setTableWarning(sectionKey, kind, '');
+        this.setTableLoading(sectionKey, kind, true);
       });
+    });
+    this.reportJobQueue?.next({
+      employeeId,
+      department,
+      dashboardDepartments: departments,
+      dashboardDepartmentId: requestDepartmentId,
+      loadRunId,
+      reportCacheKey,
+      requestKind: 'dashboard'
+    });
+  }
 
-    this.loadSubscription?.add(subscription);
+  private executeReportLoadJob(job: ReportLoadJob): Observable<unknown> {
+    return job.requestKind === 'release'
+      ? this.executeReleaseReportLoad(job)
+      : this.executeDashboardReportLoad(job);
+  }
+
+  private executeReleaseReportLoad(job: ReportLoadJob): Observable<unknown> {
+    const { employeeId, department, loadRunId, reportCacheKey } = job;
+    const departments = job.releaseDepartments?.length ? job.releaseDepartments : [department];
+    const scopeDepartments = job.releaseScopeDepartments?.length ? job.releaseScopeDepartments : departments;
+    const departmentId = job.releaseDepartmentId ?? this.getDepartmentSelectionRequestValue(scopeDepartments);
+    const managerName = scopeDepartments.length === 1
+      && this.shouldUseManagerBasedDepartmentScope()
+      && !this.isSqaDepartment(department)
+      ? this.getDepartmentManagerNameParam(department)
+      : '';
+    const requestKey = this.buildReleaseRequestKey(employeeId, departments, departmentId);
+    let receivedResponse = false;
+
+    return this.authService
+      .getReleaseOverviewListByEmp(this.getReleaseOverviewPayload(employeeId, departmentId, managerName))
+      .pipe(
+        timeout({ each: this.requestTimeoutMs }),
+        tap(releases => {
+          if (loadRunId !== this.activeLoadRunId) return;
+
+          receivedResponse = true;
+          const normalizedRows = this.normalizeReleaseOverviewResponse(releases);
+          const useManagerScope = this.shouldUseManagerBasedDepartmentScope();
+          departments.forEach(targetDepartment => {
+            const departmentRows = scopeDepartments.length === 1
+              ? normalizedRows
+              : this.filterCombinedReleaseRowsForDepartment(normalizedRows, targetDepartment, useManagerScope);
+            this.patchDepartmentReportData(targetDepartment, {
+              releaseOverviewRows: departmentRows,
+              releaseOverviewLoaded: true,
+              releaseLoadFailed: false,
+              loadFailed: false
+            });
+            this.scheduleRebuildSections(this.getDepartmentSectionStateKey(targetDepartment));
+          });
+        }),
+        catchError(error => {
+          if (loadRunId !== this.activeLoadRunId) return EMPTY;
+
+          const departmentLabel = departmentId === 0 ? 'all departments' : 'selected departments';
+          console.error(`Overall performance release load error for ${departmentLabel}:`, error);
+          departments.forEach(targetDepartment => {
+            const sectionKey = this.getDepartmentSectionStateKey(targetDepartment);
+            if (receivedResponse) {
+              this.setTableWarning(sectionKey, 'release', 'Unable to refresh Release Report. Showing available data.');
+            } else {
+              this.patchDepartmentReportData(targetDepartment, {
+                releaseOverviewLoaded: false,
+                releaseLoadFailed: true,
+                loadFailed: true
+              });
+              this.setTableError(sectionKey, 'release', 'Unable to load Release Report.');
+            }
+            this.scheduleRebuildSections(sectionKey);
+          });
+          return EMPTY;
+        }),
+        finalize(() => {
+          if (loadRunId === this.activeLoadRunId) {
+            this.flushScheduledRebuild();
+            departments.forEach(targetDepartment =>
+              this.setTableLoading(this.getDepartmentSectionStateKey(targetDepartment), 'release', false)
+            );
+          }
+          this.finishReportRequest(loadRunId, reportCacheKey, requestKey);
+        })
+      );
+  }
+
+  private executeDashboardReportLoad(job: ReportLoadJob): Observable<unknown> {
+    const { employeeId, department, loadRunId, reportCacheKey } = job;
+    const departments = job.dashboardDepartments?.length ? job.dashboardDepartments : [department];
+    const departmentId = job.dashboardDepartmentId ?? this.getDepartmentRequestApiValue(department);
+    const requestKey = this.buildDashboardRequestKey(employeeId, departments, departmentId);
+    let receivedResponse = false;
+
+    return this.authService
+      .getDashboardDetailsByEmployeeIdDeptwise(employeeId, 0, this.startDate, this.endDate, departmentId)
+      .pipe(
+        timeout({ each: this.requestTimeoutMs }),
+        tap(dashboard => {
+          if (loadRunId !== this.activeLoadRunId) return;
+          receivedResponse = true;
+          departments.forEach(targetDepartment => {
+            this.patchDepartmentReportData(targetDepartment, {
+              dashboardData: dashboard || {},
+              dashboardLoadFailed: false,
+              loadFailed: false
+            });
+            this.scheduleRebuildSections(this.getDepartmentSectionStateKey(targetDepartment));
+          });
+        }),
+        catchError(error => {
+          if (loadRunId !== this.activeLoadRunId) return EMPTY;
+          const departmentLabel = departmentId === 0 ? 'all departments' : department.department_name;
+          console.error(`Overall performance dashboard load error for ${departmentLabel}:`, error);
+          departments.forEach(targetDepartment => {
+            const sectionKey = this.getDepartmentSectionStateKey(targetDepartment);
+            const affectedKinds = this.getApplicableReportKinds(targetDepartment).filter(kind => kind !== 'release');
+
+            if (receivedResponse) {
+              affectedKinds.forEach(kind => this.setTableWarning(
+                sectionKey,
+                kind,
+                `Unable to refresh ${this.getReportKindTitle(kind)}. Showing available data.`
+              ));
+            } else {
+              this.patchDepartmentReportData(targetDepartment, {
+                dashboardLoadFailed: true,
+                loadFailed: true
+              });
+              affectedKinds.forEach(kind => this.setTableError(sectionKey, kind, `Unable to load ${this.getReportKindTitle(kind)}.`));
+            }
+            this.scheduleRebuildSections(sectionKey);
+          });
+          return EMPTY;
+        }),
+        finalize(() => {
+          if (loadRunId === this.activeLoadRunId) {
+            this.flushScheduledRebuild();
+            departments.forEach(targetDepartment => {
+              const sectionKey = this.getDepartmentSectionStateKey(targetDepartment);
+              this.getApplicableReportKinds(targetDepartment).filter(kind => kind !== 'release').forEach(kind =>
+                this.setTableLoading(sectionKey, kind, false)
+              );
+            });
+          }
+          this.finishReportRequest(loadRunId, reportCacheKey, requestKey);
+        })
+      );
   }
 
   private prepareDepartmentReportsForLoad(selectedDepartments: DepartmentOption[], keepExistingReports = true): void {
@@ -1821,20 +2077,26 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     const nextErrorState = Object.fromEntries(
       Object.entries(this.tableErrorState).filter(([departmentId]) => selectedIds.has(departmentId))
     ) as Record<string, Partial<Record<ReportKind, string>>>;
+    const nextWarningState = Object.fromEntries(
+      Object.entries(this.tableWarningState).filter(([departmentId]) => selectedIds.has(departmentId))
+    ) as Record<string, Partial<Record<ReportKind, string>>>;
 
     selectedDepartments.forEach(department => {
       const sectionKey = this.getDepartmentSectionStateKey(department);
       nextLoadingState[sectionKey] = { ...(nextLoadingState[sectionKey] || {}) };
       nextErrorState[sectionKey] = { ...(nextErrorState[sectionKey] || {}) };
+      nextWarningState[sectionKey] = { ...(nextWarningState[sectionKey] || {}) };
 
       this.getApplicableReportKinds(department).forEach(kind => {
         nextErrorState[sectionKey][kind] = '';
+        nextWarningState[sectionKey][kind] = '';
         nextLoadingState[sectionKey][kind] = true;
       });
     });
 
     this.tableLoadingState = nextLoadingState;
     this.tableErrorState = nextErrorState;
+    this.tableWarningState = nextWarningState;
   }
 
   private createEmptyDepartmentReportData(department: DepartmentOption): DepartmentReportData {
@@ -1906,6 +2168,21 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     this.updateSectionTransientState(departmentId, reportKind);
   }
 
+  private setTableWarning(departmentId: string, reportKind: ReportKind, warningMessage: string): void {
+    if ((this.tableWarningState[departmentId]?.[reportKind] || '') === warningMessage) {
+      return;
+    }
+
+    this.tableWarningState = {
+      ...this.tableWarningState,
+      [departmentId]: {
+        ...(this.tableWarningState[departmentId] || {}),
+        [reportKind]: warningMessage
+      }
+    };
+    this.updateSectionTransientState(departmentId, reportKind);
+  }
+
   private updateSectionTransientState(departmentId: string, reportKind: ReportKind): void {
     this.sections = this.sections.map(section => {
       if (section.departmentId !== departmentId || section.reportKind !== reportKind) {
@@ -1915,7 +2192,8 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       return this.decorateSection({
         ...section,
         loading: this.isTableLoading(departmentId, reportKind),
-        errorMessage: this.getTableError(departmentId, reportKind)
+        errorMessage: this.getTableError(departmentId, reportKind),
+        warningMessage: this.getTableWarning(departmentId, reportKind)
       });
     });
     this.requestViewUpdate();
@@ -1927,6 +2205,10 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
 
   private getTableError(departmentId: string, reportKind: ReportKind): string {
     return this.tableErrorState[departmentId]?.[reportKind] || '';
+  }
+
+  private getTableWarning(departmentId: string, reportKind: ReportKind): string {
+    return this.tableWarningState[departmentId]?.[reportKind] || '';
   }
 
   private getDepartmentSectionStateKey(department: DepartmentOption): string {
@@ -1965,7 +2247,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       projectid: 0,
       fromdate: this.startDate,
       todate: this.endDate,
-      department_id: departmentId || '',
+      department_id: departmentId ?? '',
       manager_name: managerName || ''
     };
   }
@@ -2012,10 +2294,23 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     return this.firstPresent(department.api_id, department.filter_id, department.department_name);
   }
 
+  private getDepartmentSelectionRequestValue(departments: DepartmentOption[]): any {
+    if (this.isAllDepartmentsSelected(departments)) {
+      return 0;
+    }
+
+    const departmentIds = departments.map(department => {
+      const departmentId = this.getDepartmentApiValue(department);
+      const numericDepartmentId = Number(departmentId);
+      return `${departmentId ?? ''}`.trim() !== '' && Number.isFinite(numericDepartmentId)
+        ? numericDepartmentId
+        : departmentId;
+    });
+    return departmentIds.length === 1 ? departmentIds[0] : departmentIds.join(',');
+  }
+
   private getDepartmentRequestApiValue(department: DepartmentOption): any {
-    return this.isSqaDepartment(department)
-      ? ''
-      : this.getDepartmentApiValue(department);
+    return this.getDepartmentApiValue(department);
   }
 
   private rebuildSections(): void {
@@ -2024,6 +2319,37 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       .flatMap(report => this.buildDepartmentSections(report))
       .map(section => this.mergePreviousSectionViewState(section, previousSections.get(section.id)));
     this.applySearch();
+  }
+
+  private rebuildDepartmentSections(departmentId: string): void {
+    const report = this.departmentReportData.find(item => item.department.filter_id === departmentId);
+    const previousDepartmentSections = this.sections.filter(section => section.departmentId === departmentId);
+
+    if (!report || !previousDepartmentSections.length) {
+      this.rebuildSections();
+      return;
+    }
+
+    const previousSectionsById = new Map(previousDepartmentSections.map(section => [section.id, section]));
+    const globalSearchValue = this.normalizeSearchText(this.searchTerm);
+    const rebuiltSections = this.buildDepartmentSections(report).map(section => {
+      const mergedSection = this.mergePreviousSectionViewState(section, previousSectionsById.get(section.id));
+      return this.applyFiltersToSection(mergedSection, globalSearchValue);
+    });
+    let replacementInserted = false;
+
+    this.sections = this.sections.flatMap(section => {
+      if (section.departmentId !== departmentId) {
+        return [section];
+      }
+
+      if (replacementInserted) {
+        return [];
+      }
+
+      replacementInserted = true;
+      return rebuiltSections;
+    });
   }
 
   private buildDepartmentSections(report: DepartmentReportData): ReportSection[] {
@@ -2046,11 +2372,10 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       false,
       useManagerScope
     );
-    const issues = this.filterRowsForDepartmentScope(
+    const issues = this.filterIssueRowsForDepartment(
       this.uniqueRows(this.extractRowsByKeys(report.dashboardData, this.issueKeys, row => this.isIssueRow(row))),
       department,
-      false,
-      useManagerScope
+      !this.isAllDepartmentsSelected()
     );
     const tickets = this.filterRowsForDepartmentScope(
       this.uniqueRows(this.extractRowsByKeys(report.dashboardData, this.ticketKeys, row => this.isTicketRow(row))),
@@ -2218,13 +2543,13 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
         index + 1,
         this.formatDisplayDate(this.getFirstValue(row, ['created_date', 'createddate', 'issue_date', 'bug_date', 'date'])),
         this.getProjectName(row),
-        this.getValue(row, ['bug_code', 'bugCode', 'issue_code', 'issueCode', 'bug_id', 'issue_id', 'id']),
-        this.getValue(row, ['bug_name', 'bugName', 'issue_name', 'issueName', 'title', 'name', 'subject', 'reason_f_issue', 'reasonFIssue']),
-        this.getValue(row, ['assigned_to_name', 'assignedToName', 'assignee_to_name', 'employee_name', 'employeeName', 'owner_name', 'ownerName']),
-        this.getValue(row, ['testing_type', 'testingType', 'type']),
+        this.getValue(row, ['bug_code', 'bugCode', 'issue_code', 'issueCode', 'taskcode', 'task_code', 'taskCode', 'bug_id', 'issue_id', 'id']),
+        this.getValue(row, ['bug_name', 'bugName', 'issue_name', 'issueName', 'task', 'task_name', 'taskName', 'title', 'name', 'subject', 'reason_f_issue', 'reasonFIssue', 'description']),
+        this.getValue(row, ['assigned_to_name', 'assignedToName', 'assignee_to_name', 'task_assigned_to_name', 'taskAssignedToName', 'employee_name', 'employeeName', 'owner_name', 'ownerName']),
+        this.getValue(row, ['testing_type', 'testingType', 'task_category', 'taskCategory', 'task_type', 'taskType', 'type']),
         this.getPriorityLabel(row),
         status,
-        this.getValue(row, ['remarks', 'comments', 'description', 'issue_description', 'bug_description', 'reason_f_issue', 'reasonFIssue'])
+        this.getValue(row, ['remarks', 'remark', 'comments', 'description', 'issue_description', 'bug_description', 'reason_f_issue', 'reasonFIssue'])
       ], { statusKey: this.normalizeStatusKey(status) });
     });
 
@@ -2330,11 +2655,12 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       filteredRows: sectionRows,
       loading: this.isTableLoading(department.filter_id, reportKind),
       errorMessage: this.getTableError(department.filter_id, reportKind),
+      warningMessage: this.getTableWarning(department.filter_id, reportKind),
       summary: buildSummary(sectionRows),
       emptyMessage,
       buildSummary,
       searchTerm: '',
-      pageSize: 10,
+      pageSize: APP_TABLE_DEFAULT_PAGE_SIZE,
       pageIndex: 0,
       totalPages: 1,
       pageNumbers: [],
@@ -2517,12 +2843,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   }
 
   private buildPageNumbers(totalPages: number, pageIndex: number): number[] {
-    const maxVisiblePages = 5;
-    const currentPage = pageIndex + 1;
-    const startPage = Math.max(1, Math.min(currentPage - 2, totalPages - maxVisiblePages + 1));
-    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    return Array.from({ length: endPage - startPage + 1 }, (_value, index) => startPage + index);
+    return buildTablePageNumbers(totalPages);
   }
 
   private sortRows(rows: ReportRow[], section: ReportSection): ReportRow[] {
@@ -2694,6 +3015,90 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     return useManagerScope
       ? this.filterRowsForDepartmentManager(rows, department, keepUnknownDepartmentRows)
       : this.filterRowsForDepartment(rows, department, keepUnknownDepartmentRows);
+  }
+
+  private filterCombinedReleaseRowsForDepartment(
+    rows: any[],
+    department: DepartmentOption,
+    useManagerScope = false
+  ): any[] {
+    if (this.isSqaDepartment(department)) {
+      return this.filterRowsForAssignedToDepartment(rows, department);
+    }
+
+    if (useManagerScope) {
+      const managerKeys = this.getDepartmentManagerKeys(department);
+      return rows.filter(row => {
+        const rowManagerKeys = this.getRowManagerKeys(row);
+        return rowManagerKeys.length > 0 && this.doFilterKeysOverlap(rowManagerKeys, managerKeys);
+      });
+    }
+
+    return rows.filter(row => {
+      const rowDepartmentKeys = this.getRowDepartmentKeys(row);
+      return rowDepartmentKeys.length > 0
+        && this.rowMatchesDepartmentOption(row, department, rowDepartmentKeys);
+    });
+  }
+
+  private filterIssueRowsForDepartment(
+    rows: any[],
+    department: DepartmentOption,
+    includeUnscopedRows = false
+  ): any[] {
+    const departmentKeys = this.getDepartmentOptionKeys(department);
+
+    return rows.filter(row => {
+      const owningDepartmentKeys = this.getIssueOwningDepartmentKeys(row);
+      if (owningDepartmentKeys.length) {
+        return this.doFilterKeysOverlap(owningDepartmentKeys, departmentKeys);
+      }
+
+      const assignedDepartmentKeys = this.getAssignedToDepartmentKeys(row);
+      if (assignedDepartmentKeys.length) {
+        return this.doFilterKeysOverlap(assignedDepartmentKeys, departmentKeys);
+      }
+
+      // A non-zero department request is already scoped by the backend, so
+      // rows without department metadata belong to that requested department.
+      return includeUnscopedRows;
+    });
+  }
+
+  private getIssueOwningDepartmentKeys(row: any): string[] {
+    if (!row || typeof row !== 'object') {
+      return [];
+    }
+
+    const values: any[] = [];
+    const owningDepartmentKeys = [
+      'department',
+      'dept',
+      'team',
+      'department_id',
+      'departmentId',
+      'departmentid',
+      'dept_id',
+      'deptId',
+      'deptid',
+      'department_name',
+      'departmentName',
+      'dept_name',
+      'deptName',
+      'team_name',
+      'teamName',
+      'bug_department',
+      'bugDepartment',
+      'bug_department_id',
+      'bugDepartmentId',
+      'issue_department',
+      'issueDepartment',
+      'issue_department_id',
+      'issueDepartmentId'
+    ];
+
+    owningDepartmentKeys.forEach(key => values.push(...this.collectDepartmentValues(row[key])));
+    return this.normalizeFilterKeys(values);
   }
 
   private filterRowsForAssignedToDepartment(rows: any[], department: DepartmentOption): any[] {
@@ -3094,14 +3499,14 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     }
 
     if (departmentKey.includes('sqa')) {
-      return ['release', 'task', 'ticket'];
+      return ['release', 'task', 'ticket', 'issue'];
     }
 
     if (departmentKey.includes('fiber')) {
-      return ['task', 'ticket'];
+      return ['task', 'ticket', 'issue'];
     }
 
-    return ['ticket'];
+    return ['ticket', 'issue'];
   }
 
   private sortDepartmentsForReport(departments: DepartmentOption[]): DepartmentOption[] {
@@ -3772,23 +4177,11 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
 
   private isIssueRow(row: any): boolean {
     if (!row || typeof row !== 'object') return false;
+    // A bug can legitimately reference its parent task. Explicit issue fields
+    // must win so records from bug_list are not rejected as task rows.
+    if (this.isObviousIssueRow(row)) return true;
     if (this.isObviousTicketRow(row) || this.isObviousTaskRow(row) || this.isObviousReleaseRow(row)) return false;
-    return this.hasAnyKey(row, [
-      'bug_name',
-      'bugName',
-      'bug_code',
-      'bugCode',
-      'bug_id',
-      'issue_name',
-      'issueName',
-      'issue_code',
-      'issueCode',
-      'issue_id',
-      'reason_f_issue',
-      'reasonFIssue',
-      'testing_type',
-      'testingType'
-    ]) || this.hasAnyKey(row, ['title', 'name', 'status', 'id']);
+    return this.hasAnyKey(row, ['title', 'name', 'status', 'id']);
   }
 
   private isTicketRow(row: any): boolean {
@@ -3837,7 +4230,17 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   }
 
   private isObviousIssueRow(row: any): boolean {
-    return this.hasAnyKey(row, [
+    const issueType = this.normalizeStatusKey(this.getFirstValue(row, [
+      'task_type',
+      'taskType',
+      'task_category',
+      'taskCategory',
+      'record_type',
+      'recordType',
+      'type'
+    ]));
+
+    return ['bug', 'issue'].includes(issueType) || this.hasAnyKey(row, [
       'bug_name',
       'bugName',
       'bug_code',

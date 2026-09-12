@@ -1,6 +1,7 @@
 import { Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { getStatusPillClass } from 'src/app/_core/utils/status-pill.util';
+import { APP_TABLE_DEFAULT_PAGE_SIZE, APP_TABLE_PAGE_SIZE_OPTIONS, APP_TABLE_VISIBLE_ROW_COUNT, buildTablePageNumbers, normalizeTablePageSize } from 'src/app/_core/utils/tabulator-pagination.util';
 
 interface OverallDetailsColumn {
   label: string;
@@ -31,7 +32,9 @@ export class OverallDetailsDialogComponent {
   columns: OverallDetailsColumn[] = [];
   scrollbarVisible = false;
   pageIndex = 0;
-  pageSize = 10;
+  pageSize = APP_TABLE_DEFAULT_PAGE_SIZE;
+  readonly tableVisibleRowCount = APP_TABLE_VISIBLE_ROW_COUNT;
+  readonly pageSizeOptions = APP_TABLE_PAGE_SIZE_OPTIONS;
   totalPages = 1;
   pageNumbers: number[] = [];
   showingFrom = 0;
@@ -113,6 +116,12 @@ export class OverallDetailsDialogComponent {
     }
 
     this.pageIndex = nextPageIndex;
+    this.rebuildPagination();
+  }
+
+  onPageSizeChange(event: Event): void {
+    this.pageSize = normalizeTablePageSize((event.target as HTMLSelectElement).value);
+    this.pageIndex = 0;
     this.rebuildPagination();
   }
 
@@ -205,17 +214,11 @@ export class OverallDetailsDialogComponent {
   }
 
   private buildPageNumbers(): number[] {
-    const maxVisiblePages = 5;
-    const currentPage = this.pageIndex + 1;
-    const startPage = Math.max(1, Math.min(currentPage - 2, this.totalPages - maxVisiblePages + 1));
-    const endPage = Math.min(this.totalPages, startPage + maxVisiblePages - 1);
-
-    return Array.from({ length: endPage - startPage + 1 }, (_value, index) => startPage + index);
+    return buildTablePageNumbers(this.totalPages);
   }
 
   private normalizePageSize(value: any): number {
-    const numericValue = Number(value);
-    return Number.isFinite(numericValue) && numericValue > 0 ? Math.floor(numericValue) : 10;
+    return normalizeTablePageSize(value);
   }
 
   private getFirstValue(row: any, keys: string[]): any {

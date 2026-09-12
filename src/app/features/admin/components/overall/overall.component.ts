@@ -9,6 +9,7 @@ import { StorageService } from 'src/app/_core/services/storage.service';
 import { OverdueComponent } from '../../core/charts/overdue/overdue.component';
 import { ProjectStatusReportComponent } from '../../core/charts/project-status-report/project-status-report.component';
 import { OverallDetailsDialogComponent } from './overall-details-dialog/overall-details-dialog.component';
+import { APP_TABLE_DEFAULT_PAGE_SIZE, APP_TABLE_PAGE_SIZE_OPTIONS, APP_TABLE_VISIBLE_ROW_COUNT, buildTablePageNumbers } from 'src/app/_core/utils/tabulator-pagination.util';
 
 type MetricTone = 'blue' | 'purple' | 'orange' | 'green' | 'cyan' | 'violet';
 type OverallMetricDialogType = 'employees' | 'tasks' | 'issues' | 'releases' | 'tickets' ;
@@ -76,6 +77,10 @@ interface OverallTrendItem {
   primaryHeight: number;
   secondaryHeight: number;
   tertiaryHeight: number;
+  stackHeight: number;
+  stackRemainderPercent: number;
+  stackSecondaryPercent: number;
+  stackTertiaryPercent: number;
 }
 
 interface TrendBucket {
@@ -146,8 +151,9 @@ export class OverallComponent implements OnInit, OnDestroy {
   performancePageNumbers: number[] = [];
   performanceSearchTerm = '';
   performancePageIndex = 0;
-  performancePageSize = 10;
-  readonly performancePageSizeOptions = [10, 25, 50, 100];
+  performancePageSize = APP_TABLE_DEFAULT_PAGE_SIZE;
+  readonly tableVisibleRowCount = APP_TABLE_VISIBLE_ROW_COUNT;
+  readonly performancePageSizeOptions = APP_TABLE_PAGE_SIZE_OPTIONS;
   readonly tableSkeletonRows = Array.from({ length: 8 }, (_value, index) => index);
   readonly tableSkeletonColumns = Array.from({ length: 11 }, (_value, index) => index);
   performanceTotalPages = 1;
@@ -171,12 +177,14 @@ export class OverallComponent implements OnInit, OnDestroy {
   issueTrend: OverallTrendItem[] = [];
   releaseTrend: OverallTrendItem[] = [];
   ticketTrend: OverallTrendItem[] = [];
-  taskTrendLinePoints = '';
-  issueTrendLinePoints = '';
-  releaseTrendLinePoints = '';
-  taskTrendDots: SvgPoint[] = [];
-  issueTrendDots: SvgPoint[] = [];
-  releaseTrendDots: SvgPoint[] = [];
+  issueAreaLinePath = '';
+  issueAreaPath = '';
+  ticketOpenLinePath = '';
+  ticketClosedLinePath = '';
+  ticketOpenAreaPath = '';
+  issueAreaDots: SvgPoint[] = [];
+  ticketOpenDots: SvgPoint[] = [];
+  ticketClosedDots: SvgPoint[] = [];
   taskChartTicks: number[] = [4, 3, 2, 1, 0];
   issueChartTicks: number[] = [4, 3, 2, 1, 0];
   releaseChartTicks: number[] = [4, 3, 2, 1, 0];
@@ -719,17 +727,20 @@ export class OverallComponent implements OnInit, OnDestroy {
     this.issueTrend = this.buildIssueTrend();
     this.releaseTrend = this.buildReleaseTrend();
     this.ticketTrend = this.buildTicketTrend();
+    const issueAreaValues = this.issueTrend.map(item => item.primary + item.secondary);
     this.taskChartTicks = this.buildChartTicks(this.taskTrend);
-    this.issueChartTicks = this.buildChartTicks(this.issueTrend);
+    this.issueChartTicks = this.buildValueTicks(issueAreaValues);
     this.releaseChartTicks = this.buildChartTicks(this.releaseTrend);
     this.ticketChartTicks = this.buildChartTicks(this.ticketTrend);
 
-    this.taskTrendDots = [];
-    this.issueTrendDots = [];
-    this.releaseTrendDots = [];
-    this.taskTrendLinePoints = '';
-    this.issueTrendLinePoints = '';
-    this.releaseTrendLinePoints = '';
+    this.issueAreaDots = this.getValueDots(issueAreaValues);
+    this.ticketOpenDots = this.getTrendDots(this.ticketTrend, 'primary');
+    this.ticketClosedDots = this.getTrendDots(this.ticketTrend, 'secondary');
+    this.issueAreaLinePath = this.pointsToSmoothPath(this.issueAreaDots);
+    this.issueAreaPath = this.pointsToAreaPath(this.issueAreaDots);
+    this.ticketOpenLinePath = this.pointsToLinearPath(this.ticketOpenDots);
+    this.ticketClosedLinePath = this.pointsToLinearPath(this.ticketClosedDots);
+    this.ticketOpenAreaPath = this.pointsToAreaPath(this.ticketOpenDots, this.ticketOpenLinePath);
     this.startDashboardCountAnimation();
     this.cdr.markForCheck();
   }
@@ -1381,13 +1392,7 @@ export class OverallComponent implements OnInit, OnDestroy {
   }
 
   private buildPerformancePageNumbers(): number[] {
-    const maxVisiblePages = 5;
-    const totalPages = this.performanceTotalPages;
-    const currentPage = this.performancePageIndex + 1;
-    const startPage = Math.max(1, Math.min(currentPage - 2, totalPages - maxVisiblePages + 1));
-    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    return Array.from({ length: endPage - startPage + 1 }, (_value, index) => startPage + index);
+    return buildTablePageNumbers(this.performanceTotalPages);
   }
 
   private getRowsForCompany(rows: any[]): any[] {
@@ -1774,30 +1779,102 @@ export class OverallComponent implements OnInit, OnDestroy {
         line: tertiary,
         primaryHeight: primary > 0 ? Math.max(6, this.percent(primary, maxValue)) : 0,
         secondaryHeight: secondary > 0 ? Math.max(6, this.percent(secondary, maxValue)) : 0,
-        tertiaryHeight: tertiary > 0 ? Math.max(6, this.percent(tertiary, maxValue)) : 0
+        tertiaryHeight: tertiary > 0 ? Math.max(6, this.percent(tertiary, maxValue)) : 0,
+        ...this.buildTrendStack(primary, secondary, tertiary, maxValue)
       };
     });
   }
 
+  private buildTrendStack(primary: number, secondary: number, tertiary: number, maxValue: number): Pick<OverallTrendItem, 'stackHeight' | 'stackRemainderPercent' | 'stackSecondaryPercent' | 'stackTertiaryPercent'> {
+    const stackTotal = Math.max(primary, secondary + tertiary);
+
+    if (stackTotal <= 0) {
+      return {
+        stackHeight: 0,
+        stackRemainderPercent: 0,
+        stackSecondaryPercent: 0,
+        stackTertiaryPercent: 0
+      };
+    }
+
+    const secondaryValue = Math.min(secondary, stackTotal);
+    const tertiaryValue = Math.min(tertiary, Math.max(0, stackTotal - secondaryValue));
+    const remainderValue = Math.max(0, stackTotal - secondaryValue - tertiaryValue);
+
+    return {
+      stackHeight: Math.max(6, this.percent(stackTotal, maxValue)),
+      stackRemainderPercent: this.percent(remainderValue, stackTotal),
+      stackSecondaryPercent: this.percent(secondaryValue, stackTotal),
+      stackTertiaryPercent: this.percent(tertiaryValue, stackTotal)
+    };
+  }
+
   private getTrendDots(items: OverallTrendItem[], key: 'primary' | 'secondary' | 'line'): SvgPoint[] {
-    const width = 600;
+    const left = 6;
+    const width = 588;
     const height = 140;
     const top = 10;
     const maxValue = this.getChartCeiling(Math.max(0, ...items.flatMap(item => [item.primary, item.secondary, item.line])));
     const step = items.length > 1 ? width / (items.length - 1) : width;
 
     return items.map((item, index) => ({
-      x: Math.round(index * step),
+      x: Math.round(left + index * step),
       y: Math.round(top + (1 - item[key] / maxValue) * height)
     }));
   }
 
-  private pointsToString(points: SvgPoint[]): string {
-    return points.map(point => `${point.x},${point.y}`).join(' ');
+  private getValueDots(values: number[]): SvgPoint[] {
+    const left = 6;
+    const width = 588;
+    const height = 140;
+    const top = 10;
+    const maxValue = this.getChartCeiling(Math.max(0, ...values));
+    const step = values.length > 1 ? width / (values.length - 1) : width;
+
+    return values.map((value, index) => ({
+      x: Math.round(left + index * step),
+      y: Math.round(top + (1 - value / maxValue) * height)
+    }));
+  }
+
+  private pointsToSmoothPath(points: SvgPoint[]): string {
+    if (!points.length) {
+      return '';
+    }
+
+    return points.slice(1).reduce((path, point, index) => {
+      const previousPoint = points[index];
+      const midpoint = (previousPoint.x + point.x) / 2;
+      return `${path} C ${midpoint},${previousPoint.y} ${midpoint},${point.y} ${point.x},${point.y}`;
+    }, `M ${points[0].x},${points[0].y}`);
+  }
+
+  private pointsToLinearPath(points: SvgPoint[]): string {
+    if (!points.length) {
+      return '';
+    }
+
+    return points.slice(1).reduce(
+      (path, point) => `${path} L ${point.x},${point.y}`,
+      `M ${points[0].x},${points[0].y}`
+    );
+  }
+
+  private pointsToAreaPath(points: SvgPoint[], linePath = this.pointsToSmoothPath(points)): string {
+    if (!points.length) {
+      return '';
+    }
+
+    const baseline = 150;
+    return `${linePath} L ${points[points.length - 1].x},${baseline} L ${points[0].x},${baseline} Z`;
   }
 
   private buildChartTicks(items: OverallTrendItem[]): number[] {
-    const maxValue = this.getChartCeiling(Math.max(0, ...items.flatMap(item => [item.primary, item.secondary, item.line])));
+    return this.buildValueTicks(items.flatMap(item => [item.primary, item.secondary, item.line]));
+  }
+
+  private buildValueTicks(values: number[]): number[] {
+    const maxValue = this.getChartCeiling(Math.max(0, ...values));
     return [
       maxValue,
       Math.round(maxValue * 0.75),

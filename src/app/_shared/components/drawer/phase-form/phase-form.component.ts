@@ -19,6 +19,12 @@ export class PhaseFormComponent {
   projectList: any[] = [];
   statusList: any = [];
   employeeList: any[] = [];
+  readonly phaseTypes = ['Internal', 'External'];
+  filteredProjectList: any[] = [];
+  filteredPhaseTypes = [...this.phaseTypes];
+  filteredStatusList: any[] = [];
+  filteredEmployeeList: any[] = [];
+  selectSearch: Record<string, string> = {};
   empid: any = 0;
   projectid: any = 0;
   projectDetails: any;
@@ -184,7 +190,8 @@ export class PhaseFormComponent {
   getProjects(callback?: Function) {
     this.authService.getAllProjectsByEmployeeId(this.empid).subscribe({
       next: (res: any) => {
-        this.projectList = res
+        this.projectList = Array.isArray(res) ? res : [];
+        this.filteredProjectList = [...this.projectList];
         // this.viewOptions = this.commonService.getFieldLabels(this.projectList);
         if (callback) callback();
       }
@@ -193,16 +200,45 @@ export class PhaseFormComponent {
   getStatusList() {
     this.authService.getStatusList().subscribe({
       next: (res: any) => {
-        this.statusList = res;
+        this.statusList = Array.isArray(res) ? res : [];
+        this.filteredStatusList = [...this.statusList];
       }
     });
   }
   getEmployees(e: any) {
     this.authService.getEmployeelistByProjectId(e.value).subscribe({
       next: (res: any) => {
-        this.employeeList = res?.assigned_employee_list
+        this.employeeList = Array.isArray(res?.assigned_employee_list) ? res.assigned_employee_list : [];
+        this.filteredEmployeeList = [...this.employeeList];
       }
     });
+  }
+
+  filterSelect(event: Event, field: string): void {
+    const input = event.target as HTMLInputElement;
+    const query = (input.value ?? '').trim().toLowerCase();
+    this.selectSearch[field] = input.value;
+
+    if (field === 'project') {
+      this.filteredProjectList = this.filterByLabel(this.projectList, query, item => item?.project_title);
+    } else if (field === 'phaseType') {
+      this.filteredPhaseTypes = this.filterByLabel(this.phaseTypes, query, item => item);
+    } else if (field === 'status') {
+      this.filteredStatusList = this.filterByLabel(this.statusList, query, item => item);
+    } else if (field === 'assignee') {
+      this.filteredEmployeeList = this.filterByLabel(this.employeeList, query, item => item?.employee_name);
+    }
+  }
+
+  resetSelectFilter(opened: boolean, field: string): void {
+    if (!opened) return;
+    this.selectSearch[field] = '';
+    this.filterSelect({ target: { value: '' } } as unknown as Event, field);
+  }
+
+  private filterByLabel<T>(items: T[], query: string, label: (item: T) => any): T[] {
+    const source = Array.isArray(items) ? items : [];
+    return query ? source.filter(item => `${label(item) ?? ''}`.toLowerCase().includes(query)) : [...source];
   }
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['data']) {

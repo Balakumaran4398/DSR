@@ -31,7 +31,10 @@ export interface Release {
   assignedFrom?: string | number;
   assigned_from_id?: string | number;
   assignedFromId?: string | number;
+  assigned_to_name?: string;
+  assignedToName?: string;
   assignee_to_name?: string;
+  assigneeToName?: string;
   release_type: 'Internal' | 'External';
   ismail: boolean;
   closed_date?: string;
@@ -358,24 +361,20 @@ export class OverviewReleasesComponent {
     if (this.tabulator) {
       this.safeReplaceData(this.tabulator, this.filteredReleases);
 
-    } const employeeList = this.employeeList.map((m: any) => ({ label: m.employee_name, value: m.id }));
+    }
     const freezeColumns = !this.isCompactViewport();
-    const employeeListLookup = this.employeeList.reduce((acc: any, cur: any) => {
-      acc[cur.id] = cur.employee_name;
-      return acc;
-    }, {});
     const canEditTableCell = (cell: any) => this.canEditRelease(cell.getRow().getData());
     this.tabulator = new Tabulator(element, {
       data: this.filteredReleases,
       layout: "fitDataStretch",
       responsiveLayout: false,
       pagination: "local",
-      paginationSize: 15,
+      paginationSize: 10,
       paginationCounter: "rows",
       movableColumns: true,
       selectable: true,
       editTriggerEvent: "dblclick",
-      paginationSizeSelector: [10, 15, 25, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       placeholder: "No Releases Found",
 
       headerSortElement: function (col: any, dir: any) {
@@ -447,20 +446,22 @@ export class OverviewReleasesComponent {
           minWidth: 200,
           editable: canEditTableCell,
           editor: "list",
-          editorParams: {
-            values: employeeList,
+          editorParams: () => ({
+            values: (Array.isArray(this.employeeList) ? this.employeeList : []).map((employee: any) => ({
+              label: this.getEmployeeDisplayName(employee),
+              value: this.getEmployeeId(employee)
+            })),
             autocomplete: true,
             listOnEmpty: true,
             clearable: true
-          },
+          }),
           formatter: (cell: any) => {
-            const id = cell.getValue();
-            const name = employeeListLookup[id] || "Unknown";
+            const name = this.getReleaseAssigneeDisplayName(cell.getData());
             const initials = name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
             return `
                 <div class="flex items-center gap-2">
-                    <div class="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] text-gray-600">${initials}</div>
-                    <span class="text-m">${name}</span>
+                    <div class="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] text-gray-600">${this.escapeHtml(initials)}</div>
+                    <span class="text-m">${this.escapeHtml(name)}</span>
                 </div>
                 `;
           }
@@ -1382,13 +1383,17 @@ export class OverviewReleasesComponent {
   canEditRelease(release: any): boolean {
     const loggedInEmpId = `${this.storageService.getEmpId() ?? ''}`;
     const assignedFrom = `${release?.assigned_from ?? release?.assignedFrom ?? release?.assigned_from_id ?? release?.assignedFromId ?? ''}`;
+    const assignedTo = `${release?.assigned_to ?? release?.assignedTo ?? release?.assigned_to_id ?? release?.assignedToId ?? ''}`;
     const roles = this.storageService.roles;
 
     if (roles?.isAdmin || roles?.isManager) {
       return true;
     }
 
-    return !!loggedInEmpId && !!assignedFrom && loggedInEmpId === assignedFrom;
+    return !!loggedInEmpId && (
+      (!!assignedFrom && loggedInEmpId === assignedFrom) ||
+      (!!assignedTo && loggedInEmpId === assignedTo)
+    );
   }
 
   canDragOrDrop(sourceStatus: string, targetStatus?: string): boolean {
@@ -1632,6 +1637,25 @@ export class OverviewReleasesComponent {
       employee?.name,
       employee?.email
     ) ?? ''}`.trim();
+  }
+
+  private getReleaseAssigneeDisplayName(release: any): string {
+    const responseName = `${this.firstPresent(
+      release?.assigned_to_name,
+      release?.assignedToName,
+      release?.assignee_to_name,
+      release?.assigneeToName
+    ) ?? ''}`.trim();
+
+    if (responseName) {
+      return responseName;
+    }
+
+    const matchedEmployee = this.getReleaseAssignedToReferences(release)
+      .map(reference => this.findEmployeeByReference(reference))
+      .find(Boolean);
+
+    return matchedEmployee ? this.getEmployeeDisplayName(matchedEmployee) || 'Unknown' : 'Unknown';
   }
 
   setCurrentWeekDates() {

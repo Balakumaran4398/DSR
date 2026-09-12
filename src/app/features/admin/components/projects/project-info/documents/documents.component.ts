@@ -85,7 +85,7 @@ export class DocumentsComponent implements AfterViewInit {
       movableColumns: true,
       selectable: true,
       editTriggerEvent: "dblclick",
-      paginationSizeSelector: [10, 15, 25, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       placeholder: "No Data Found",
       headerSortElement: function (col: any, dir: any) {
         if (dir === "asc") return '<i class="ri-arrow-up-line text-xs ml-1"></i>';

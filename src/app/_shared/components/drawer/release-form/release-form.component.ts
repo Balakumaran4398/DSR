@@ -16,7 +16,12 @@ export type ReleaseType = 'Internal' | 'External';
 })
 export class ReleaseFormComponent implements OnInit {
   isEditMode = false;
-  statusList = ['Upcoming-Release', 'Open', 'To-be-Tested', 'On-Hold', 'In-Progress', 'Rejected', 'Pass', 'Failed'];
+  readonly releaseTypeOptions: ReleaseType[] = ['Internal', 'External'];
+  statusList: ReleaseStatus[] = ['Upcoming-Release', 'Open', 'To-be-Tested', 'On-Hold', 'In-Progress', 'Rejected', 'Pass', 'Failed'];
+  filteredReleaseTypes: ReleaseType[] = [...this.releaseTypeOptions];
+  filteredStatuses: ReleaseStatus[] = [...this.statusList];
+  releaseTypeFilterControl = new FormControl('');
+  statusFilterControl = new FormControl('');
   private readonly closedStatuses: ReleaseStatus[] = ['Pass', 'Rejected', 'Failed'];
   private readonly qcStartDateStatuses: ReleaseStatus[] = ['In-Progress', 'Pass', 'Failed'];
   private readonly qcStartRequiredStatuses: ReleaseStatus[] = ['In-Progress', 'Pass', 'Failed'];
@@ -102,6 +107,38 @@ export class ReleaseFormComponent implements OnInit {
     this.employeeFilterControl.valueChanges.subscribe(value => {
       this.applyEmployeeFilter(value);
     });
+    this.releaseTypeFilterControl.valueChanges.subscribe(value => {
+      this.applyReleaseTypeFilter(value);
+    });
+    this.statusFilterControl.valueChanges.subscribe(value => {
+      this.applyStatusFilter(value);
+    });
+  }
+
+  onReleaseTypeSelectOpened(opened: boolean): void {
+    if (opened) {
+      this.releaseTypeFilterControl.setValue('');
+    }
+  }
+
+  onStatusSelectOpened(opened: boolean): void {
+    if (opened) {
+      this.statusFilterControl.setValue('');
+    }
+  }
+
+  private applyReleaseTypeFilter(value: string | null): void {
+    const query = `${value ?? ''}`.trim().toLowerCase();
+    this.filteredReleaseTypes = query
+      ? this.releaseTypeOptions.filter(type => type.toLowerCase().includes(query))
+      : [...this.releaseTypeOptions];
+  }
+
+  private applyStatusFilter(value: string | null): void {
+    const query = `${value ?? ''}`.trim().toLowerCase();
+    this.filteredStatuses = query
+      ? this.statusList.filter(status => status.toLowerCase().includes(query))
+      : [...this.statusList];
   }
 
   get showParentReleaseMailContent(): boolean {
@@ -318,6 +355,7 @@ export class ReleaseFormComponent implements OnInit {
               this.onCancel();
             } else {
               this.toasterService.success(res?.message);
+              this.refreshNotificationsWhenPassed(payload.status);
               this.drawerService.notifyAction({
                 source: 'release',
                 action: 'updated',
@@ -343,6 +381,7 @@ export class ReleaseFormComponent implements OnInit {
                 `Release Created, but email not sent\n${res.failed_recipients}`,
                 `Failed:`
               );
+              this.refreshNotificationsWhenPassed(payload.status);
               this.drawerService.notifyAction({
                 source: 'release',
                 action: 'updated',
@@ -351,6 +390,7 @@ export class ReleaseFormComponent implements OnInit {
               this.onCancel();
             } else {
               this.toasterService.success(res?.message);
+              this.refreshNotificationsWhenPassed(payload.status);
               this.drawerService.notifyAction({
                 source: 'release',
                 action: 'created',
@@ -841,6 +881,12 @@ export class ReleaseFormComponent implements OnInit {
 
   private isClosedStatus(status: ReleaseStatus | null | undefined): boolean {
     return this.closedStatuses.includes(status as ReleaseStatus);
+  }
+
+  private refreshNotificationsWhenPassed(status: unknown): void {
+    if (`${status ?? ''}`.trim().toLowerCase() === 'pass') {
+      this.authService.refreshNotificationCount();
+    }
   }
 
   private toggleCommunicationControls(isEnabled: boolean): void {

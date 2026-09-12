@@ -46,6 +46,13 @@ export class TaskFormComponent implements OnInit, OnChanges {
   projectList: any[] = [];
   phaseList: any[] = [];
   versionList: any[] = [];
+  filteredProjectList: any[] = [];
+  filteredPhaseList: any[] = [];
+  filteredVersionList: any[] = [];
+  filteredTaskCategoryOptions: any[] = [];
+  filteredPriorityOptions = [...this.priorityOptions];
+  filteredStatusList: any[] = [];
+  selectSearch: Record<string, string> = {};
   employeeList: any[] = [];
   filteredEmployees: any[] = [];
   employeeFilterControl = new FormControl('');
@@ -145,7 +152,8 @@ export class TaskFormComponent implements OnInit, OnChanges {
 	getTaskCategory(){
     this.authService.getCateory().subscribe({
       next : (res : any[]) =>{
-  this.taskCategory = res;
+        this.taskCategory = Array.isArray(res) ? res : [];
+        this.filteredTaskCategoryOptions = [...this.filteredTaskCategory];
         this.syncTaskCategorySelection();
       },
       error : (err : any) => {
@@ -164,6 +172,7 @@ export class TaskFormComponent implements OnInit, OnChanges {
     this.setVersionValidation();
     this.setCategoryValidation();
     this.syncTaskCategorySelection();
+    this.filteredTaskCategoryOptions = [...this.filteredTaskCategory];
   }
 
   private syncTaskCategorySelection(): void {
@@ -178,6 +187,45 @@ export class TaskFormComponent implements OnInit, OnChanges {
     if (selectedCategory && !allowedCategories.includes(selectedCategory)) {
       taskCategoryControl.setValue('');
     }
+  }
+
+  filterSelect(event: Event, field: string): void {
+    const query = ((event.target as HTMLInputElement).value ?? '').trim().toLowerCase();
+    this.selectSearch[field] = (event.target as HTMLInputElement).value;
+
+    switch (field) {
+      case 'project':
+        this.filteredProjectList = this.filterByLabel(this.projectList, query, item => item?.project_title);
+        break;
+      case 'phase':
+        this.filteredPhaseList = this.filterByLabel(this.phaseList, query, item => item?.phase_title);
+        break;
+      case 'version':
+        this.filteredVersionList = this.filterByLabel(this.versionList, query, item => item);
+        break;
+      case 'taskCategory':
+        this.filteredTaskCategoryOptions = this.filterByLabel(this.filteredTaskCategory, query, item => item);
+        break;
+      case 'priority':
+        this.filteredPriorityOptions = this.filterByLabel(this.priorityOptions, query, item => item?.value);
+        break;
+      case 'status':
+        this.filteredStatusList = this.filterByLabel(this.statusList, query, item => item);
+        break;
+    }
+  }
+
+  resetSelectFilter(opened: boolean, field: string): void {
+    if (!opened) return;
+    this.selectSearch[field] = '';
+    this.filterSelect({ target: { value: '' } } as unknown as Event, field);
+  }
+
+  private filterByLabel<T>(items: T[], query: string, label: (item: T) => any): T[] {
+    const source = Array.isArray(items) ? items : [];
+    return query
+      ? source.filter(item => `${label(item) ?? ''}`.toLowerCase().includes(query))
+      : [...source];
   }
 
   setVersionValidation(): void {
@@ -305,6 +353,7 @@ export class TaskFormComponent implements OnInit, OnChanges {
             .subscribe({
             next: ((res: any) => {
               this.toasterService.success(res?.message);
+              this.refreshNotificationsWhenClosed(requestPayload.status);
               this.drawerService.notifyAction({
                 source: 'task',
                 action: 'created',
@@ -354,7 +403,8 @@ export class TaskFormComponent implements OnInit, OnChanges {
   getProjects(callback?: Function) {
     this.authService.getAllProjectsByEmployeeId(this.empid).subscribe({
       next: (res: any) => {
-        this.projectList = res
+        this.projectList = Array.isArray(res) ? res : [];
+        this.filteredProjectList = [...this.projectList];
         // this.viewOptions = this.commonService.getFieldLabels(this.projectList);
         if (callback) callback();
       }
@@ -363,21 +413,24 @@ export class TaskFormComponent implements OnInit, OnChanges {
   getPhasesByProjectId(e: any) {
     this.authService.getPhaseByProjectId(e?.value).subscribe({
       next: (res: any) => {
-        this.phaseList = res
+        this.phaseList = Array.isArray(res) ? res : [];
+        this.filteredPhaseList = [...this.phaseList];
       }
     });
   }
   getVersions(projectid: any = this.projectid) {
     this.authService.getVersionsById(projectid).subscribe({
       next: (res: string[]) => {
-        this.versionList = res;
+        this.versionList = Array.isArray(res) ? res : [];
+        this.filteredVersionList = [...this.versionList];
       }
     });
   }
   getStatusList() {
     this.authService.getStatusList().subscribe({
       next: (res: any) => {
-        this.statusList = res;
+        this.statusList = Array.isArray(res) ? res : [];
+        this.filteredStatusList = [...this.statusList];
       }
     });
   }
@@ -440,6 +493,12 @@ export class TaskFormComponent implements OnInit, OnChanges {
     return today;
   }
 
+  private refreshNotificationsWhenClosed(status: unknown): void {
+    if (this.isBugType && `${status ?? ''}`.trim().toLowerCase() === 'closed') {
+      this.authService.refreshNotificationCount();
+    }
+  }
+
   updateTask(selectTask: any) {
     selectTask.username = this.storageService.getUsername();
     this.authService.updateTask(selectTask)
@@ -449,6 +508,7 @@ export class TaskFormComponent implements OnInit, OnChanges {
       .subscribe({
       next: ((res: any) => {
         this.toasterService.success(res?.message);
+        this.refreshNotificationsWhenClosed(selectTask.status);
         this.drawerService.notifyAction({
           source: 'task',
           action: 'updated',

@@ -59,7 +59,7 @@ export class AuthService {
     this.requestNotificationCount(range, false);
   }
 
-  refreshNotificationCount(range: NotificationDateRange): void {
+  refreshNotificationCount(range: NotificationDateRange = this.notificationDateRangeService.currentRange): void {
     this.requestNotificationCount(range, true);
   }
 
@@ -332,8 +332,11 @@ export class AuthService {
   }
   getReleaseOverviewListByEmp(payload: any) {
     const departmentId = payload?.department_id ?? payload?.departmentId ?? payload?.dept_id ?? payload?.deptId ?? '';
-    const departmentQuery = `${departmentId}`.trim()
-      ? `&department_id=${encodeURIComponent(departmentId)}`
+    const serializedDepartmentId = Array.isArray(departmentId)
+      ? departmentId.join(',')
+      : `${departmentId}`;
+    const departmentQuery = serializedDepartmentId.trim()
+      ? `&department_id=${encodeURIComponent(serializedDepartmentId).replace(/%2C/gi, ',')}`
       : '';
     const managerName = payload?.manager_name ?? payload?.managerName ?? payload?.manager ?? '';
     const managerQuery = `${managerName}`.trim()
@@ -482,15 +485,36 @@ export class AuthService {
   // getDashboardDetailsByEmployeeId(employee_id: any, project_id: any) {
   //   return this.http.get(`${BASE_URL}/common/dashboarddetails?employee_id=${employee_id}&project_id=${project_id}`);
   // }
-  getDashboardDetailsByEmployeeId(employee_id: any, project_id: any, fromDate: any = '', toDate: any = '', departmentId: any = '', managerName: any = '') {
-    const departmentQuery = `${departmentId ?? ''}`.trim()
-      ? `&department_id=${encodeURIComponent(departmentId)}`
-      : '';
-    const managerQuery = `${managerName ?? ''}`.trim()
-      ? `&manager_name=${encodeURIComponent(managerName)}`
-      : '';
-    const cacheKey = this.createCacheKey('dashboarddetails', [employee_id, project_id, fromDate, toDate, departmentId, managerName]);
-    const url = `${BASE_URL}/common/dashboarddetails?employee_id=${employee_id}&project_id=${project_id}&fromDate=${fromDate}&toDate=${toDate}${departmentQuery}${managerQuery}`;
+  getDashboardDetailsByEmployeeId(employee_id: any, project_id: any, fromDate: any = '', toDate: any = ''): Observable<any> {
+    const cacheKey = this.createCacheKey('dashboarddetails', [employee_id, project_id, fromDate, toDate]);
+    const url = `${BASE_URL}/common/dashboarddetails?employee_id=${employee_id}&project_id=${project_id}&fromDate=${fromDate}&toDate=${toDate}`;
+
+    return this.getCachedAndRefresh(cacheKey, hasCachedResponse => {
+      const options = hasCachedResponse
+        ? { headers: new HttpHeaders({ 'X-Skip-Loader': 'true' }) }
+        : {};
+
+      return this.http.get(url, options);
+    });
+  }
+
+  getDashboardDetailsByEmployeeIdDeptwise(
+    employee_id: any,
+    project_id: any,
+    fromDate: any,
+    toDate: any,
+    departmentId: any
+  ): Observable<any> {
+    const cacheKey = this.createCacheKey('dashboarddetails-deptwise', [
+      employee_id,
+      project_id,
+      fromDate,
+      toDate,
+      departmentId
+    ]);
+    const serializedDepartmentId = Array.isArray(departmentId) ? departmentId.join(',') : `${departmentId ?? ''}`;
+    const encodedDepartmentId = encodeURIComponent(serializedDepartmentId).replace(/%2C/gi, ',');
+    const url = `${BASE_URL}/common/dashboarddetails_deptwise?employee_id=${employee_id}&project_id=${project_id}&fromDate=${fromDate}&toDate=${toDate}&department_id=${encodedDepartmentId}`;
 
     return this.getCachedAndRefresh(cacheKey, hasCachedResponse => {
       const options = hasCachedResponse

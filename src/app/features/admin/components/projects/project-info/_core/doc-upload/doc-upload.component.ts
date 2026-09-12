@@ -24,10 +24,11 @@ export class DocUploadComponent {
 
   fileName: string | null = null;
   isSubmitting: boolean = false;
-	readonly maxDocumentTitleLength = 150;
+  validationSubmitted = false;
+	readonly maxDocumentTitleLength = 200;
 
   uploadForm: FormGroup = this.fb.group({
-		title: ['', [Validators.required, Validators.maxLength(this.maxDocumentTitleLength)]],
+		title: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(this.maxDocumentTitleLength)]],
     file: [null, [Validators.required]],
     projectId: [null, [Validators.required]],
     userId: [null, [Validators.required]]
@@ -71,6 +72,7 @@ export class DocUploadComponent {
   }
 
   onReset(): void {
+    this.validationSubmitted = false;
     this.fileName = null;
     this.uploadForm.reset({
       title: '',
@@ -82,6 +84,11 @@ export class DocUploadComponent {
 
   onSubmit() {
     if (this.isSubmitting) return;
+    this.validationSubmitted = true;
+
+    const titleControl = this.uploadForm.get('title');
+    titleControl?.markAsTouched();
+    titleControl?.updateValueAndValidity();
 
     if (this.uploadForm.invalid) {
       this.uploadForm.markAllAsTouched();
@@ -94,7 +101,10 @@ export class DocUploadComponent {
 
       // append normal form fields
       Object.keys(this.uploadForm.value).forEach(key => {
-        formData.append(key, this.uploadForm.value[key]);
+        const value = key === 'title'
+          ? `${this.uploadForm.value[key] ?? ''}`.trim()
+          : this.uploadForm.value[key];
+        formData.append(key, value);
       });
 
 

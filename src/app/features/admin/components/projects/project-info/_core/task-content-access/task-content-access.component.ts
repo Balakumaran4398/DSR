@@ -559,7 +559,7 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
       layout: "fitColumns",
       // responsiveLayout: "collapse",
       pagination: "local",
-      paginationSize: 8,
+      paginationSize: 10,
       paginationCounter: "rows",
       movableColumns: true,
       placeholder: "No DSR entries found",
@@ -568,7 +568,7 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
           this.openDsrEditDrawer(row.getData(), 'dsr-entries');
         }
       },
-      paginationSizeSelector: [8, 10, 15, 25, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       headerSortElement: function (col: any, dir: any) {
         if (dir === "asc") return '<i class="ri-arrow-up-line text-xs ml-1"></i>';
         if (dir === "desc") return '<i class="ri-arrow-down-line text-xs ml-1"></i>';
@@ -666,12 +666,12 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
       data: this.subtasksData,
       layout: "fitColumns",
       pagination: "local",
-      paginationSize: 8,
+      paginationSize: 10,
       paginationCounter: "rows",
       movableColumns: true,
       selectable: true,
       editTriggerEvent: "dblclick",
-      paginationSizeSelector: [8, 10, 15, 25, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       placeholder: "No Data Found",
       headerSortElement: function (col: any, dir: any) {
         if (dir === "asc") return '<i class="ri-arrow-up-line text-xs ml-1"></i>';

@@ -117,13 +117,17 @@
               Product Version 
             </label>
             <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-              <mat-select formControlName="product_version" placeholder="Select Version">
+              <mat-select formControlName="product_version" placeholder="Select Version" (openedChange)="resetSimpleSelectFilter($event, 'version')">
+                <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                  <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                    placeholder="Search version..." [value]="selectSearch['version'] || ''" (input)="filterSimpleSelect($event, 'version')">
+                </div>
                 <mat-option [value]="null">Select Version</mat-option>
-                <mat-option *ngFor="let version of availableVersions" [value]="version">
+                <mat-option *ngFor="let version of filteredVersions" [value]="version">
                   {{ version }}
                 </mat-option>
-                <mat-option *ngIf="!availableVersions.length" disabled>
-                  No versions available
+                <mat-option *ngIf="!filteredVersions.length" disabled>
+                  No versions found
                 </mat-option>
               </mat-select>
               <!-- <mat-error *ngIf="rf.product_version?.invalid">
@@ -138,10 +142,15 @@
               Type <span class="text-red-500">*</span>
             </label>
             <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-              <mat-select formControlName="type" placeholder="Select Type">
-                <mat-option *ngFor="let type of types" [value]="type">
+              <mat-select formControlName="type" placeholder="Select Type" (openedChange)="resetSimpleSelectFilter($event, 'type')">
+                <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                  <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                    placeholder="Search type..." [value]="selectSearch['type'] || ''" (input)="filterSimpleSelect($event, 'type')">
+                </div>
+                <mat-option *ngFor="let type of filteredTypes" [value]="type">
                   {{ type }}
                 </mat-option>
+                <mat-option *ngIf="!filteredTypes.length" disabled>No types found</mat-option>
               </mat-select>
               <mat-error *ngIf="rf.type?.invalid">
                 Type is required
@@ -167,13 +176,18 @@
               Priority <span class="text-red-500">*</span>
             </label>
             <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-              <mat-select formControlName="priority" placeholder="Select Priority">
-                <mat-option *ngFor="let priority of priorityOptions" [value]="priority.id">
+              <mat-select formControlName="priority" placeholder="Select Priority" (openedChange)="resetSimpleSelectFilter($event, 'priority')">
+                <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                  <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                    placeholder="Search priority..." [value]="selectSearch['priority'] || ''" (input)="filterSimpleSelect($event, 'priority')">
+                </div>
+                <mat-option *ngFor="let priority of filteredPriorityOptions" [value]="priority.id">
                   <span class="inline-flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full" [ngClass]="priority.dotClass"></span>
                     {{priority.value}}
                   </span>
                 </mat-option>
+                <mat-option *ngIf="!filteredPriorityOptions.length" disabled>No priorities found</mat-option>
               </mat-select>
               <mat-error *ngIf="rf.priority?.invalid">Priority is required</mat-error>
             </mat-form-field>
@@ -185,10 +199,15 @@
               Status <span class="text-red-500">*</span>
             </label>
             <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-              <mat-select formControlName="status" placeholder="Select Status">
-                <mat-option *ngFor="let status of statusList" [value]="status.name">
+              <mat-select formControlName="status" placeholder="Select Status" (openedChange)="resetSimpleSelectFilter($event, 'status')">
+                <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                  <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                    placeholder="Search status..." [value]="selectSearch['status'] || ''" (input)="filterSimpleSelect($event, 'status')">
+                </div>
+                <mat-option *ngFor="let status of filteredStatusList" [value]="status.name">
                   {{status.name}}
                 </mat-option>
+                <mat-option *ngIf="!filteredStatusList.length" disabled>No statuses found</mat-option>
               </mat-select>
               <mat-error *ngIf="rf.status?.invalid">Status is required</mat-error>
             </mat-form-field>

@@ -77,29 +77,29 @@
       <form [formGroup]="uploadForm" (ngSubmit)="onSubmit()" class="flex flex-col gap-6">
 
         <div class="flex flex-col gap-1.5 mt-2">
-          <label class="text-sm font-medium text-slate-700 ml-1">Document Title</label>
-          <mat-form-field appearance="outline" class="w-full">
+          <label class="text-sm font-medium text-slate-700 ml-1">Document Title <span
+              class="text-red-500">*</span></label>
+          <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
             <input matInput formControlName="title" placeholder="Enter the Document title">
             <mat-icon matSuffix class="text-slate-400">title</mat-icon>
-            <mat-error *ngIf="uploadForm.get('title')?.hasError('required') && uploadForm.get('title')?.touched">
-              Document Title is required
-            </mat-error>
-            <mat-error *ngIf="uploadForm.get('title')?.hasError('pattern') &&
-                uploadForm.get('title')?.touched">
-              <!-- Document title must contain atleast 1 character -->
-              Document Title is required
-            </mat-error>
-            <mat-error *ngIf="uploadForm.get('title')?.hasError('maxlength') && uploadForm.get('title')?.touched">
-              Document Title must be 200 characters or less
-            </mat-error>
           </mat-form-field>
+          <span *ngIf="(uploadForm.get('title')?.hasError('required') || uploadForm.get('title')?.hasError('pattern')) &&
+              (uploadForm.get('title')?.touched || validationSubmitted)" class="text-red-500 text-xs mt-1 ml-1">
+            Title is required
+          </span>
+          <span *ngIf="uploadForm.get('title')?.hasError('maxlength') &&
+              (uploadForm.get('title')?.dirty || uploadForm.get('title')?.touched || validationSubmitted)"
+            class="text-red-500 text-xs mt-1 ml-1">
+            Document Title must be 200 characters or less
+          </span>
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-700 ml-1">Attachment</label>
+          <label class="text-sm font-medium text-slate-700 ml-1">Attachment <span class="text-red-500">*</span></label>
           <div
             class="relative border-2 border-dashed border-slate-300 rounded-xl p-8 transition-all duration-200 flex flex-col items-center justify-center gap-3 bg-white hover:border-[var(--text-active)] hover:bg-indigo-50/30 cursor-pointer"
-            [class.border-indigo-500]="fileNames.length" [class.bg-indigo-50]="fileNames.length">
+            [class.border-indigo-500]="fileNames.length" [class.bg-indigo-50]="fileNames.length"
+            [ngClass]="{'!border-red-500': uploadForm.get('file')?.invalid && uploadForm.get('file')?.touched}">
 
             <input type="file" #fileInput (change)="onFileSelected($event)" class="hidden" multiple
               [attr.accept]="acceptedDocumentFileTypes" />
@@ -124,19 +124,19 @@
 
               <ng-template #noFileSelected>
                 <span class="text-slate-600 block">
-                  Drag and drop or click to browse
-                </span>
+                  Click to browse and upload </span>
                 <span class="text-xs text-slate-400 block mt-1">
                   Accepted formats: PDF, Excel (.xls, .xlsx), and images (PNG, JPG, JPEG, etc.)
                 </span>
               </ng-template>
             </div>
 
-            <button type="button" mat-flat-button color="primary" class="mt-3" (click)="fileInput.click()" [disabled]="isSubmitting">
+            <button type="button" mat-flat-button color="primary" class="mt-3" (click)="fileInput.click()"
+              [disabled]="isSubmitting">
               {{ fileNames.length ? 'Add more Files' : 'Choose File' }}
             </button>
           </div>
-          <span *ngIf="uploadForm.get('file')?.hasError('required') && uploadForm.get('file')?.touched && !editModal"
+          <span *ngIf="uploadForm.get('file')?.hasError('required') && uploadForm.get('file')?.touched"
             class="text-red-500 text-xs mt-1 ml-1">
             Please select a file to upload.
           </span>
@@ -150,9 +150,7 @@
           <button mat-button type="button" (click)="onReset()" [disabled]="isSubmitting">
             Reset
           </button>
-          <button mat-flat-button color="primary" type="submit"
-            [disabled]="isSubmitting || uploadForm.get('title')?.invalid || (!editModal && uploadForm.get('file')?.invalid)"
-            class="px-8 py-2 rounded-lg">
+          <button mat-flat-button color="primary" type="submit" [disabled]="isSubmitting" class="px-8 py-2 rounded-lg">
             <ng-container *ngIf="isSubmitting; else submitBtnText">
               <span class="app-button-loading">
                 <i class="ri-loader-4-line app-button-spinner"></i>
@@ -246,24 +244,29 @@
       <form [formGroup]="uploadForm" (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
 
         <div class="flex flex-col mt-2">
-          <label class="text-sm font-medium text-slate-700 ml-1">Document Title</label>
-          <mat-form-field appearance="outline" class="w-full">
+          <label class="text-sm font-medium text-slate-700 ml-1">Document Title <span
+              class="text-red-500">*</span></label>
+          <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
             <input matInput formControlName="title" placeholder="Enter the Document title">
             <mat-icon matSuffix class="text-slate-400">title</mat-icon>
-            <mat-error *ngIf="uploadForm.get('title')?.hasError('required') && uploadForm.get('title')?.touched">
-              Title is required
-            </mat-error>
-            <mat-error *ngIf="uploadForm.get('title')?.hasError('maxlength') && uploadForm.get('title')?.touched">
-              Document Title must be 200 characters or less
-            </mat-error>
           </mat-form-field>
+          <span *ngIf="(uploadForm.get('title')?.hasError('required') || uploadForm.get('title')?.hasError('pattern')) &&
+              (uploadForm.get('title')?.touched || validationSubmitted)" class="text-red-500 text-xs mt-1 ml-1">
+            Title is required
+          </span>
+          <span *ngIf="uploadForm.get('title')?.hasError('maxlength') &&
+              (uploadForm.get('title')?.dirty || uploadForm.get('title')?.touched || validationSubmitted)"
+            class="text-red-500 text-xs mt-1 ml-1">
+            Document Title must be 200 characters or less
+          </span>
         </div>
 
         <div class="flex flex-col ">
-          <label class="text-sm font-medium text-slate-700 ml-1">Attachment</label>
+          <label class="text-sm font-medium text-slate-700 ml-1">Attachment <span class="text-red-500">*</span></label>
           <div
             class="relative border-2 border-dashed border-slate-300 rounded-xl p-8 transition-all duration-200 flex flex-col items-center justify-center gap-3 bg-white hover:border-[var(--text-active)] hover:bg-indigo-50/30 cursor-pointer"
-            [class.border-indigo-500]="fileNames.length" [class.bg-indigo-50]="fileNames.length">
+            [class.border-indigo-500]="fileNames.length" [class.bg-indigo-50]="fileNames.length"
+            [ngClass]="{'!border-red-500': uploadForm.get('file')?.invalid && uploadForm.get('file')?.touched}">
 
             <input type="file" #fileInput (change)="onFileSelected($event)" class="hidden" multiple
               [attr.accept]="acceptedDocumentFileTypes" />
@@ -288,16 +291,16 @@
 
               <ng-template #noFileSelected>
                 <span class="text-slate-600 block">
-                  Drag and drop or click to browse
-                </span>
+                  Click to browse and upload </span>
               </ng-template>
             </div>
 
-            <button type="button" mat-flat-button color="primary" class="mt-3" (click)="fileInput.click()" [disabled]="isSubmitting">
+            <button type="button" mat-flat-button color="primary" class="mt-3" (click)="fileInput.click()"
+              [disabled]="isSubmitting">
               Add more Files
             </button>
           </div>
-          <span *ngIf="uploadForm.get('file')?.hasError('required') && uploadForm.get('file')?.touched && !editModal"
+          <span *ngIf="uploadForm.get('file')?.hasError('required') && uploadForm.get('file')?.touched"
             class="text-red-500 text-xs mt-1 ml-1">
             Please select a file to upload.
           </span>
@@ -345,8 +348,7 @@
         </div>
 
         <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
-          <button mat-flat-button color="primary" type="submit"
-            [disabled]="isSubmitting || uploadForm.get('title')?.invalid || uploadForm.get('file')?.hasError('invalidFileType')">
+          <button mat-flat-button color="primary" type="submit" [disabled]="isSubmitting">
             <span class="app-button-loading">
               <i *ngIf="isSubmitting" class="ri-loader-4-line app-button-spinner"></i>
               <span>{{ isSubmitting ? 'Updating...' : 'Update' }}</span>

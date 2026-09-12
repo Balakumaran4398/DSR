@@ -17,24 +17,28 @@
 
                 <!-- Title Field (No Floating Label) -->
                 <div class="flex flex-col gap-1.5 mt-2">
-                    <label class="text-sm font-medium text-slate-700 ml-1">Document Title</label>
-                    <mat-form-field appearance="outline" class="w-full">
+                    <label class="text-sm font-medium text-slate-700 ml-1">Document Title <span class="text-red-500">*</span></label>
+                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
                         <input matInput formControlName="title" placeholder="Enter the Document title">
                         <mat-icon matSuffix class="text-slate-400">title</mat-icon>
-                        <mat-error
-                            *ngIf="uploadForm.get('title')?.hasError('required') && uploadForm.get('title')?.touched">
-                            Title is required
-                        </mat-error>
-                        <mat-error
-                            *ngIf="uploadForm.get('title')?.hasError('maxlength') && uploadForm.get('title')?.touched">
-                            Document Title must be 150 characters or less
-                        </mat-error>
                     </mat-form-field>
+                    <span
+                        *ngIf="(uploadForm.get('title')?.hasError('required') || uploadForm.get('title')?.hasError('pattern')) &&
+                            (uploadForm.get('title')?.touched || validationSubmitted)"
+                        class="text-red-500 text-xs mt-1 ml-1">
+                        Title is required
+                    </span>
+                    <span
+                        *ngIf="uploadForm.get('title')?.hasError('maxlength') &&
+                            (uploadForm.get('title')?.dirty || uploadForm.get('title')?.touched || validationSubmitted)"
+                        class="text-red-500 text-xs mt-1 ml-1">
+                        Document Title must be 200 characters or less
+                    </span>
                 </div>
 
                 <!-- Custom File Input -->
                 <div class="flex flex-col gap-1.5">
-                    <label class="text-sm font-medium text-slate-700 ml-1">Attachment</label>
+                    <label class="text-sm font-medium text-slate-700 ml-1">Attachment <span class="text-red-500">*</span></label>
                     <div class="relative border-2 border-dashed border-slate-300 rounded-xl p-6 transition-all duration-200 flex flex-col items-center justify-center gap-3 bg-white hover:border-[var(--text-active)] hover:bg-indigo-50/30"
                         [class.border-indigo-500]="fileName" [class.bg-indigo-50]="fileName">
                         <input type="file" #fileInput (change)="onFileSelected($event)" class="hidden"
@@ -53,7 +57,7 @@
                                 </button>
                             </ng-container>
                             <ng-template #noFileSelected>
-                                <span class="text-slate-600 block">Drag and drop or click to browse</span>
+                                <span class="text-slate-600 block">Click to browse and upload</span>
                                 <span class="text-xs text-slate-400 block mt-1">PDF, Word, or Images (Max 5MB)</span>
                             </ng-template>
                         </div>
@@ -74,7 +78,7 @@
                         Reset
                     </button>
                     <button mat-flat-button color="primary" type="submit"
-                        [disabled]="uploadForm.invalid || isSubmitting" class="px-8 py-2 rounded-lg">
+                        [disabled]="isSubmitting" class="px-8 py-2 rounded-lg">
                         <ng-container *ngIf="isSubmitting; else submitBtnText">
                             <span class="app-button-loading">
                                 <i class="ri-loader-4-line app-button-spinner"></i>

@@ -76,45 +76,57 @@
                     </div>
                 </div>
             </div>
-            
-            <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                  <div class="flex gap-4 items-center w-full md:w-auto flex-wrap">
-                    
-                    <div class="bg-slate-100 border border-slate-200 rounded-lg p-1.5 flex">
-                    <button class="px-1 rounded transition-colors"
-                        [ngClass]="currentView === 'table' ? 'bg-white text-[var(--text-active)] shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'"
-                        (click)="setView('table')">
-                        <i class="ri-table-line text-2xl"></i>
-                    </button>
-                    <button class="px-1 rounded transition-colors"
-                        [ngClass]="currentView === 'kanban' ? 'bg-white text-[var(--text-active)] shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'"
-                        (click)="setView('kanban')">
-                        <i class="ri-trello-line text-2xl"></i>
-                    </button>
-                    </div>
-         
-                    <div class="relative flex-1 md:w-72">
-                    <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
-                    <input type="text" placeholder="Search..." [(ngModel)]="searchQuery"
-                        (ngModelChange)="onSearchChange($event)"
-                        class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-base font-medium focus:border-[var(--text-active)] focus:ring-1 focus:ring-[var(--text-active)] outline-none transition-all placeholder:font-normal">
-                    </div>
-         
+
+            <div
+                class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex gap-4 items-center w-full md:w-auto flex-wrap">
                     <div class="relative w-full sm:w-52">
-                    <select [(ngModel)]="selectedReleaseType"
-                        (change)="applyFilters()"
-                        class="release-type-select w-full px-4 py-2.5 bg-white border-2 border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-[var(--text-active)] focus:ring-2 focus:ring-[var(--text-active)]/20 hover:border-slate-400 transition-all appearance-none cursor-pointer pr-10">
-                        <option value="All">Select Release Type</option>
-                        <option value="Internal">Internal</option>
-                        <option value="External">External</option>
-                    </select>
-                    <i class="ri-arrow-down-s-line absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-lg"></i>
+                        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                            <mat-select [value]="selectedReleaseType" placeholder="Select Release Type"
+                                (selectionChange)="setReleaseType($event.value)"
+                                (openedChange)="onReleaseTypeSelectOpened($event)">
+                                <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100"
+                                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                                    <input
+                                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                                        placeholder="Search release type..." [value]="releaseTypeSearchText"
+                                        (input)="filterReleaseTypes($event)">
+                                </div>
+                                <mat-option value="All">All Release Types</mat-option>
+                                <mat-option *ngFor="let type of filteredReleaseTypeOptions" [value]="type">{{ type
+                                    }}</mat-option>
+                                <mat-option *ngIf="!filteredReleaseTypeOptions.length" disabled>No release types
+                                    found</mat-option>
+                            </mat-select>
+                        </mat-form-field>
                     </div>
+                    <div class="bg-slate-100 border border-slate-200 rounded-lg p-1.5 flex">
+                        <button class="px-1 rounded transition-colors"
+                            [ngClass]="currentView === 'table' ? 'bg-white text-[var(--text-active)] shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'"
+                            (click)="setView('table')">
+                            <i class="ri-table-line text-2xl"></i>
+                        </button>
+                        <button class="px-1 rounded transition-colors"
+                            [ngClass]="currentView === 'kanban' ? 'bg-white text-[var(--text-active)] shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'"
+                            (click)="setView('kanban')">
+                            <i class="ri-trello-line text-2xl"></i>
+                        </button>
+                    </div>
+
+                    <div class="relative flex-1 md:w-72">
+                        <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                        <input type="text" placeholder="Search..." [(ngModel)]="searchQuery"
+                            (ngModelChange)="onSearchChange($event)"
+                            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-base font-medium focus:border-[var(--text-active)] focus:ring-1 focus:ring-[var(--text-active)] outline-none transition-all placeholder:font-normal">
+                    </div>
+
+
                 </div>
-         
+
                 <button (click)="createNew()" [disabled]="createReleaseLoading"
                     class="w-full md:w-auto bg-[var(--text-active)] text-white px-5 py-1.5 rounded-lg text-base font-medium shadow-sm hover:opacity-90 transition-colors flex items-center justify-center gap-2 shrink-0">
-                    <i [class]="createReleaseLoading ? 'ri-loader-4-line app-button-spinner text-lg' : 'ri-add-line text-lg'"></i>
+                    <i
+                        [class]="createReleaseLoading ? 'ri-loader-4-line app-button-spinner text-lg' : 'ri-add-line text-lg'"></i>
                     <span>{{ createReleaseLoading ? 'Loading...' : 'New Release' }}</span>
                 </button>
             </div>
@@ -138,7 +150,8 @@
             </div>
 
             <!-- VIEW: KANBAN -->
-            <div *ngIf="currentView === 'kanban'" class="h-full custom-scrollbar overflow-x-auto overflow-y-hidden app-loading-host">
+            <div *ngIf="currentView === 'kanban'"
+                class="h-full custom-scrollbar overflow-x-auto overflow-y-hidden app-loading-host">
                 <div class="flex justify-center h-full gap-5 min-w-max pb-2">
                     <!-- Column Template -->
                     <ng-container *ngFor="let status of statusList">
@@ -196,7 +209,8 @@
                                                     class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2">
                                                     <i class="ri-eye-line"></i> View Details
                                                 </a>
-                                                <a href="#" (click)="$event.preventDefault();openDrawer(release)"
+                                                <a *ngIf="canEditRelease(release)" href="#"
+                                                    (click)="$event.preventDefault();openDrawer(release)"
                                                     class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2">
                                                     <i class="ri-edit-line"></i> Edit
                                                 </a>

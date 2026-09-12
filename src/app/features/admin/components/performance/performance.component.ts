@@ -1,18 +1,20 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { finalize, Subscription } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { ExcelService } from 'src/app/_core/services/excel.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
+import { APP_TABLE_DEFAULT_PAGE_SIZE, APP_TABLE_PAGE_SIZE_OPTIONS, APP_TABLE_VISIBLE_ROW_COUNT, buildTablePageNumbers } from 'src/app/_core/utils/tabulator-pagination.util';
 
 type PerformanceStatus = 'Outstanding' | 'Excellent' | 'Very Good' | 'Good' | 'Needs Improvement';
 type ScoreTone = 'blue' | 'teal' | 'amber' | 'violet' | 'rose' | 'green' | 'slate';
 type SummaryTone = 'blue' | 'green' | 'red' | 'violet';
 type RuleTone = 'green' | 'orange' | 'blue' | 'violet' | 'teal';
 type PerformanceMetricKey = 'task' | 'release' | 'releasePass' | 'issue' | 'ticket' | 'dsr' | 'quality';
+type PerformanceWeightageMetricKey = PerformanceMetricKey | 'releaseStatus' | 'onTimeRelease' | 'sqaProject' | 'qcTimeline' | 'modelCount' | 'client';
 type DepartmentPerformanceKind = 'ridappsSoftware' | 'sqa' | 'hardware' | 'headend' | 'hardwareHeadend' | 'default';
 type PerformanceTableSortColumn = 'index' | 'employee' | 'final' | 'dsr' | 'dsrDays' | 'reason' | PerformanceMetricKey | 'workVolume' | 'tasks' | 'issues' | 'tickets';
-type PerformanceWeightageSortColumn = 'department' | PerformanceMetricKey | 'specialRule';
+type PerformanceWeightageSortColumn = 'department' | PerformanceWeightageMetricKey | 'specialRule';
 type PerformanceSortDirection = 'asc' | 'desc';
 type PerformanceSortValue = string | number | null;
 
@@ -32,8 +34,27 @@ interface PerformanceMetrics {
   total_releases: number | null;
   on_time_releases: number | null;
   passed_releases: number | null;
+  failed_releases: number | null;
   dsr_days_submitted: number | null;
   dsr_days_required: number | null;
+  dsr_on_time_days: number | null;
+  dsr_late_days: number | null;
+  self_tickets: number | null;
+  handled_clients: number | null;
+  closed_tickets: number | null;
+  pending_tickets: number | null;
+}
+
+interface PerformanceScoreWeights {
+  task: number | null;
+  release: number | null;
+  release_pass: number | null;
+  dsr: number | null;
+  release_status: number | null;
+  issue: number | null;
+  ticket: number | null;
+  quality: number | null;
+  client: number | null;
 }
 
 interface PerformanceRow {
@@ -48,14 +69,18 @@ interface PerformanceRow {
   dsr_score: number | null;
   task_score: number | null;
   release_score: number | null;
+  release_status_score: number | null;
   release_pass_score: number | null;
   issue_score: number | null;
   ticket_score: number | null;
   quality_score: number | null;
+  client_score: number | null;
   fromdate: string;
   todate: string;
   eligible: boolean | null;
   reason: string;
+  eligibility_reasons: string[];
+  score_weights: PerformanceScoreWeights;
   avatar_url: string;
   metrics: PerformanceMetrics;
 }
@@ -73,9 +98,15 @@ interface PerformanceWeightageRow {
   task: number | null;
   release: number | null;
   releasePass: number | null;
+  releaseStatus: number | null;
+  onTimeRelease: number | null;
+  sqaProject: number | null;
+  qcTimeline: number | null;
   issue: number | null;
   ticket: number | null;
+  client: number | null;
   dsr: number | null;
+  modelCount: number | null;
   quality: number | null;
   specialRule: string;
   icon: string;
@@ -100,6 +131,13 @@ interface MetricItem {
   icon: string;
   label: string;
   value: string;
+}
+
+interface ScoreCalculationItem {
+  label: string;
+  score: number;
+  weight: number;
+  contribution: number;
 }
 
 interface SummaryTile {
@@ -183,7 +221,8 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   summaryTiles: SummaryTile[] = [];
   weightageSearchTerm = '';
   weightagePageIndex = 0;
-  weightagePageSize = 5;
+  weightagePageSize = APP_TABLE_DEFAULT_PAGE_SIZE;
+  readonly tableVisibleRowCount = APP_TABLE_VISIBLE_ROW_COUNT;
   weightageTotalPages = 1;
   weightageShowingFrom = 0;
   weightageShowingTo = 0;
@@ -192,13 +231,14 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   weightageSortDirection: PerformanceSortDirection = 'asc';
   notEligibleSearchTerm = '';
   notEligiblePageIndex = 0;
-  notEligiblePageSize = 10;
+  notEligiblePageSize = APP_TABLE_DEFAULT_PAGE_SIZE;
   notEligibleTotalPages = 1;
   notEligibleShowingFrom = 0;
   notEligibleShowingTo = 0;
   notEligiblePageNumbers: number[] = [];
   notEligibleSortColumn: PerformanceTableSortColumn = 'index';
   notEligibleSortDirection: PerformanceSortDirection = 'asc';
+  selectedPerformanceEmployee: PerformanceRow | null = null;
 
   departmentsLoading = false;
   tableLoading = false;
@@ -249,16 +289,22 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   private performanceSubscription?: Subscription;
   private lastRequestKey = '';
 
-  readonly weightagePageSizeOptions = [5, 10, 25, 50];
+  readonly weightagePageSizeOptions = APP_TABLE_PAGE_SIZE_OPTIONS;
   readonly weightageColumns: PerformanceWeightageTableColumn[] = [
     { key: 'department', label: 'Department / category', title: 'Department / category', align: 'left' },
     { key: 'release', label: 'Release', title: 'Release Weightage', align: 'right' },
     { key: 'releasePass', label: 'Release pass', title: 'Release Pass Weightage', align: 'right' },
+    { key: 'releaseStatus', label: 'Release status', title: 'Release Status Weightage', align: 'right' },
+    { key: 'onTimeRelease', label: 'On-time release', title: 'On-time Release Weightage', align: 'right' },
+    { key: 'sqaProject', label: 'SQA project', title: 'SQA Project Weightage', align: 'right' },
+    { key: 'qcTimeline', label: 'QC timeline', title: 'QC Timeline Weightage', align: 'right' },
     { key: 'ticket', label: 'Ticket', title: 'Ticket Weightage', align: 'right' },
+    { key: 'client', label: 'Client support', title: 'Client Support Weightage', align: 'right' },
     { key: 'dsr', label: 'DSR', title: 'DSR Weightage', align: 'right' },
+    { key: 'modelCount', label: 'Model count', title: 'Model Count Weightage', align: 'right' },
     { key: 'specialRule', label: 'Special rule', title: 'Special rule', align: 'left' }
   ];
-  readonly notEligiblePageSizeOptions = [10, 25, 50, 100];
+  readonly notEligiblePageSizeOptions = APP_TABLE_PAGE_SIZE_OPTIONS;
   readonly notEligibleColumns: PerformanceTableColumn[] = [
     { key: 'index', label: 'S.No', title: 'Serial number', align: 'left' },
     { key: 'employee', label: 'Employee', title: 'Employee', align: 'left' },
@@ -280,27 +326,39 @@ export class PerformanceComponent implements OnInit, OnDestroy {
 
   private readonly defaultWeightageRows: PerformanceWeightageRow[] = [
     {
-      department: 'Ridapps/Software/default',
+      department: 'Ridapps/Software',
       task: null,
       release: 40,
-      releasePass: 20,
+      releasePass: null,
+      releaseStatus: 20,
+      onTimeRelease: null,
+      sqaProject: null,
+      qcTimeline: null,
       issue: null,
       ticket: null,
+      client: null,
       dsr: 40,
+      modelCount: null,
       quality: null,
-      specialRule: 'On-time release + DSR + release pass',
+      specialRule: '-',
       icon: 'ri-code-s-slash-line'
     },
     {
       department: 'SQA',
       task: null,
-      release: 50,
+      release: 40,
       releasePass: null,
+      releaseStatus: null,
+      onTimeRelease: 20,
+      sqaProject: null,
+      qcTimeline: null,
       issue: null,
       ticket: null,
-      dsr: 50,
+      client: null,
+      dsr: 40,
+      modelCount: null,
       quality: null,
-      specialRule: 'Testing release + DSR',
+      specialRule: '-',
       icon: 'ri-shield-check-line'
     },
     {
@@ -308,23 +366,53 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       task: null,
       release: null,
       releasePass: null,
+      releaseStatus: null,
+      onTimeRelease: null,
+      sqaProject: null,
+      qcTimeline: null,
       issue: null,
-      ticket: 90,
-      dsr: 10,
+      ticket: 10,
+      client: null,
+      dsr: 90,
+      modelCount: null,
       quality: null,
       specialRule: '-',
       icon: 'ri-wifi-line'
     },
     {
-      department: 'Hardware/Headend',
+      department: 'Hardware',
       task: null,
       release: null,
       releasePass: null,
+      releaseStatus: null,
+      onTimeRelease: null,
+      sqaProject: null,
+      qcTimeline: null,
       issue: null,
       ticket: 100,
+      client: null,
       dsr: null,
+      modelCount: null,
       quality: null,
-      specialRule: 'Tickets only, no DSR considered',
+      specialRule: '-',
+      icon: 'ri-server-line'
+    },
+    {
+      department: 'Headend',
+      task: null,
+      release: null,
+      releasePass: null,
+      releaseStatus: null,
+      onTimeRelease: null,
+      sqaProject: null,
+      qcTimeline: null,
+      issue: null,
+      ticket: 50,
+      client: 50,
+      dsr: null,
+      modelCount: null,
+      quality: null,
+      specialRule: '-',
       icon: 'ri-server-line'
     }
   ];
@@ -406,6 +494,23 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       }
 
       return activityKeys.has(column.key);
+    });
+  }
+
+  get displayedWeightageColumns(): PerformanceWeightageTableColumn[] {
+    return this.weightageColumns.filter(column => {
+      const key = column.key;
+
+      if (key === 'department') {
+        return true;
+      }
+
+      if (key === 'specialRule') {
+        return this.weightageRows.some(row => !!row.specialRule && row.specialRule !== '-');
+      }
+
+      return this.isWeightageMetricColumnKey(key)
+        && this.weightageRows.some(row => this.getWeightageMetricValue(row, key) !== null);
     });
   }
 
@@ -593,6 +698,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     }
 
     this.performanceSubscription?.unsubscribe();
+    this.selectedPerformanceEmployee = null;
     this.lastRequestKey = requestKey;
     this.tableLoading = true;
     this.errorMessage = '';
@@ -776,8 +882,13 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   }
 
   getEligibilityReason(row: PerformanceRow): string {
+    const reasonLabels = this.getEligibilityReasonLabels(row);
+    if (reasonLabels.length) {
+      return reasonLabels.join(', ');
+    }
+
     if (row.reason) {
-      return row.reason;
+      return this.formatEligibilityReason(row.reason);
     }
 
     if (row.eligible === false && row.dsr_score !== null && row.dsr_score < 90) {
@@ -785,6 +896,52 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     }
 
     return '-';
+  }
+
+  getEligibilityReasonLabels(row: PerformanceRow): string[] {
+    if (row.eligibility_reasons.length) {
+      return row.eligibility_reasons.map(reason => this.formatEligibilityReason(reason));
+    }
+
+    if (row.reason) {
+      return [this.formatEligibilityReason(row.reason)];
+    }
+
+    if (row.eligible === false && row.dsr_score !== null && row.dsr_score < 90) {
+      return ['DSR below 90%'];
+    }
+
+    return [];
+  }
+
+  formatEligibilityReason(reason: string): string {
+    const readableReason = `${reason || ''}`
+      .trim()
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+
+    const sentence = readableReason
+      ? `${readableReason.charAt(0).toUpperCase()}${readableReason.slice(1)}`
+      : '-';
+
+    return sentence.replace(/\bdsr\b/gi, 'DSR');
+  }
+
+  openEmployeePerformanceDetails(row: PerformanceRow): void {
+    this.selectedPerformanceEmployee = row;
+  }
+
+  closeEmployeePerformanceDetails(): void {
+    this.selectedPerformanceEmployee = null;
+  }
+
+  @HostListener('document:keydown.escape')
+  closeEmployeePerformanceDetailsOnEscape(): void {
+    if (this.selectedPerformanceEmployee) {
+      this.closeEmployeePerformanceDetails();
+    }
   }
 
   getDsrDaysLabel(row: PerformanceRow): string {
@@ -829,6 +986,95 @@ export class PerformanceComponent implements OnInit, OnDestroy {
 
   formatWeightWithPercent(value: number | null): string {
     return value === null ? '-' : `${this.formatScore(value)}%`;
+  }
+
+  hasTicketClientDetails(row: PerformanceRow): boolean {
+    return [
+      row.ticket_score,
+      row.client_score,
+      row.score_weights.ticket,
+      row.score_weights.client,
+      row.metrics.self_tickets,
+      row.metrics.handled_clients,
+      row.metrics.assigned_tickets,
+      row.metrics.closed_tickets,
+      row.metrics.pending_tickets
+    ].some(value => value !== null);
+  }
+
+  hasReleaseDetails(row: PerformanceRow): boolean {
+    return [
+      row.release_score,
+      row.release_status_score,
+      row.metrics.total_releases,
+      row.metrics.passed_releases,
+      row.metrics.failed_releases,
+      row.metrics.on_time_releases
+    ].some(value => value !== null);
+  }
+
+  hasGeneralWorkDetails(row: PerformanceRow): boolean {
+    const departmentKind = this.getDepartmentPerformanceKind(row.department_name);
+
+    // Hardware/Headend performance is based on model and ticket activity. Some
+    // API responses omit the optional release/task counters entirely, but the
+    // detail dialog should still expose the work-metrics card for these rows.
+    if (departmentKind === 'hardware'
+      || departmentKind === 'headend'
+      || departmentKind === 'hardwareHeadend') {
+      return true;
+    }
+
+    return [
+      row.metrics.total_releases,
+      row.metrics.passed_releases,
+      row.metrics.failed_releases,
+      row.metrics.on_time_releases,
+      row.metrics.assigned_tasks,
+      row.metrics.completed_tasks,
+      row.metrics.assigned_issues,
+      row.metrics.support_ticket_count,
+      row.metrics.model_count
+    ].some(value => value !== null);
+  }
+
+  hasDsrDetails(row: PerformanceRow): boolean {
+    return [
+      row.dsr_score,
+      row.metrics.dsr_days_required,
+      row.metrics.dsr_days_submitted,
+      row.metrics.dsr_on_time_days,
+      row.metrics.dsr_late_days
+    ].some(value => value !== null);
+  }
+
+  getFinalScoreCalculation(row: PerformanceRow): ScoreCalculationItem[] {
+    const factors: Array<{ label: string; score: number | null; weight: number | null }> = [
+      { label: 'Task', score: row.task_score, weight: row.score_weights.task },
+      { label: 'Release', score: row.release_score, weight: row.score_weights.release },
+      { label: 'Release pass', score: row.release_pass_score, weight: row.score_weights.release_pass },
+      { label: 'Release status', score: row.release_status_score, weight: row.score_weights.release_status },
+      { label: 'Issue', score: row.issue_score, weight: row.score_weights.issue },
+      { label: 'Ticket', score: row.ticket_score, weight: row.score_weights.ticket },
+      { label: 'DSR', score: row.dsr_score, weight: row.score_weights.dsr },
+      { label: 'Quality', score: row.quality_score, weight: row.score_weights.quality },
+      { label: 'Client', score: row.client_score, weight: row.score_weights.client }
+    ];
+
+    return factors
+      .filter((factor): factor is { label: string; score: number; weight: number } =>
+        factor.score !== null && factor.weight !== null)
+      .map(factor => ({
+        ...factor,
+        contribution: (factor.score * factor.weight) / 100
+      }));
+  }
+
+  getCalculatedFinalScore(row: PerformanceRow): number | null {
+    const calculation = this.getFinalScoreCalculation(row);
+    return calculation.length
+      ? calculation.reduce((total, item) => total + item.contribution, 0)
+      : null;
   }
 
   getWeightageValue(row: PerformanceWeightageRow, column: PerformanceWeightageSortColumn): string {
@@ -970,6 +1216,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   }
 
   private applyReportState(report: PerformanceReportState): void {
+    this.selectedPerformanceEmployee = null;
     this.rows = report.rows;
     this.winnerGroups = report.winnerGroups;
     this.overallTopWinners = report.overallTopWinners;
@@ -983,6 +1230,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   }
 
   private clearReportState(): void {
+    this.selectedPerformanceEmployee = null;
     this.rows = [];
     this.winnerGroups = [];
     this.overallTopWinners = [];
@@ -1120,6 +1368,10 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     return ['task', 'release', 'releasePass', 'issue', 'ticket', 'dsr', 'quality'].includes(column);
   }
 
+  private isWeightageMetricColumnKey(column: PerformanceWeightageSortColumn): column is PerformanceWeightageMetricKey {
+    return column !== 'department' && column !== 'specialRule';
+  }
+
   private getScoreForMetric(row: PerformanceRow, metric: PerformanceMetricKey): number | null {
     switch (metric) {
       case 'task':
@@ -1148,7 +1400,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     );
   }
 
-  private getWeightageMetricValue(row: PerformanceWeightageRow, metric: PerformanceMetricKey): number | null {
+  private getWeightageMetricValue(row: PerformanceWeightageRow, metric: PerformanceWeightageMetricKey): number | null {
     switch (metric) {
       case 'task':
         return row.task;
@@ -1156,69 +1408,29 @@ export class PerformanceComponent implements OnInit, OnDestroy {
         return row.release;
       case 'releasePass':
         return row.releasePass;
+      case 'releaseStatus':
+        return row.releaseStatus;
+      case 'onTimeRelease':
+        return row.onTimeRelease;
+      case 'sqaProject':
+        return row.sqaProject;
+      case 'qcTimeline':
+        return row.qcTimeline;
       case 'issue':
         return row.issue;
       case 'ticket':
         return row.ticket;
+      case 'client':
+        return row.client;
       case 'dsr':
         return row.dsr;
+      case 'modelCount':
+        return row.modelCount;
       case 'quality':
         return row.quality;
       default:
         return null;
     }
-  }
-
-  private applyDepartmentWeightageRules(rows: PerformanceWeightageRow[]): PerformanceWeightageRow[] {
-    return rows.map(row => this.applyDepartmentWeightageRule(row));
-  }
-
-  private applyDepartmentWeightageRule(row: PerformanceWeightageRow): PerformanceWeightageRow {
-    const kind = this.getDepartmentPerformanceKind(row.department);
-
-    if (kind === 'ridappsSoftware') {
-      return {
-        ...row,
-        task: null,
-        release: 40,
-        releasePass: 20,
-        issue: null,
-        ticket: null,
-        dsr: 40,
-        quality: null,
-        specialRule: row.specialRule && row.specialRule !== '-' ? row.specialRule : 'On-time release + DSR + release pass'
-      };
-    }
-
-    if (kind === 'sqa') {
-      return {
-        ...row,
-        task: null,
-        release: 50,
-        releasePass: null,
-        issue: null,
-        ticket: null,
-        dsr: 50,
-        quality: null,
-        specialRule: row.specialRule && row.specialRule !== '-' ? row.specialRule : 'Testing release + DSR'
-      };
-    }
-
-    if (kind === 'hardware' || kind === 'headend' || kind === 'hardwareHeadend') {
-      return {
-        ...row,
-        task: null,
-        release: null,
-        releasePass: null,
-        issue: null,
-        ticket: 100,
-        dsr: null,
-        quality: null,
-        specialRule: row.specialRule && row.specialRule !== '-' ? row.specialRule : 'Tickets only, highest count gets 100%'
-      };
-    }
-
-    return row;
   }
 
   private applyDepartmentScoreRules(rows: PerformanceRow[]): void {
@@ -1269,11 +1481,11 @@ export class PerformanceComponent implements OnInit, OnDestroy {
 
       departmentRows.forEach(row => {
         const count = this.getTicketScoreBasis(row);
-        if (count !== null && maxCount > 0) {
+        if (row.ticket_score === null && count !== null && maxCount > 0) {
           row.ticket_score = Number(((count / maxCount) * 100).toFixed(2));
         }
 
-        if (row.ticket_score !== null) {
+        if (row.final_score === null && row.ticket_score !== null) {
           row.final_score = row.ticket_score;
         }
       });
@@ -1281,6 +1493,12 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   }
 
   private setWeightedFinalScore(row: PerformanceRow, definitions: DepartmentScoreDefinition[]): void {
+    // The API's final_score is authoritative. Department rules only provide a
+    // fallback for older responses that do not include a final score.
+    if (row.final_score !== null) {
+      return;
+    }
+
     const scoredDefinitions = definitions.filter(definition =>
       definition.weight !== null && this.getScoreForMetric(row, definition.key) !== null
     );
@@ -1400,13 +1618,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   }
 
   private buildWeightagePageNumbers(): number[] {
-    const maxVisiblePages = 5;
-    const totalPages = this.weightageTotalPages;
-    const currentPage = this.weightagePageIndex + 1;
-    const startPage = Math.max(1, Math.min(currentPage - 2, totalPages - maxVisiblePages + 1));
-    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    return Array.from({ length: endPage - startPage + 1 }, (_value, index) => startPage + index);
+    return buildTablePageNumbers(this.weightageTotalPages);
   }
 
   private rebuildNotEligibleTable(): void {
@@ -1421,6 +1633,10 @@ export class PerformanceComponent implements OnInit, OnDestroy {
 
     const startIndex = this.notEligiblePageIndex * this.notEligiblePageSize;
     this.pagedNotEligibleRows = this.filteredNotEligibleRows.slice(startIndex, startIndex + this.notEligiblePageSize);
+    if (this.selectedPerformanceEmployee?.eligible === false
+      && !this.pagedNotEligibleRows.some(row => row.uid === this.selectedPerformanceEmployee?.uid)) {
+      this.selectedPerformanceEmployee = null;
+    }
     this.notEligibleShowingFrom = this.filteredNotEligibleRows.length ? startIndex + 1 : 0;
     this.notEligibleShowingTo = this.filteredNotEligibleRows.length
       ? Math.min(startIndex + this.notEligiblePageSize, this.filteredNotEligibleRows.length)
@@ -1439,16 +1655,37 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       this.getEligibilityReason(row),
       this.formatScore(row.task_score),
       this.formatScore(row.release_score),
+      this.formatScore(row.release_status_score),
       this.formatScore(row.release_pass_score),
       this.formatScore(row.issue_score),
       this.formatScore(row.ticket_score),
       this.formatScore(row.quality_score),
+      this.formatScore(row.client_score),
       this.formatMetricNumber(row.metrics.total_work_volume),
       this.formatMetricNumber(row.metrics.assigned_tasks),
       this.formatMetricNumber(row.metrics.assigned_issues),
       this.formatMetricNumber(row.metrics.assigned_tickets),
       this.formatMetricNumber(row.metrics.support_ticket_count),
-      this.formatMetricNumber(row.metrics.model_count)
+      this.formatMetricNumber(row.metrics.model_count),
+      this.formatMetricNumber(row.metrics.completed_tasks),
+      this.formatMetricNumber(row.metrics.total_releases),
+      this.formatMetricNumber(row.metrics.passed_releases),
+      this.formatMetricNumber(row.metrics.failed_releases),
+      this.formatMetricNumber(row.metrics.on_time_releases),
+      this.formatMetricNumber(row.metrics.dsr_days_required),
+      this.formatMetricNumber(row.metrics.dsr_days_submitted),
+      this.formatMetricNumber(row.metrics.dsr_on_time_days),
+      this.formatMetricNumber(row.metrics.dsr_late_days),
+      this.formatMetricNumber(row.metrics.self_tickets),
+      this.formatMetricNumber(row.metrics.handled_clients),
+      this.formatMetricNumber(row.metrics.closed_tickets),
+      this.formatMetricNumber(row.metrics.pending_tickets),
+      this.formatWeight(row.score_weights.ticket),
+      this.formatWeight(row.score_weights.client),
+      this.formatWeight(row.score_weights.release),
+      this.formatWeight(row.score_weights.dsr),
+      this.formatWeight(row.score_weights.release_status),
+      ...this.getEligibilityReasonLabels(row)
     ];
 
     return searchableValues.some(value => this.normalizeTableSearch(value).includes(searchTerm));
@@ -1535,13 +1772,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   }
 
   private buildNotEligiblePageNumbers(): number[] {
-    const maxVisiblePages = 5;
-    const totalPages = this.notEligibleTotalPages;
-    const currentPage = this.notEligiblePageIndex + 1;
-    const startPage = Math.max(1, Math.min(currentPage - 2, totalPages - maxVisiblePages + 1));
-    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    return Array.from({ length: endPage - startPage + 1 }, (_value, index) => startPage + index);
+    return buildTablePageNumbers(this.notEligibleTotalPages);
   }
 
   private mapPerformanceReport(response: unknown, requestFromDate: string, requestToDate: string): PerformanceReportState {
@@ -1713,6 +1944,11 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       || this.asRecord(record['key_metrics'])
       || this.asRecord(record['keyMetrics'])
       || {};
+    const scoreWeights = this.asRecord(scores['weights'])
+      || this.asRecord(record['weights'])
+      || this.asRecord(record['score_weights'])
+      || this.asRecord(record['scoreWeights'])
+      || {};
     const finalScore = this.getNumberFromSources([record, scores], [
       'final_score',
       'finalScore',
@@ -1773,6 +2009,12 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       'remarks',
       'remark'
     ]);
+    const eligibilityReasons = this.getStringArrayValue(record, [
+      'eligibility_reasons',
+      'eligibilityReasons',
+      'not_eligible_reasons',
+      'notEligibleReasons'
+    ]);
     const explicitEligible = this.getBooleanValue(record, [
       'eligible',
       'is_eligible',
@@ -1785,7 +2027,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       ? explicitEligible
       : fallbackEligible !== null
         ? fallbackEligible
-        : reason
+        : reason || eligibilityReasons.length
           ? false
           : null;
 
@@ -1801,14 +2043,28 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       dsr_score: dsrScore,
       task_score: this.getNumberFromSources([scores, record], ['task_score', 'taskScore', 'task']),
       release_score: this.getNumberFromSources([scores, record], ['release_score', 'releaseScore', 'release']),
+      release_status_score: this.getNumberFromSources([scores, record], ['release_status_score', 'releaseStatusScore', 'release_status', 'releaseStatus']),
       release_pass_score: releasePassScore ?? qualityScore,
       issue_score: this.getNumberFromSources([scores, record], ['issue_score', 'issueScore', 'issue']),
       ticket_score: this.getNumberFromSources([scores, record], ['ticket_score', 'ticketScore', 'ticket', 'tickets_score', 'ticketsScore']),
       quality_score: qualityScore,
+      client_score: this.getNumberFromSources([scores, record], ['client_score', 'clientScore', 'client']),
       fromdate: this.getStringValue(record, ['fromdate', 'from_date']) || fromdate,
       todate: this.getStringValue(record, ['todate', 'to_date']) || todate,
       eligible,
       reason,
+      eligibility_reasons: eligibilityReasons,
+      score_weights: {
+        task: this.getNumberFromSources([scoreWeights], ['task', 'task_weight', 'taskWeight']),
+        release: this.getNumberFromSources([scoreWeights], ['release', 'release_weight', 'releaseWeight']),
+        release_pass: this.getNumberFromSources([scoreWeights], ['release_pass', 'releasePass', 'release_pass_weight', 'releasePassWeight']),
+        dsr: this.getNumberFromSources([scoreWeights], ['dsr', 'dsr_weight', 'dsrWeight']),
+        release_status: this.getNumberFromSources([scoreWeights], ['release_status', 'releaseStatus', 'release_status_weight', 'releaseStatusWeight']),
+        issue: this.getNumberFromSources([scoreWeights], ['issue', 'issue_weight', 'issueWeight']),
+        ticket: this.getNumberFromSources([scoreWeights], ['ticket', 'ticket_weight', 'ticketWeight']),
+        quality: this.getNumberFromSources([scoreWeights], ['quality', 'quality_weight', 'qualityWeight']),
+        client: this.getNumberFromSources([scoreWeights], ['client', 'client_weight', 'clientWeight'])
+      },
       avatar_url: this.getStringValue(record, ['avatar_url', 'avatarUrl', 'photo', 'photo_url', 'image', 'profile_image']),
       metrics: {
         total_work_volume: this.getNumberFromSources([metrics, record], ['total_work_volume', 'totalWorkVolume', 'work_volume', 'workVolume', 'workload', 'work_load']),
@@ -1869,8 +2125,15 @@ export class PerformanceComponent implements OnInit, OnDestroy {
           'release_pass_count',
           'releasePassCount'
         ]),
-        dsr_days_submitted: this.getNumberFromSources([metrics, record], ['dsr_days_submitted', 'dsrDaysSubmitted', 'dsr_days', 'dsrDays', 'submitted_dsr_days', 'submittedDsrDays']),
-        dsr_days_required: this.getNumberFromSources([metrics, record], ['dsr_days_required', 'dsrDaysRequired', 'required_dsr_days', 'requiredDsrDays', 'required_working_days', 'requiredWorkingDays', 'working_days', 'workingDays'])
+        failed_releases: this.getNumberFromSources([metrics, record], ['failed_releases', 'failedReleases', 'failed_release_count', 'failedReleaseCount']),
+        dsr_days_submitted: this.getNumberFromSources([metrics, record], ['dsr_days_submitted', 'dsrDaysSubmitted', 'dsr_submitted_days', 'dsrSubmittedDays', 'dsr_days', 'dsrDays', 'submitted_dsr_days', 'submittedDsrDays']),
+        dsr_days_required: this.getNumberFromSources([metrics, record], ['dsr_days_required', 'dsrDaysRequired', 'required_dsr_days', 'requiredDsrDays', 'required_working_days', 'requiredWorkingDays', 'working_days', 'workingDays']),
+        dsr_on_time_days: this.getNumberFromSources([metrics, record], ['dsr_on_time_days', 'dsrOnTimeDays', 'on_time_dsr_days', 'onTimeDsrDays']),
+        dsr_late_days: this.getNumberFromSources([metrics, record], ['dsr_late_days', 'dsrLateDays', 'late_dsr_days', 'lateDsrDays']),
+        self_tickets: this.getNumberFromSources([metrics, record], ['self_tickets', 'selfTickets', 'self_ticket_count', 'selfTicketCount']),
+        handled_clients: this.getNumberFromSources([metrics, record], ['handled_clients', 'handledClients', 'client_count', 'clientCount']),
+        closed_tickets: this.getNumberFromSources([metrics, record], ['closed_tickets', 'closedTickets', 'completed_tickets', 'completedTickets']),
+        pending_tickets: this.getNumberFromSources([metrics, record], ['pending_tickets', 'pendingTickets', 'open_tickets', 'openTickets'])
       }
     };
   }
@@ -1889,7 +2152,7 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     ]);
 
     if (directRows.length) {
-      return this.applyDepartmentWeightageRules(
+      return this.applyDepartmentWeightageDisplayRules(
         directRows
           .map((row, index) => this.normalizeWeightageRow(row, index, ''))
           .filter((row): row is PerformanceWeightageRow => !!row)
@@ -1899,17 +2162,18 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     const objectValue = record?.['department_weightage_configuration']
       ?? record?.['departmentWeightageConfiguration']
       ?? record?.['weightage_configuration']
-      ?? record?.['weightageConfiguration'];
+      ?? record?.['weightageConfiguration']
+      ?? record?.['weights'];
 
     if (objectValue && typeof objectValue === 'object' && !Array.isArray(objectValue)) {
-      return this.applyDepartmentWeightageRules(
+      return this.applyDepartmentWeightageDisplayRules(
         Object.entries(objectValue as Record<string, unknown>)
           .map(([departmentName, value], index) => this.normalizeWeightageRow(value, index, departmentName))
           .filter((row): row is PerformanceWeightageRow => !!row)
       );
     }
 
-    return this.applyDepartmentWeightageRules([...this.defaultWeightageRows]);
+    return this.applyDepartmentWeightageDisplayRules([...this.defaultWeightageRows]);
   }
 
   private normalizeWeightageRow(value: unknown, index: number, fallbackDepartment: string): PerformanceWeightageRow | null {
@@ -1947,14 +2211,63 @@ export class PerformanceComponent implements OnInit, OnDestroy {
       department,
       task: this.getWeightNumber(record, ['task', 'task_score', 'taskScore', 'task_percent', 'taskPercent', 'task_percentage', 'taskPercentage']),
       release: this.getWeightNumber(record, ['release', 'release_score', 'releaseScore', 'release_percent', 'releasePercent', 'release_percentage', 'releasePercentage']),
-      releasePass: releasePass ?? quality,
+      releasePass,
+      releaseStatus: this.getWeightNumber(record, [
+        'release_status',
+        'releaseStatus',
+        'release_status_weight',
+        'releaseStatusWeight'
+      ]),
+      onTimeRelease: this.getWeightNumber(record, [
+        'on_time_release',
+        'onTimeRelease',
+        'ontime_release',
+        'ontimeRelease',
+        'on_time_release_weight',
+        'onTimeReleaseWeight'
+      ]),
+      sqaProject: this.getWeightNumber(record, ['sqa_project', 'sqaProject', 'sqa_project_weight', 'sqaProjectWeight']),
+      qcTimeline: this.getWeightNumber(record, ['qc_timeline', 'qcTimeline', 'qc_timeline_weight', 'qcTimelineWeight']),
       issue: this.getWeightNumber(record, ['issue', 'issue_score', 'issueScore', 'issue_percent', 'issuePercent', 'issue_percentage', 'issuePercentage']),
       ticket: this.getWeightNumber(record, ['ticket', 'ticket_score', 'ticketScore', 'ticket_percent', 'ticketPercent', 'ticket_percentage', 'ticketPercentage']),
+      client: this.getWeightNumber(record, ['client', 'client_support', 'clientSupport', 'client_weight', 'clientWeight']),
       dsr: this.getWeightNumber(record, ['dsr', 'dsr_score', 'dsrScore', 'dsr_percent', 'dsrPercent', 'dsr_percentage', 'dsrPercentage']),
+      modelCount: this.getWeightNumber(record, ['model_count', 'modelCount', 'model_count_weight', 'modelCountWeight']),
       quality,
       specialRule: this.getStringValue(record, ['special_rule', 'specialRule', 'rule', 'remarks', 'remark']) || '-',
       icon: this.getStringValue(record, ['icon']) || this.defaultWeightageRows[index % this.defaultWeightageRows.length]?.icon || 'ri-building-2-line'
     };
+  }
+
+  private applyDepartmentWeightageDisplayRules(rows: PerformanceWeightageRow[]): PerformanceWeightageRow[] {
+    return rows
+      .filter(row => this.normalizeLookupLabel(row.department) !== 'default')
+      .map(row => {
+        const kind = this.getDepartmentPerformanceKind(row.department);
+        const department = row.department.replace(/\s*\/\s*default\s*$/i, '').trim();
+
+        if (kind === 'sqa') {
+          return {
+            ...row,
+            department,
+            release: 40,
+            releaseStatus: null,
+            onTimeRelease: 20,
+            dsr: 40
+          };
+        }
+
+        if (kind === 'ridappsSoftware') {
+          return {
+            ...row,
+            department,
+            releaseStatus: row.releaseStatus ?? 20,
+            onTimeRelease: null
+          };
+        }
+
+        return { ...row, department };
+      });
   }
 
   private extractSummary(payload: unknown, rows: PerformanceRow[], notEligibleRows: PerformanceRow[]): PerformanceSummary {
@@ -2066,9 +2379,9 @@ export class PerformanceComponent implements OnInit, OnDestroy {
         summary: [
           ['Total Records', this.filteredWeightageRows.length]
         ],
-        headers: this.weightageColumns.map(column => column.title),
+        headers: this.displayedWeightageColumns.map(column => column.title),
         rows: this.filteredWeightageRows.map(row =>
-          this.weightageColumns.map(column => this.getWeightageValue(row, column.key))
+          this.displayedWeightageColumns.map(column => this.getWeightageValue(row, column.key))
         ),
         color: [67, 56, 202]
       },
@@ -2103,17 +2416,14 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     ];
 
     if (this.notEligibleRows.length) {
-      const columns = this.displayedNotEligibleColumns;
       sections.push({
         title: 'Not Eligible Employees',
         sheetName: 'Not Eligible Employees',
         summary: [
           ['Total Not Eligible Employees', this.filteredNotEligibleRows.length]
         ],
-        headers: columns.map(column => column.title),
-        rows: this.filteredNotEligibleRows.map((row, index) =>
-          columns.map(column => this.getNotEligibleExportCellValue(row, column.key, index))
-        ),
+        headers: this.buildNotEligibleEmployeeExportHeaders(),
+        rows: this.buildNotEligibleEmployeeExportRows(),
         color: [220, 38, 38]
       });
     }
@@ -2179,25 +2489,112 @@ export class PerformanceComponent implements OnInit, OnDestroy {
     return this.sortRowsByFinalScore(this.rows.filter(row => row.eligible !== false));
   }
 
-  private hasTableExportRows(sections: PerformanceTableExportSection[]): boolean {
-    return sections.some(section => section.rows.length > 0);
+  private buildNotEligibleEmployeeExportHeaders(): string[] {
+    return [
+      'S/NO',
+      'Employee ID',
+      'Employee Name',
+      'Department',
+      'Eligibility',
+      'Eligibility Reasons',
+      'Final Score',
+      'Calculated Weighted Score',
+      'Task Score',
+      'Release Score',
+      'Release Pass Score',
+      'Release Status Score',
+      'Issue Score',
+      'Ticket Score',
+      'DSR Score',
+      'Quality Score',
+      'Client Score',
+      'Task Weight',
+      'Release Weight',
+      'Release Pass Weight',
+      'Release Status Weight',
+      'Issue Weight',
+      'Ticket Weight',
+      'DSR Weight',
+      'Quality Weight',
+      'Client Weight',
+      'Total Work Volume',
+      'Tasks Assigned',
+      'Tasks Completed',
+      'Issues Assigned',
+      'Tickets Assigned',
+      'Self Tickets',
+      'Closed Tickets',
+      'Pending Tickets',
+      'Handled Clients',
+      'Support Ticket Count',
+      'Model Count',
+      'Total Releases',
+      'Passed Releases',
+      'Failed Releases',
+      'On-Time Releases',
+      'Required Working Days',
+      'DSR Submitted Days',
+      'DSR On-Time Days',
+      'DSR Late Days',
+      'From Date',
+      'To Date'
+    ];
   }
 
-  private getNotEligibleExportCellValue(
-    row: PerformanceRow,
-    column: PerformanceTableSortColumn,
-    rowIndex: number
-  ): string | number {
-    switch (column) {
-      case 'index':
-        return rowIndex + 1;
-      case 'employee':
-        return row.employee_id
-          ? `${row.employee_name || '-'} (ID ${row.employee_id})`
-          : row.employee_name || '-';
-      default:
-        return this.getNotEligibleCellValue(row, column);
-    }
+  private buildNotEligibleEmployeeExportRows(): any[][] {
+    return this.filteredNotEligibleRows.map((row, index) => [
+      index + 1,
+      row.employee_id || '-',
+      row.employee_name,
+      row.department_name,
+      this.getEligibilityLabel(row),
+      this.getEligibilityReason(row),
+      this.formatScore(row.final_score),
+      this.formatScore(this.getCalculatedFinalScore(row)),
+      this.formatScore(row.task_score),
+      this.formatScore(row.release_score),
+      this.formatScore(row.release_pass_score),
+      this.formatScore(row.release_status_score),
+      this.formatScore(row.issue_score),
+      this.formatScore(row.ticket_score),
+      this.formatScore(row.dsr_score),
+      this.formatScore(row.quality_score),
+      this.formatScore(row.client_score),
+      this.formatWeight(row.score_weights.task),
+      this.formatWeight(row.score_weights.release),
+      this.formatWeight(row.score_weights.release_pass),
+      this.formatWeight(row.score_weights.release_status),
+      this.formatWeight(row.score_weights.issue),
+      this.formatWeight(row.score_weights.ticket),
+      this.formatWeight(row.score_weights.dsr),
+      this.formatWeight(row.score_weights.quality),
+      this.formatWeight(row.score_weights.client),
+      this.formatMetricNumber(row.metrics.total_work_volume),
+      this.formatMetricNumber(row.metrics.assigned_tasks),
+      this.formatMetricNumber(row.metrics.completed_tasks),
+      this.formatMetricNumber(row.metrics.assigned_issues),
+      this.formatMetricNumber(row.metrics.assigned_tickets),
+      this.formatMetricNumber(row.metrics.self_tickets),
+      this.formatMetricNumber(row.metrics.closed_tickets),
+      this.formatMetricNumber(row.metrics.pending_tickets),
+      this.formatMetricNumber(row.metrics.handled_clients),
+      this.formatMetricNumber(row.metrics.support_ticket_count),
+      this.formatMetricNumber(row.metrics.model_count),
+      this.formatMetricNumber(row.metrics.total_releases),
+      this.formatMetricNumber(row.metrics.passed_releases),
+      this.formatMetricNumber(row.metrics.failed_releases),
+      this.formatMetricNumber(row.metrics.on_time_releases),
+      this.formatMetricNumber(row.metrics.dsr_days_required),
+      this.formatMetricNumber(row.metrics.dsr_days_submitted),
+      this.formatMetricNumber(row.metrics.dsr_on_time_days),
+      this.formatMetricNumber(row.metrics.dsr_late_days),
+      row.fromdate || '-',
+      row.todate || '-'
+    ]);
+  }
+
+  private hasTableExportRows(sections: PerformanceTableExportSection[]): boolean {
+    return sections.some(section => section.rows.length > 0);
   }
 
   private getSummaryNumericValue(label: string): number {
@@ -2663,6 +3060,17 @@ export class PerformanceComponent implements OnInit, OnDestroy {
   private getStringValue(source: Record<string, unknown> | null | undefined, keys: string[]): string {
     const value = this.getValue(source, keys);
     return value === null || value === undefined ? '' : `${value}`.trim();
+  }
+
+  private getStringArrayValue(source: Record<string, unknown> | null | undefined, keys: string[]): string[] {
+    const value = this.getValue(source, keys);
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .filter(item => item !== null && item !== undefined && `${item}`.trim() !== '')
+      .map(item => `${item}`.trim());
   }
 
   private getNumberFromSources(sources: Array<Record<string, unknown> | null | undefined>, keys: string[]): number | null {

@@ -9,6 +9,7 @@ import { PdfService } from 'src/app/_core/services/pdf.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { TransientViewStateService } from 'src/app/_core/services/transient-view-state.service';
+import { attachStandardTabulatorPagination } from 'src/app/_core/utils/tabulator-pagination.util';
 import { OverviewTaskViewDialogComponent } from './overview-task-view-dialog/overview-task-view-dialog.component';
 declare const Tabulator: any;
 declare const luxon: any;
@@ -321,7 +322,7 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
       movableColumns: true,
       selectable: true,
       editTriggerEvent: "dblclick",
-      paginationSizeSelector: [10, 15, 25, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       placeholder: "No Data Found",
       headerSortElement: function (col: any, dir: any) {
         if (dir === "asc") return '<i class="ri-arrow-up-line text-xs ml-1"></i>';
@@ -591,6 +592,8 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
       this.resolveTableBuilt?.();
       this.resolveTableBuilt = null;
     }, 1000);
+
+    attachStandardTabulatorPagination(this.table);
 
     this.table.on("rowSelectionChanged", (data: any[], rows: any[]) => {
       this.selectedCount = rows.length;

@@ -22,6 +22,19 @@
   --report-table-header-active-bg: var(--bg-selected, var(--bg-active, #eff6ff));
 }
 
+.performance-report-list {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  max-height: 70dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .performance-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.9fr);
@@ -220,6 +233,39 @@
 ::ng-deep .performance-department-select-panel .department-select-search__input:focus {
   border-color: var(--text-active, #2563eb);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--text-active, #2563eb) 14%, transparent);
+}
+
+::ng-deep .performance-department-select-panel .mat-pseudo-checkbox,
+::ng-deep .performance-department-select-panel .mat-mdc-option-pseudo-checkbox {
+  display: none;
+}
+
+::ng-deep .performance-department-select-panel .mat-mdc-option .mdc-list-item__primary-text,
+::ng-deep .performance-department-select-panel .mat-option-text {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+::ng-deep .performance-department-select-panel .department-option-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 1.5px solid var(--form-border, #94a3b8);
+  border-radius: 0.2rem;
+  background: var(--form-surface, #ffffff);
+  color: #ffffff;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+::ng-deep .performance-department-select-panel .department-option-checkbox--checked {
+  border-color: var(--text-active, #2563eb);
+  background: var(--text-active, #2563eb);
 }
 
 .performance-controls {
@@ -948,6 +994,17 @@ tbody tr:hover td {
   font-weight: 800;
 }
 
+.report-inline-error--warning {
+  border-color: color-mix(in srgb, var(--warning, #f59e0b) 35%, var(--border-card));
+  color: var(--text-main);
+  background: color-mix(in srgb, var(--warning, #f59e0b) 10%, var(--bg-card));
+}
+
+.report-inline-error--warning button {
+  border-color: color-mix(in srgb, var(--warning, #f59e0b) 45%, var(--border-card));
+  color: color-mix(in srgb, var(--warning, #f59e0b) 75%, #78350f);
+}
+
 .report-refreshing-badge {
   position: absolute;
   top: 0.65rem;
@@ -985,6 +1042,7 @@ tbody tr:hover td {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.75rem;
+  width: 100%;
   color: var(--text-muted, #64748b);
   font-size: 0.875rem;
   font-weight: 400;
@@ -994,9 +1052,13 @@ tbody tr:hover td {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+  max-width: 100%;
+  overflow-x: auto;
+  margin-left: auto;
 }
 
 .report-pagination button {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1205,6 +1267,12 @@ tbody tr:hover td {
 }
 
 @media (max-width: 40rem) {
+
+  .performance-report-list {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
 
   .performance-header,
   .department-section {

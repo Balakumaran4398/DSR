@@ -1,10 +1,15 @@
 <section class="overall-analytics">
   <header class="overall-header">
-    <div class="overall-title">
-      <span class="overall-title__accent"></span>
+    <div class="flex items-center gap-3">
+      <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
+               flex items-center justify-center text-white shadow-sm shrink-0">
+        <i class="ri-dashboard-line dsr-nav-nav-icon"></i>
+      </div>
       <div>
-        <h1>Dashboard</h1>
-        <p>
+        <h1 class="text-lg sm:text-xl font-bold text-slate-900">
+          Dashboard
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-500">
           Company Overview
           <span></span>
           Real-time insights across Employees, Tasks, Issues, Releases &amp; Tickets
@@ -149,7 +154,36 @@
           </div>
         </div>
       </article>
-
+      <article class="overall-distribution overall-pipeline-card">
+        <h3>
+          Release Pipeline
+          <span *ngIf="releaseChartLoading && releasePipeline.length" class="overall-refreshing-pill">
+            <i class="ri-loader-4-line overall-spin-icon"></i>
+            Refreshing
+          </span>
+        </h3>
+        <div *ngIf="releaseChartLoading && !releasePipeline.length" class="overall-chart-skeleton"></div>
+        <div *ngIf="!releaseChartLoading && dashboardErrorMessage && !releasePipeline.length" class="overall-section-error">
+          <span>{{ dashboardErrorMessage }}</span>
+          <button type="button" (click)="retryOverallDashboard()">Retry</button>
+        </div>
+        <div *ngIf="releasePipeline.length || (!releaseChartLoading && !dashboardErrorMessage)" class="overall-pipeline">
+          <button
+            *ngFor="let item of releasePipeline; trackBy: trackByLabel"
+            type="button"
+            class="overall-pipeline__row"
+            [ngStyle]="{ '--item-color': item.color }"
+            (mousemove)="showPipelineTooltip($event, item)"
+            (mouseleave)="hideChartTooltip()"
+            (click)="openReleasePipelineDialog(item)">
+            <span>{{ item.label }}</span>
+            <div>
+              <i [style.width.%]="item.width"></i>
+            </div>
+            <strong>{{ item.displayValue || (item.value | number) }}</strong>
+          </button>
+        </div>
+      </article>
       <article class="overall-distribution">
         <h3>
           Issue Status Distribution
@@ -194,36 +228,7 @@
         </div>
       </article>
 
-      <article class="overall-distribution overall-pipeline-card">
-        <h3>
-          Release Pipeline
-          <span *ngIf="releaseChartLoading && releasePipeline.length" class="overall-refreshing-pill">
-            <i class="ri-loader-4-line overall-spin-icon"></i>
-            Refreshing
-          </span>
-        </h3>
-        <div *ngIf="releaseChartLoading && !releasePipeline.length" class="overall-chart-skeleton"></div>
-        <div *ngIf="!releaseChartLoading && dashboardErrorMessage && !releasePipeline.length" class="overall-section-error">
-          <span>{{ dashboardErrorMessage }}</span>
-          <button type="button" (click)="retryOverallDashboard()">Retry</button>
-        </div>
-        <div *ngIf="releasePipeline.length || (!releaseChartLoading && !dashboardErrorMessage)" class="overall-pipeline">
-          <button
-            *ngFor="let item of releasePipeline; trackBy: trackByLabel"
-            type="button"
-            class="overall-pipeline__row"
-            [ngStyle]="{ '--item-color': item.color }"
-            (mousemove)="showPipelineTooltip($event, item)"
-            (mouseleave)="hideChartTooltip()"
-            (click)="openReleasePipelineDialog(item)">
-            <span>{{ item.label }}</span>
-            <div>
-              <i [style.width.%]="item.width"></i>
-            </div>
-            <strong>{{ item.displayValue || (item.value | number) }}</strong>
-          </button>
-        </div>
-      </article>
+
 
       <article class="overall-distribution overall-pipeline-card overall-ticket-pipeline-panel">
         <h3>
@@ -268,8 +273,8 @@
           </span>
         </h2>
         <div>
-          <span class="overall-key overall-key--blue">Open</span>
-          <span class="overall-key overall-key--green">Closed</span>
+          <span class="overall-key overall-key--task-open">Open</span>
+          <span class="overall-key overall-key--task-closed">Closed</span>
         </div>
       </div>
       <div *ngIf="taskChartLoading && !hasTrendData(taskTrend)" class="overall-chart-skeleton"></div>
@@ -277,68 +282,43 @@
         <span>{{ dashboardErrorMessage }}</span>
         <button type="button" (click)="retryOverallDashboard()">Retry</button>
       </div>
-      <div *ngIf="hasTrendData(taskTrend) || (!taskChartLoading && !dashboardErrorMessage)" class="overall-chart">
+      <div *ngIf="hasTrendData(taskTrend) || (!taskChartLoading && !dashboardErrorMessage)" class="overall-cartesian-chart">
         <div class="overall-chart__axis">
           <span *ngFor="let tick of taskChartTicks; trackBy: trackByNumber">{{ tick }}</span>
         </div>
-        <div class="overall-chart__plot">
-          <div class="overall-chart__columns">
+        <div class="overall-cartesian-chart__body">
+          <div class="overall-chart__plot overall-task-chart__plot">
+            <div class="overall-task-chart__columns">
+              <div
+                *ngFor="let item of taskTrend; trackBy: trackByLabel"
+                class="overall-task-chart__column"
+                role="img"
+                [attr.aria-label]="item.rangeLabel + ': ' + item.primary + ' open tasks, ' + item.secondary + ' closed tasks'"
+                (mousemove)="showTrendTooltip($event, 'Task Trend', item, 'Open Tasks', 'Closed Tasks')"
+                (mouseleave)="hideChartTooltip()">
+                <div class="overall-task-chart__bar-group" aria-hidden="true">
+                  <span
+                    class="overall-task-chart__bar overall-task-chart__bar--open"
+                    [class.overall-task-chart__bar--empty]="item.primaryHeight === 0"
+                    [style.height.%]="item.primaryHeight"></span>
+                  <span
+                    class="overall-task-chart__bar overall-task-chart__bar--closed"
+                    [class.overall-task-chart__bar--empty]="item.secondaryHeight === 0"
+                    [style.height.%]="item.secondaryHeight"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="overall-chart__labels">
             <div
               *ngFor="let item of taskTrend; trackBy: trackByLabel"
-              class="overall-chart-column"
-              (mousemove)="showTrendTooltip($event, 'Task Trend', item, 'Open Tasks', 'Closed Tasks')"
-              (mouseleave)="hideChartTooltip()">
-              <div>
-                <span class="overall-bar overall-bar--blue" [style.height.%]="item.primaryHeight"></span>
-                <span class="overall-bar overall-bar--green" [style.height.%]="item.secondaryHeight"></span>
-              </div>
-              <label>{{ item.label }}</label>
-            </div>
+              class="overall-chart__label">{{ item.label }}</div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="overall-panel overall-chart-panel overall-chart-panel--issues">
-      <div class="overall-chart-title">
-        <h2>
-          Issue ({{ trendPeriodLabel }})
-          <span *ngIf="issueChartLoading && hasTrendData(issueTrend)" class="overall-refreshing-pill">
-            <i class="ri-loader-4-line overall-spin-icon"></i>
-            Refreshing
-          </span>
-        </h2>
-        <div>
-          <span class="overall-key overall-key--red">Open Bugs</span>
-          <span class="overall-key overall-key--green">Closed Bugs</span>
-        </div>
-      </div>
-      <div *ngIf="issueChartLoading && !hasTrendData(issueTrend)" class="overall-chart-skeleton"></div>
-      <div *ngIf="!issueChartLoading && dashboardErrorMessage && !hasTrendData(issueTrend)" class="overall-section-error">
-        <span>{{ dashboardErrorMessage }}</span>
-        <button type="button" (click)="retryOverallDashboard()">Retry</button>
-      </div>
-      <div *ngIf="hasTrendData(issueTrend) || (!issueChartLoading && !dashboardErrorMessage)" class="overall-chart">
-        <div class="overall-chart__axis">
-          <span *ngFor="let tick of issueChartTicks; trackBy: trackByNumber">{{ tick }}</span>
-        </div>
-        <div class="overall-chart__plot">
-          <div class="overall-chart__columns">
-            <div
-              *ngFor="let item of issueTrend; trackBy: trackByLabel"
-              class="overall-chart-column"
-              (mousemove)="showTrendTooltip($event, 'Issue Trend', item, 'Open Bugs', 'Closed Bugs')"
-              (mouseleave)="hideChartTooltip()">
-              <div>
-                <span class="overall-bar overall-bar--red" [style.height.%]="item.primaryHeight"></span>
-                <span class="overall-bar overall-bar--green" [style.height.%]="item.secondaryHeight"></span>
-              </div>
-              <label>{{ item.label }}</label>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+
 
     <section class="overall-panel overall-chart-panel overall-chart-panel--release">
       <div class="overall-chart-title">
@@ -350,9 +330,9 @@
           </span>
         </h2>
         <div>
-          <span class="overall-key overall-key--blue">Total Releases</span>
-          <span class="overall-key overall-key--green">Internal Passed</span>
-          <span class="overall-key overall-key--purple">External Passed</span>
+          <span class="overall-key overall-key--release-total">Total Releases</span>
+          <span class="overall-key overall-key--release-internal">Internal Passed</span>
+          <span class="overall-key overall-key--release-external">External Passed</span>
         </div>
       </div>
       <div *ngIf="releaseChartLoading && !hasTrendData(releaseTrend)" class="overall-chart-skeleton"></div>
@@ -360,24 +340,91 @@
         <span>{{ dashboardErrorMessage }}</span>
         <button type="button" (click)="retryOverallDashboard()">Retry</button>
       </div>
-      <div *ngIf="hasTrendData(releaseTrend) || (!releaseChartLoading && !dashboardErrorMessage)" class="overall-chart">
+      <div *ngIf="hasTrendData(releaseTrend) || (!releaseChartLoading && !dashboardErrorMessage)" class="overall-cartesian-chart">
         <div class="overall-chart__axis">
           <span *ngFor="let tick of releaseChartTicks; trackBy: trackByNumber">{{ tick }}</span>
         </div>
-        <div class="overall-chart__plot">
-          <div class="overall-chart__columns">
+        <div class="overall-cartesian-chart__body">
+          <div class="overall-chart__plot overall-release-chart__plot">
+            <div class="overall-release-chart__columns">
+              <div
+                *ngFor="let item of releaseTrend; trackBy: trackByLabel"
+                class="overall-release-chart__column"
+                (mousemove)="showTrendTooltip($event, 'Release Trend', item, 'Total Releases', 'Internal Passed', 'External Passed')"
+                (mouseleave)="hideChartTooltip()">
+                <div class="overall-release-stack" [style.height.%]="item.stackHeight">
+                  <span
+                    class="overall-release-stack__segment overall-release-stack__segment--remainder"
+                    [style.height.%]="item.stackRemainderPercent"></span>
+                  <span
+                    class="overall-release-stack__segment overall-release-stack__segment--internal"
+                    [style.height.%]="item.stackSecondaryPercent"></span>
+                  <span
+                    class="overall-release-stack__segment overall-release-stack__segment--external"
+                    [style.height.%]="item.stackTertiaryPercent"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="overall-chart__labels">
             <div
               *ngFor="let item of releaseTrend; trackBy: trackByLabel"
-              class="overall-chart-column"
-              (mousemove)="showTrendTooltip($event, 'Release Trend', item, 'Total Releases', 'Internal Passed', 'External Passed')"
-              (mouseleave)="hideChartTooltip()">
-              <div>
-                <span class="overall-bar overall-bar--blue" [style.height.%]="item.primaryHeight"></span>
-                <span class="overall-bar overall-bar--green" [style.height.%]="item.secondaryHeight"></span>
-                <span class="overall-bar overall-bar--purple" [style.height.%]="item.tertiaryHeight"></span>
-              </div>
-              <label>{{ item.label }}</label>
+              class="overall-chart__label">{{ item.label }}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+        <section class="overall-panel overall-chart-panel overall-chart-panel--issues">
+      <div class="overall-chart-title">
+        <h2>
+          Issue ({{ trendPeriodLabel }})
+          <span *ngIf="issueChartLoading && hasTrendData(issueTrend)" class="overall-refreshing-pill">
+            <i class="ri-loader-4-line overall-spin-icon"></i>
+            Refreshing
+          </span>
+        </h2>
+        <div>
+          <span class="overall-key overall-key--issue-total">Total Issues</span>
+        </div>
+      </div>
+      <div *ngIf="issueChartLoading && !hasTrendData(issueTrend)" class="overall-chart-skeleton"></div>
+      <div *ngIf="!issueChartLoading && dashboardErrorMessage && !hasTrendData(issueTrend)" class="overall-section-error">
+        <span>{{ dashboardErrorMessage }}</span>
+        <button type="button" (click)="retryOverallDashboard()">Retry</button>
+      </div>
+      <div *ngIf="hasTrendData(issueTrend) || (!issueChartLoading && !dashboardErrorMessage)" class="overall-cartesian-chart overall-cartesian-chart--issues">
+        <div class="overall-chart__axis">
+          <span *ngFor="let tick of issueChartTicks; trackBy: trackByNumber">{{ tick }}</span>
+        </div>
+        <div class="overall-cartesian-chart__body">
+          <div class="overall-chart__plot overall-line-chart__plot overall-line-chart__plot--issues">
+            <svg class="overall-line-chart overall-line-chart--issues" viewBox="0 0 600 160" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="overallIssueAreaGradient" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" class="overall-issue-area-stop overall-issue-area-stop--start"></stop>
+                  <stop offset="100%" class="overall-issue-area-stop overall-issue-area-stop--end"></stop>
+                </linearGradient>
+              </defs>
+              <path class="overall-line-chart__area overall-line-chart__area--issues" [attr.d]="issueAreaPath"></path>
+              <path class="overall-line-chart__line overall-line-chart__line--issues" [attr.d]="issueAreaLinePath"></path>
+              <circle
+                *ngFor="let point of issueAreaDots; trackBy: trackByPoint"
+                class="overall-line-chart__dot overall-line-chart__dot--issues"
+                [attr.cx]="point.x"
+                [attr.cy]="point.y"
+                r="3"></circle>
+            </svg>
+            <div class="overall-chart-hit-zones" aria-hidden="true">
+              <span
+                *ngFor="let item of issueTrend; trackBy: trackByLabel"
+                (mousemove)="showTrendTooltip($event, 'Issue Trend', item, 'Open Bugs', 'Closed Bugs')"
+                (mouseleave)="hideChartTooltip()"></span>
             </div>
+          </div>
+          <div class="overall-chart__labels">
+            <div
+              *ngFor="let item of issueTrend; trackBy: trackByLabel"
+              class="overall-chart__label">{{ item.label }}</div>
           </div>
         </div>
       </div>
@@ -393,8 +440,8 @@
           </span>
         </h2>
         <div>
-          <span class="overall-key overall-key--cyan">Open Tickets</span>
-          <span class="overall-key overall-key--green">Closed Tickets</span>
+          <span class="overall-key overall-key--ticket-open">Open Tickets</span>
+          <span class="overall-key overall-key--ticket-closed">Closed Tickets</span>
         </div>
       </div>
       <div *ngIf="ticketChartLoading && !hasTrendData(ticketTrend)" class="overall-chart-skeleton"></div>
@@ -402,23 +449,46 @@
         <span>{{ dashboardErrorMessage }}</span>
         <button type="button" (click)="retryOverallDashboard()">Retry</button>
       </div>
-      <div *ngIf="hasTrendData(ticketTrend) || (!ticketChartLoading && !dashboardErrorMessage)" class="overall-chart">
+      <div *ngIf="hasTrendData(ticketTrend) || (!ticketChartLoading && !dashboardErrorMessage)" class="overall-cartesian-chart">
         <div class="overall-chart__axis">
           <span *ngFor="let tick of ticketChartTicks; trackBy: trackByNumber">{{ tick }}</span>
         </div>
-        <div class="overall-chart__plot">
-          <div class="overall-chart__columns">
+        <div class="overall-cartesian-chart__body">
+          <div class="overall-chart__plot overall-line-chart__plot">
+            <svg class="overall-line-chart overall-line-chart--tickets" viewBox="0 0 600 160" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="overallTicketAreaGradient" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" class="overall-ticket-area-stop overall-ticket-area-stop--start"></stop>
+                  <stop offset="100%" class="overall-ticket-area-stop overall-ticket-area-stop--end"></stop>
+                </linearGradient>
+              </defs>
+              <path class="overall-line-chart__area overall-line-chart__area--tickets" [attr.d]="ticketOpenAreaPath"></path>
+              <path class="overall-line-chart__line overall-line-chart__line--ticket-open" [attr.d]="ticketOpenLinePath"></path>
+              <path class="overall-line-chart__line overall-line-chart__line--ticket-closed" [attr.d]="ticketClosedLinePath"></path>
+              <circle
+                *ngFor="let point of ticketOpenDots; trackBy: trackByPoint"
+                class="overall-line-chart__dot overall-line-chart__dot--ticket-open"
+                [attr.cx]="point.x"
+                [attr.cy]="point.y"
+                r="4"></circle>
+              <circle
+                *ngFor="let point of ticketClosedDots; trackBy: trackByPoint"
+                class="overall-line-chart__dot overall-line-chart__dot--ticket-closed"
+                [attr.cx]="point.x"
+                [attr.cy]="point.y"
+                r="4"></circle>
+            </svg>
+            <div class="overall-chart-hit-zones" aria-hidden="true">
+              <span
+                *ngFor="let item of ticketTrend; trackBy: trackByLabel"
+                (mousemove)="showTrendTooltip($event, 'Ticket Trend', item, 'Open Tickets', 'Closed Tickets')"
+                (mouseleave)="hideChartTooltip()"></span>
+            </div>
+          </div>
+          <div class="overall-chart__labels">
             <div
               *ngFor="let item of ticketTrend; trackBy: trackByLabel"
-              class="overall-chart-column"
-              (mousemove)="showTrendTooltip($event, 'Ticket Trend', item, 'Open Tickets', 'Closed Tickets')"
-              (mouseleave)="hideChartTooltip()">
-              <div>
-                <span class="overall-bar overall-bar--cyan" [style.height.%]="item.primaryHeight"></span>
-                <span class="overall-bar overall-bar--green" [style.height.%]="item.secondaryHeight"></span>
-              </div>
-              <label>{{ item.label }}</label>
-            </div>
+              class="overall-chart__label">{{ item.label }}</div>
           </div>
         </div>
       </div>
@@ -445,29 +515,10 @@
           <i class="ri-close-line"></i>
         </button>
       </label>
-      <div class="overall-table-actions">
-        <!-- <button
-          type="button"
-          class="overall-export-button"
-          title="Excel Download"
-          [disabled]="excelExporting || projectPerformanceLoading || !filteredCompanyRows.length"
-          (click)="exportOverallPerformanceExcel()">
-          <i [class]="excelExporting ? 'ri-loader-4-line overall-spin-icon' : 'ri-file-excel-2-fill'"></i>
-          <span>{{ excelExporting ? 'Exporting' : 'Excel' }}</span>
-        </button> -->
-        <label class="overall-page-size-control">
-          <span>Rows</span>
-          <select [value]="performancePageSize" (change)="onPerformancePageSizeChange($event)">
-            <option *ngFor="let pageSize of performancePageSizeOptions; trackBy: trackByNumber" [value]="pageSize">
-              {{ pageSize }}
-            </option>
-          </select>
-          <span>/ page</span>
-        </label>
-      </div>
     </div>
 
-    <div class="app-table-scroll">
+    <div class="app-table-scroll"
+      [class.app-table-scroll--ten-row-viewport]="performancePageSize > tableVisibleRowCount">
       <table class="app-data-table app-data-table--xwide">
         <thead>
           <tr>
@@ -614,48 +665,42 @@
 
     <div class="overall-table-footer">
       <span>
-        Showing {{ performanceShowingFrom }}-{{ performanceShowingTo }} of {{ filteredCompanyRows.length }} projects
+        Showing {{ performanceShowingFrom }}-{{ performanceShowingTo }} of {{ filteredCompanyRows.length }} records
       </span>
       <div class="overall-pagination" aria-label="Project performance pagination">
-        <button
-          type="button"
-          title="First page"
-          aria-label="First page"
-          [disabled]="performancePageIndex === 0"
-          (click)="goToPerformancePage(0)">
-          <i class="ri-skip-left-line"></i>
-        </button>
+        <label class="overall-page-size-control">
+          <span>Page Size</span>
+          <select [value]="performancePageSize" (change)="onPerformancePageSizeChange($event)">
+            <option *ngFor="let pageSize of performancePageSizeOptions; trackBy: trackByNumber" [value]="pageSize">{{ pageSize }}</option>
+          </select>
+        </label>
+        <button type="button" [disabled]="performancePageIndex === 0" (click)="goToPerformancePage(0)">First</button>
         <button
           type="button"
           title="Previous page"
           aria-label="Previous page"
           [disabled]="performancePageIndex === 0"
           (click)="goToPerformancePage(performancePageIndex - 1)">
-          <i class="ri-arrow-left-s-line"></i>
+          Prev
         </button>
-        <button
-          *ngFor="let page of performancePageNumbers; trackBy: trackByNumber"
-          type="button"
-          [class.overall-pagination__page--active]="performancePageIndex === page - 1"
-          (click)="goToPerformancePage(page - 1)">
-          {{ page }}
-        </button>
+        <span class="app-pagination-pages">
+          <button
+            *ngFor="let page of performancePageNumbers; trackBy: trackByNumber"
+            type="button"
+            [class.overall-pagination__page--active]="performancePageIndex === page - 1"
+            (click)="goToPerformancePage(page - 1)">
+            {{ page }}
+          </button>
+        </span>
         <button
           type="button"
           title="Next page"
           aria-label="Next page"
           [disabled]="performancePageIndex >= performanceTotalPages - 1"
           (click)="goToPerformancePage(performancePageIndex + 1)">
-          <i class="ri-arrow-right-s-line"></i>
+          Next
         </button>
-        <button
-          type="button"
-          title="Last page"
-          aria-label="Last page"
-          [disabled]="performancePageIndex >= performanceTotalPages - 1"
-          (click)="goToPerformancePage(performanceTotalPages - 1)">
-          <i class="ri-skip-right-line"></i>
-        </button>
+        <button type="button" [disabled]="performancePageIndex >= performanceTotalPages - 1" (click)="goToPerformancePage(performanceTotalPages - 1)">Last</button>
       </div>
     </div>
   </section>

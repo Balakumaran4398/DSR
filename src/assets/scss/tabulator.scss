@@ -61,6 +61,7 @@
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --tblr-header-height: 48px;
     --tblr-row-height: 64px;
+    --app-table-ten-row-height: 640px;
 }
 
 body {
@@ -229,6 +230,14 @@ body {
     -webkit-overflow-scrolling: touch;
 }
 
+.tabulator.app-tabulator--ten-row-viewport .tabulator-tableholder,
+.tabulator.app-tabulator--ten-row-cap .tabulator-tableholder {
+    max-height: var(--app-table-ten-row-height) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
 .tabulator-tableholder .tabulator-table {
     background-color: var(--table-row-bg, var(--surface)) !important;
     border-collapse: collapse !important;
@@ -273,6 +282,19 @@ body {
     scrollbar-width: thin;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
+}
+
+.app-table-scroll--ten-row-viewport {
+    max-height: calc(var(--tblr-header-height) + var(--app-table-ten-row-height) + 2px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.app-table-scroll--ten-row-viewport .app-data-table thead th,
+.app-table-scroll--ten-row-viewport .overall-details-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
 .app-table-scroll::-webkit-scrollbar {
@@ -448,13 +470,73 @@ body {
 }
 
 /* --- FOOTER --- */
+.app-pagination-pages {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
 .tabulator-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
     background-color: var(--table-footer-bg, var(--surface)) !important;
     border-top: 1px solid var(--table-border, var(--border)) !important;
     padding: 12px 24px !important;
     font-family: 'Roboto', sans-serif !important;
     font-weight: 400 !important;
     color: var(--text-muted) !important;
+}
+
+.tabulator-footer .tabulator-footer-contents {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    width: 100% !important;
+    min-width: 0;
+}
+
+.tabulator-footer .tabulator-paginator {
+    display: inline-flex !important;
+    align-items: center !important;
+    min-width: 0;
+    order: 1;
+    margin-left: auto;
+    justify-content: flex-end;
+}
+
+.tabulator-footer .tabulator-paginator > label {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.tabulator-footer .tabulator-page-counter {
+    order: 0;
+    margin-right: auto;
+}
+
+.tabulator-footer .tabulator-pages {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: min(60vw, 52rem);
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.tabulator-footer .tabulator-page {
+    flex: 0 0 auto;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.5rem !important;
 }
 
 .tabulator-footer .tabulator-paginator,
@@ -480,6 +562,61 @@ body {
     background-color: var(--bg-selected) !important;
     color: var(--text-active) !important;
     border-color: color-mix(in srgb, var(--brand-color) 32%, var(--table-border, #c7d2fe)) !important;
+}
+
+@media (max-width: 640px) {
+    .tabulator-footer {
+        align-items: stretch !important;
+        flex-direction: column !important;
+        padding: 10px 12px !important;
+    }
+
+    .tabulator-footer .tabulator-paginator,
+    .tabulator-footer .tabulator-pages {
+        max-width: 100%;
+    }
+
+    .tabulator-footer .tabulator-paginator {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+    }
+
+    .tabulator-footer .tabulator-footer-contents {
+        align-items: stretch !important;
+        flex-direction: column !important;
+    }
+
+    .tabulator-footer .tabulator-pages {
+        flex: 1 1 auto;
+        min-width: 4rem;
+    }
+
+    .overall-pagination,
+    .performance-pagination,
+    .report-pagination,
+    .overall-details-pagination {
+        width: 100%;
+        min-width: 0;
+        margin-left: 0;
+        justify-content: flex-start;
+        flex-wrap: nowrap;
+    }
+
+    .overall-pagination > label,
+    .performance-pagination > label,
+    .report-pagination > label,
+    .overall-details-pagination > label {
+        flex: 0 0 auto;
+        width: auto;
+        white-space: nowrap;
+    }
+
+    .app-pagination-pages {
+        flex: 1 1 auto;
+        min-width: 4rem;
+    }
 }
 
 /* --- CUSTOM EDITOR STYLES --- */

@@ -7,6 +7,7 @@ import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { DateRangeFilterComponent } from 'src/app/_shared/components/date-range-filter/date-range-filter.component';
+import { attachStandardTabulatorPagination } from 'src/app/_core/utils/tabulator-pagination.util';
 declare const Tabulator: any;
 declare const luxon: any;
 @Component({
@@ -199,7 +200,7 @@ export class NotSendDsrComponent {
       movableColumns: true,
       selectable: true,
       editTriggerEvent: "dblclick",
-      paginationSizeSelector: [10, 15, 25, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       placeholder: "No Data Found",
       headerSortElement: function (col: any, dir: any) {
         if (dir === "asc") return '<i class="ri-arrow-up-line text-xs ml-1"></i>';
@@ -272,6 +273,8 @@ export class NotSendDsrComponent {
       this.resolveTableBuilt?.();
       this.resolveTableBuilt = null;
     }, 1000);
+    attachStandardTabulatorPagination(this.table);
+
     this.table.on("rowSelectionChanged", (data: any[], rows: any[]) => {
       this.selectedCount = rows.length;
       this.showBar = this.selectedCount > 0;

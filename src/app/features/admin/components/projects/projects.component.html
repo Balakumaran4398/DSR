@@ -52,15 +52,9 @@
     </div>
 
     <!-- Table Card -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden app-loading-host">
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <!-- The Grid -->
-        <div #tableDiv></div>
-        <div *ngIf="projectTableLoading" class="app-local-loading-overlay">
-            <div class="app-local-loading">
-                <i class="ri-loader-4-line app-spin"></i>
-                <span>Loading projects...</span>
-            </div>
-        </div>
+        <div #tableDiv class="app-tabulator-loading-host app-tabulator--ten-row-cap"></div>
     </div>
 </div>
 

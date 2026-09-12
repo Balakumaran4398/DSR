@@ -27,6 +27,7 @@ export class SelfTicketFormComponent {
   productSearchText = '';
   empid: any = 0;
   availableVersions: string[] = [];
+  filteredVersions: string[] = [];
   submitted = false;
   isSubmitting = false;
   types = [
@@ -35,8 +36,10 @@ export class SelfTicketFormComponent {
     'Bug',
     'Business'
   ];
+  filteredTypes = [...this.types];
 
   statusList: any[] = [];
+  filteredStatusList: any[] = [];
   private readonly hiddenStatusNames = new Set([
     'tobetested',
     'approved',
@@ -53,12 +56,14 @@ export class SelfTicketFormComponent {
     { id: 2, value: 'Medium', dotClass: 'bg-amber-500' },
     { id: 3, value: 'Low', dotClass: 'bg-green-500' }
   ];
+  filteredPriorityOptions = [...this.priorityOptions];
+  selectSearch: Record<string, string> = {};
 
   isHardware = false;
   categories: any[] = [
     { id: 1, type: 'Production' },
     { id: 2, type: 'Service' },
-    { id: 3, type: 'Ordinary' }
+    { id: 3, type: 'Others/Client Support' }
   ];
   filteredCategories: any[] = [];
   tickets: any[] = [];
@@ -197,6 +202,7 @@ export class SelfTicketFormComponent {
 
     if (selectedProduct) {
       this.availableVersions = this.getProductVersions(selectedProduct);
+      this.filteredVersions = [...this.availableVersions];
     }
 
     const selectedVersion = this.normalizeSelectedVersion(this.data.version ?? this.data.product_version);
@@ -280,6 +286,7 @@ export class SelfTicketFormComponent {
             name: status
           }))
           .filter(status => this.isVisibleStatus(status.name, status.id));
+        this.filteredStatusList = [...this.statusList];
 
         if (this.data) {
           this.isEditMode = true;
@@ -389,12 +396,40 @@ export class SelfTicketFormComponent {
     );
 
     this.availableVersions = selectedProduct ? this.getProductVersions(selectedProduct) : [];
+    this.filteredVersions = [...this.availableVersions];
 
     if (resetVersion) {
       this.ticketForm.patchValue({
         product_version: null
       });
     }
+  }
+
+  filterSimpleSelect(event: Event, field: string): void {
+    const input = event.target as HTMLInputElement;
+    const query = (input.value ?? '').trim().toLowerCase();
+    this.selectSearch[field] = input.value;
+
+    if (field === 'version') {
+      this.filteredVersions = this.filterByLabel(this.availableVersions, query, item => item);
+    } else if (field === 'type') {
+      this.filteredTypes = this.filterByLabel(this.types, query, item => item);
+    } else if (field === 'priority') {
+      this.filteredPriorityOptions = this.filterByLabel(this.priorityOptions, query, item => item.value);
+    } else if (field === 'status') {
+      this.filteredStatusList = this.filterByLabel(this.statusList, query, item => item?.name);
+    }
+  }
+
+  resetSimpleSelectFilter(opened: boolean, field: string): void {
+    if (!opened) return;
+    this.selectSearch[field] = '';
+    this.filterSimpleSelect({ target: { value: '' } } as unknown as Event, field);
+  }
+
+  private filterByLabel<T>(items: T[], query: string, label: (item: T) => any): T[] {
+    const source = Array.isArray(items) ? items : [];
+    return query ? source.filter(item => `${label(item) ?? ''}`.toLowerCase().includes(query)) : [...source];
   }
 
   onProductSelectionChange(productId: any): void {
@@ -646,6 +681,7 @@ export class SelfTicketFormComponent {
       ).subscribe({
         next: (res: any) => {
           this.toasterService.success(res?.message || 'Ticket updated successfully');
+          this.refreshNotificationsWhenClosed(formValue.status);
           this.drawerService.notifyAction({
             source: 'ticket',
             action: 'updated',
@@ -668,6 +704,7 @@ export class SelfTicketFormComponent {
       ).subscribe({
         next: (res: any) => {
           this.toasterService.success(res?.message || 'Ticket created successfully');
+          this.refreshNotificationsWhenClosed(formValue.status);
           this.drawerService.notifyAction({
             source: 'ticket',
             action: 'created',
@@ -699,6 +736,12 @@ export class SelfTicketFormComponent {
     return hours < 10
       ? `0${hours}:00`
       : `${hours}:00`;
+  }
+
+  private refreshNotificationsWhenClosed(status: unknown): void {
+    if (`${status ?? ''}`.trim().toLowerCase() === 'closed') {
+      this.authService.refreshNotificationCount();
+    }
   }
 
   getAllDepartments() {

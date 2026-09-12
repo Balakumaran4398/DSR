@@ -6,6 +6,7 @@ import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { TransientViewStateService } from 'src/app/_core/services/transient-view-state.service';
+import { attachStandardTabulatorPagination } from 'src/app/_core/utils/tabulator-pagination.util';
 import Swal from 'sweetalert2';
 declare const Tabulator: any;
 declare const luxon: any;
@@ -53,6 +54,8 @@ export class IssuesComponent {
   fromdate: any;
   todate: any
   version: any = '';
+  filteredVersionList: any[] = [];
+  versionSearchText = '';
   searchTerm = '';
   initialStartDate: string | null = null;
   initialEndDate: string | null = null;
@@ -125,6 +128,7 @@ export class IssuesComponent {
     this.authService.getVersionsById(this.projectid).subscribe({
       next: (res: any) => {
         this.versionList = Array.isArray(res) ? res : [];
+        this.filteredVersionList = [...this.versionList];
         this.version = this.versionList.includes(this.version) ? this.version : '';
         this.refreshIssuesData();
       }
@@ -146,7 +150,7 @@ export class IssuesComponent {
       movableColumns: true,
       selectable: true,
       editTriggerEvent: "dblclick",
-      paginationSizeSelector: [10, 15, 25, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       placeholder: "No Data Found",
       headerSortElement: function (col: any, dir: any) {
         if (dir === "asc") return '<i class="ri-arrow-up-line text-xs ml-1"></i>';
@@ -441,6 +445,8 @@ export class IssuesComponent {
         }
       ],
     });
+
+    attachStandardTabulatorPagination(this.table);
 
     this.table.on("rowSelectionChanged", (data: any[], rows: any[]) => {
       this.selectedCount = rows.length;
@@ -922,6 +928,20 @@ export class IssuesComponent {
   onVersionChange(version: any): void {
     this.version = version ?? '';
     this.refreshIssuesData(true);
+  }
+
+  filterVersions(event: Event): void {
+    this.versionSearchText = (event.target as HTMLInputElement).value;
+    const query = this.versionSearchText.trim().toLowerCase();
+    this.filteredVersionList = query
+      ? this.versionList.filter(item => `${item ?? ''}`.toLowerCase().includes(query))
+      : [...this.versionList];
+  }
+
+  onVersionSelectOpened(opened: boolean): void {
+    if (!opened) return;
+    this.versionSearchText = '';
+    this.filteredVersionList = [...this.versionList];
   }
 
   private canOpenIssueTaskDetails(rowData: any): boolean {

@@ -30,13 +30,18 @@
   --performance-gold: #c99a2e;
   --performance-silver: #8f96a8;
   --performance-bronze: #bd7a45;
+  --performance-filter-height: 3.5rem;
   --performance-success-bg: color-mix(in srgb, var(--success, #22c55e) 12%, var(--performance-surface));
   --performance-danger-bg: color-mix(in srgb, var(--danger, #ef4444) 12%, var(--performance-surface));
+  --performance-modal-backdrop: rgba(15, 23, 42, 0.72);
+  --performance-modal-shadow: 0 28px 80px rgba(2, 6, 23, 0.42);
+  --performance-modal-scrollbar: color-mix(in srgb, var(--performance-muted) 55%, transparent);
 
   width: 100%;
   min-height: 100%;
   background: var(--performance-body);
   color: var(--performance-text);
+  color-scheme: light;
   font-family: var(--font-base, 'Roboto', sans-serif);
   font-size: 0.875rem;
   line-height: 1.5;
@@ -123,9 +128,14 @@
   min-width: 8.75rem;
 }
 
+.filter-control--date-range {
+  width: 19rem;
+  min-width: 19rem;
+}
+
 .filter-control--department {
-  width: 12rem;
-  min-width: 12rem;
+  width: 15rem;
+  min-width: 15rem;
 }
 
 .filter-label {
@@ -153,8 +163,8 @@
 }
 
 :host ::ng-deep .report-field .mat-mdc-text-field-wrapper {
-  height: 2.5rem;
-  min-height: 2.5rem;
+  height: var(--performance-filter-height);
+  min-height: var(--performance-filter-height);
   border: 1px solid var(--performance-border);
   // border-radius: 8px;
   background: var(--form-bg, var(--performance-surface));
@@ -177,13 +187,13 @@
 }
 
 :host ::ng-deep .report-field .mat-mdc-form-field-flex {
-  min-height: 2.5rem;
+  min-height: var(--performance-filter-height);
   align-items: center;
 }
 
 :host ::ng-deep .report-field .mat-mdc-form-field-infix {
   width: auto;
-  min-height: 2.375rem;
+  min-height: var(--performance-filter-height);
   padding-top: 0;
   padding-bottom: 0;
   display: flex;
@@ -203,7 +213,7 @@
 }
 
 :host ::ng-deep .report-field .mat-mdc-select-trigger {
-  min-height: 2.375rem;
+  min-height: var(--performance-filter-height);
   align-items: center;
 }
 
@@ -228,6 +238,113 @@
 :host ::ng-deep .report-field.mat-focused .mat-mdc-select-arrow,
 :host ::ng-deep .report-field.mat-focused .mat-datepicker-toggle {
   color: var(--performance-accent);
+}
+
+/* Keep the report dates readable in every application theme. */
+:host ::ng-deep .report-date-field .mat-mdc-text-field-wrapper {
+  background: var(--form-bg, #ffffff) !important;
+  border-color: var(--form-border, var(--performance-border));
+}
+
+:host ::ng-deep .report-date-field input.mat-mdc-input-element {
+  color: var(--text-main, #0f172a) !important;
+  -webkit-text-fill-color: var(--text-main, #0f172a);
+}
+
+:host ::ng-deep .report-date-field .mat-date-range-input-container {
+  width: 100%;
+}
+
+:host ::ng-deep .report-date-field .mat-date-range-input-separator {
+  margin: 0 0.4rem;
+  color: var(--performance-muted);
+}
+
+:host ::ng-deep .report-date-field input.mat-mdc-input-element::placeholder {
+  color: var(--form-placeholder, #64748b) !important;
+  -webkit-text-fill-color: var(--form-placeholder, #64748b);
+  opacity: 1;
+}
+
+:host ::ng-deep .report-date-field .mat-datepicker-toggle button {
+  color: var(--text-muted, #64748b) !important;
+}
+
+:host ::ng-deep .report-date-field .mat-datepicker-toggle-default-icon {
+  fill: currentColor !important;
+}
+
+:host ::ng-deep .report-date-field:hover .mat-datepicker-toggle button,
+:host ::ng-deep .report-date-field.mat-focused .mat-datepicker-toggle button {
+  color: var(--performance-accent) !important;
+}
+
+/* The calendar is rendered in the CDK overlay, outside this component. */
+::ng-deep .performance-datepicker-panel.mat-datepicker-content {
+  border: 1px solid var(--overlay-border, #e2e8f0);
+  background: var(--overlay-bg, #ffffff) !important;
+  color: var(--text-main, #0f172a) !important;
+  box-shadow: var(--shadow-card, 0 14px 34px rgba(15, 23, 42, 0.16));
+}
+
+::ng-deep .performance-datepicker-panel .mat-calendar,
+::ng-deep .performance-datepicker-panel .mat-calendar-content {
+  background: var(--overlay-bg, #ffffff) !important;
+  color: var(--text-main, #0f172a) !important;
+}
+
+::ng-deep .performance-datepicker-panel .mat-calendar-period-button,
+::ng-deep .performance-datepicker-panel .mat-calendar-previous-button,
+::ng-deep .performance-datepicker-panel .mat-calendar-next-button,
+::ng-deep .performance-datepicker-panel .mat-calendar-table-header,
+::ng-deep .performance-datepicker-panel .mat-calendar-body-label,
+::ng-deep .performance-datepicker-panel .mat-calendar-body-cell-content {
+  color: var(--text-main, #0f172a) !important;
+}
+
+/* Material renders the year-selector chevron as an SVG fill rather than text. */
+::ng-deep .performance-datepicker-panel .mat-calendar-arrow {
+  fill: var(--text-main, #0f172a) !important;
+}
+
+::ng-deep .performance-datepicker-panel .mat-calendar-period-button:hover,
+::ng-deep .performance-datepicker-panel .mat-calendar-period-button:focus-visible,
+::ng-deep .performance-datepicker-panel .mat-calendar-previous-button:hover,
+::ng-deep .performance-datepicker-panel .mat-calendar-previous-button:focus-visible,
+::ng-deep .performance-datepicker-panel .mat-calendar-next-button:hover,
+::ng-deep .performance-datepicker-panel .mat-calendar-next-button:focus-visible {
+  color: var(--text-active, #1d4ed8) !important;
+}
+
+::ng-deep .performance-datepicker-panel .mat-calendar-period-button:hover .mat-calendar-arrow,
+::ng-deep .performance-datepicker-panel .mat-calendar-period-button:focus-visible .mat-calendar-arrow {
+  fill: var(--text-active, #1d4ed8) !important;
+}
+
+::ng-deep .performance-datepicker-panel .mat-calendar-previous-button[disabled],
+::ng-deep .performance-datepicker-panel .mat-calendar-next-button[disabled] {
+  color: var(--text-muted, #64748b) !important;
+  opacity: 0.45;
+}
+
+::ng-deep .performance-datepicker-panel .mat-calendar-body-disabled .mat-calendar-body-cell-content {
+  color: var(--text-muted, #64748b) !important;
+  opacity: 0.55;
+}
+
+::ng-deep .performance-datepicker-panel .mat-calendar-body-selected {
+  background: var(--text-active, #1d4ed8) !important;
+  color: var(--text-on-active, #ffffff) !important;
+  -webkit-text-fill-color: var(--text-on-active, #ffffff) !important;
+}
+
+::ng-deep .performance-datepicker-panel .mat-calendar-body-today:not(.mat-calendar-body-selected) {
+  border-color: var(--text-active, #1d4ed8) !important;
+}
+
+:host-context(.dark-mode) ::ng-deep .report-date-field .mat-mdc-text-field-wrapper {
+  background: var(--form-bg, #111827) !important;
+  border-color: var(--form-border, #475569);
 }
 
 ::ng-deep .performance-department-select-panel .department-select-search {
@@ -855,6 +972,24 @@
   line-height: 1.25;
 }
 
+.overall-winner-name {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.overall-winner-name:hover,
+.overall-winner-name:focus-visible {
+  border-bottom-color: var(--performance-accent);
+  color: var(--performance-accent);
+  outline: 0;
+}
+
 .winner-meta,
 .final-info .d {
   color: var(--performance-muted);
@@ -1024,6 +1159,367 @@
   font-size: 0.75rem;
 }
 
+.not-eligible-employee-name {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--performance-accent);
+  font: inherit;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.not-eligible-employee-name:hover,
+.not-eligible-employee-name:focus-visible {
+  border-bottom-color: currentColor;
+  outline: 0;
+}
+
+.performance-detail-modal-backdrop {
+  position: fixed;
+  z-index: 1100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: var(--performance-modal-backdrop);
+}
+
+.performance-detail-modal {
+  width: min(72rem, 100%);
+  max-height: calc(100vh - 2.5rem);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--performance-accent) 18%, var(--performance-border));
+  border-radius: 18px;
+  background: var(--performance-surface);
+  color: var(--performance-text);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  text-rendering: optimizeLegibility;
+  box-shadow: var(--performance-modal-shadow);
+}
+
+.performance-detail-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.4rem;
+  border-bottom: 1px solid var(--performance-table-border);
+  // border-top: 4px solid var(--performance-accent);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--performance-accent) 10%, var(--performance-surface)), var(--performance-surface) 68%);
+}
+
+.performance-detail-modal__identity {
+  display: flex;
+  align-items: center;
+  gap: 0.95rem;
+  min-width: 0;
+}
+
+.performance-detail-modal__avatar {
+  display: inline-flex;
+  flex: 0 0 3.4rem;
+  align-items: center;
+  justify-content: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border: 3px solid color-mix(in srgb, var(--performance-accent) 20%, var(--performance-surface));
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--performance-accent), color-mix(in srgb, var(--performance-accent) 72%, #111827));
+  color: var(--performance-on-accent);
+  font-size: 1rem;
+  font-weight: 800;
+  // box-shadow: 0 8px 18px color-mix(in srgb, var(--performance-accent) 24%, transparent);
+}
+
+.performance-detail-modal__identity p,
+.performance-detail-modal__identity h2,
+.performance-detail-modal__identity span {
+  margin: 0;
+}
+
+.performance-detail-modal__identity p,
+.performance-detail-modal__identity span {
+  // color: var(--performance-muted);
+  font-size: 0.8125rem;
+}
+
+.performance-detail-modal__identity h2 {
+  overflow: hidden;
+  color: var(--performance-text);
+  font-size: 1.35rem;
+  font-weight: 750;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.performance-detail-modal__close {
+  display: inline-flex;
+  flex: 0 0 2.25rem;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid var(--performance-table-border);
+  border-radius: 9px;
+  background: var(--performance-surface);
+  color: var(--performance-muted);
+  font-size: 1.15rem;
+  cursor: pointer;
+}
+
+.performance-detail-modal__close:hover,
+.performance-detail-modal__close:focus-visible {
+  border-color: var(--danger, #ef4444);
+  color: var(--danger, #ef4444);
+  outline: 0;
+}
+
+.performance-detail-modal__body {
+  max-height: calc(100vh - 8.5rem);
+  padding: 1.4rem;
+  overflow-y: auto;
+  background: var(--performance-body);
+  scrollbar-color: var(--performance-modal-scrollbar) transparent;
+}
+
+.performance-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 0.9rem;
+}
+
+.performance-detail-summary article,
+.performance-detail-card {
+  border: 1px solid var(--performance-table-border);
+  border-radius: 12px;
+  background: var(--performance-surface);
+}
+
+.performance-detail-summary article {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.95rem 1rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.performance-detail-summary span {
+  color: var(--performance-muted);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.performance-detail-summary strong {
+  color: var(--performance-text);
+  font-size: 1rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.performance-detail-summary .performance-detail-summary__eligible {
+  color: var(--success, #16a34a);
+}
+
+.performance-detail-summary .performance-detail-summary__not-eligible {
+  color: var(--danger, #ef4444);
+}
+
+.performance-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.performance-detail-card {
+  min-width: 0;
+  padding: 1.05rem;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+
+.performance-detail-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.9rem;
+  color: var(--performance-text);
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.performance-detail-card h3 i {
+  color: var(--performance-accent);
+  font-size: 1.1rem;
+}
+
+.performance-detail-card dl {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.performance-detail-card dl>div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.15rem 0 0.45rem;
+  border-bottom: 1px dashed var(--performance-table-border);
+}
+
+.performance-detail-card dl>div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.performance-detail-card dt,
+.performance-detail-card dd {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.performance-detail-card dt {
+  color: var(--performance-muted);
+  // font-weight: 500;
+}
+
+.performance-detail-card dd {
+  color: var(--performance-text);
+  font-weight: 750;
+  text-align: right;
+}
+
+.performance-detail-card--reasons {
+  grid-column: 1 / -1;
+}
+
+.performance-score-calculation {
+  grid-column: 1 / -1;
+  padding: 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--performance-accent) 28%, var(--performance-table-border));
+  border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--performance-accent) 8%, var(--performance-surface)), var(--performance-surface));
+}
+
+.performance-score-calculation__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.performance-score-calculation__heading span,
+.performance-score-calculation__heading h3 {
+  margin: 0;
+}
+
+.performance-score-calculation__heading span {
+  color: var(--performance-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.performance-score-calculation__heading h3 {
+  color: var(--performance-text);
+  font-size: 1.05rem;
+}
+
+.performance-score-calculation__heading>i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 9px;
+  background: var(--performance-accent);
+  color: var(--performance-on-accent);
+  font-size: 1.15rem;
+}
+
+.performance-score-formula {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.7rem;
+}
+
+.performance-score-formula article {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.8rem;
+  border: 1px solid var(--performance-table-border);
+  border-radius: 10px;
+  background: var(--performance-surface);
+}
+
+.performance-score-formula strong,
+.performance-score-formula span,
+.performance-score-formula b {
+  font-size: 0.8125rem;
+}
+
+.performance-score-formula strong {
+  color: var(--performance-text);
+}
+
+.performance-score-formula span {
+  color: var(--performance-muted);
+}
+
+.performance-score-formula b {
+  color: var(--performance-accent);
+  font-size: 0.9375rem;
+}
+
+.performance-score-total {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.8rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--performance-table-border);
+  color: var(--performance-muted);
+  font-size: 0.8125rem;
+}
+
+.performance-score-total strong {
+  margin-left: 0.25rem;
+  color: var(--performance-text);
+  font-size: 1rem;
+}
+
+.performance-score-calculation__empty {
+  margin: 0;
+  color: var(--performance-muted);
+  font-size: 0.84375rem;
+}
+
+.not-eligible-reason-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.not-eligible-reason-list span {
+  padding: 0.25rem 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 24%, var(--performance-border));
+  border-radius: 999px;
+  background: var(--performance-danger-bg);
+  color: var(--danger, #ef4444);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
 .reason-pill {
   display: inline-flex;
   align-items: center;
@@ -1051,6 +1547,7 @@
   justify-content: space-between;
   gap: 0.8rem;
   flex-wrap: wrap;
+  width: 100%;
   margin-top: 0.75rem;
   color: var(--performance-muted);
   font-size: 0.875rem;
@@ -1065,9 +1562,13 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  max-width: 100%;
+  overflow-x: auto;
+  margin-left: auto;
 }
 
 .performance-pagination button {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1143,6 +1644,17 @@
 :host-context(.dark-mode) .performance-page {
   --performance-success-bg: color-mix(in srgb, var(--success, #22c55e) 16%, var(--performance-surface));
   --performance-danger-bg: color-mix(in srgb, var(--danger, #ef4444) 16%, var(--performance-surface));
+  --performance-modal-backdrop: rgba(0, 0, 0, 0.82);
+  --performance-modal-shadow: 0 28px 80px rgba(0, 0, 0, 0.68);
+  --performance-modal-scrollbar: color-mix(in srgb, var(--performance-muted) 72%, transparent);
+  color-scheme: dark;
+}
+
+:host-context(.dark-mode) .performance-detail-summary article,
+:host-context(.dark-mode) .performance-detail-card,
+:host-context(.theme-black) .performance-detail-summary article,
+:host-context(.theme-black) .performance-detail-card {
+  box-shadow: none;
 }
 
 :host-context(.theme-black) .performance-page {
@@ -1195,6 +1707,8 @@
   .title-block,
   .filters,
   .filter-control,
+  .filter-control--date,
+  .filter-control--date-range,
   .filter-control--department,
   .report-field,
   .field--department,
@@ -1215,6 +1729,7 @@
 
   .performance-pagination {
     flex-wrap: wrap;
+    margin-left: 0;
   }
 
   .context-strip {
@@ -1234,6 +1749,18 @@
   }
 
   .metric-bars {
+    grid-column: auto;
+  }
+
+  .performance-detail-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .performance-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .performance-detail-card--reasons {
     grid-column: auto;
   }
 }
@@ -1268,5 +1795,31 @@
   .not-eligible-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .performance-detail-modal-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .performance-detail-modal {
+    max-height: 94vh;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .performance-detail-modal__header,
+  .performance-detail-modal__body {
+    padding: 0.875rem;
+  }
+
+  .performance-detail-modal__body {
+    max-height: calc(94vh - 5.5rem);
+  }
+
+  .performance-detail-summary {
+    grid-template-columns: 1fr;
   }
 }

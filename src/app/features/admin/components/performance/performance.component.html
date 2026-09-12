@@ -12,39 +12,29 @@
     </div>
 
     <form class="filters" (ngSubmit)="loadBestEmployees(true)">
-      <div class="filter-control">
-        <label class="filter-label" for="performanceFromDate">From date</label>
-        <mat-form-field appearance="outline" class="field report-field" subscriptSizing="dynamic">
-          <input
-            id="performanceFromDate"
-            matInput
-            [matDatepicker]="fromDatePicker"
-            [(ngModel)]="fromDate"
-            name="fromDate"
-            placeholder="MM/DD/YYYY"
-            readonly
-            (click)="fromDatePicker.open()"
-            (dateChange)="onDateRangeChanged()">
-          <mat-datepicker-toggle matIconSuffix [for]="fromDatePicker"></mat-datepicker-toggle>
-          <mat-datepicker #fromDatePicker></mat-datepicker>
-        </mat-form-field>
-      </div>
-
-      <div class="filter-control">
-        <label class="filter-label" for="performanceToDate">To date</label>
-        <mat-form-field appearance="outline" class="field report-field" subscriptSizing="dynamic">
-          <input
-            id="performanceToDate"
-            matInput
-            [matDatepicker]="toDatePicker"
-            [(ngModel)]="toDate"
-            name="toDate"
-            placeholder="MM/DD/YYYY"
-            readonly
-            (click)="toDatePicker.open()"
-            (dateChange)="onDateRangeChanged()">
-          <mat-datepicker-toggle matIconSuffix [for]="toDatePicker"></mat-datepicker-toggle>
-          <mat-datepicker #toDatePicker></mat-datepicker>
+      <div class="filter-control filter-control--date-range">
+        <label class="filter-label" for="performanceFromDate">Date range</label>
+        <mat-form-field appearance="outline" class="field report-field report-date-field" subscriptSizing="dynamic">
+          <mat-date-range-input [rangePicker]="performanceRangePicker" (click)="performanceRangePicker.open()">
+            <input
+              id="performanceFromDate"
+              matStartDate
+              [(ngModel)]="fromDate"
+              name="fromDate"
+              placeholder="From date"
+              readonly
+              (dateChange)="onDateRangeChanged()">
+            <input
+              matEndDate
+              [(ngModel)]="toDate"
+              name="toDate"
+              placeholder="To date"
+              aria-label="To date"
+              readonly
+              (dateChange)="onDateRangeChanged()">
+          </mat-date-range-input>
+          <mat-datepicker-toggle matIconSuffix [for]="performanceRangePicker"></mat-datepicker-toggle>
+          <mat-date-range-picker #performanceRangePicker panelClass="performance-datepicker-panel"></mat-date-range-picker>
         </mat-form-field>
       </div>
 
@@ -103,7 +93,7 @@
         <span>Excel</span>
       </button>
 
-      <button
+      <!-- <button
         type="button"
         class="btn btn-ghost"
         [disabled]="!canExport || pdfExporting"
@@ -111,28 +101,9 @@
         (click)="exportPdf()">
         <i [class]="pdfExporting ? 'ri-loader-4-line app-spin' : 'ri-file-pdf-2-line'"></i>
         <span>PDF</span>
-      </button>
+      </button> -->
     </form>
   </header>
-
-  <!-- <section class="context-strip">
-    <article class="context-item">
-      <div class="k">Department</div>
-      <div class="v">{{ selectedDepartmentName }}</div>
-    </article>
-    <article class="context-item">
-      <div class="k">Date range</div>
-      <div class="v">{{ dateRangeLabel }}</div>
-    </article>
-    <article class="context-item">
-      <div class="k">DSR to date</div>
-      <div class="v">{{ toDate ? formatDateForDisplay(toDate) : '-' }}</div>
-    </article>
-    <article class="context-item">
-      <div class="k">Rows ready</div>
-      <div class="v">{{ rows.length }}</div>
-    </article>
-  </section> -->
 
   <section class="kpi-strip">
     <article
@@ -195,23 +166,15 @@
               </button>
             </label>
 
-            <label class="performance-page-size-control">
-              <span>Rows</span>
-              <select [value]="weightagePageSize" (change)="onWeightagePageSizeChange($event)">
-                <option *ngFor="let pageSize of weightagePageSizeOptions; trackBy: trackByNumber" [value]="pageSize">
-                  {{ pageSize }}
-                </option>
-              </select>
-              <span>/ page</span>
-            </label>
           </div>
 
-          <div class="app-table-scroll">
+          <div class="app-table-scroll"
+            [class.app-table-scroll--ten-row-viewport]="weightagePageSize > tableVisibleRowCount">
             <table class="app-data-table app-data-table--wide">
               <thead>
                 <tr>
                   <th
-                    *ngFor="let column of weightageColumns; trackBy: trackByWeightageColumn"
+                    *ngFor="let column of displayedWeightageColumns; trackBy: trackByWeightageColumn"
                     [class.app-data-table__cell--numeric]="column.align === 'right'">
                     <button
                     type="button"
@@ -230,7 +193,7 @@
               <tbody>
                 <tr *ngFor="let row of pagedWeightageRows; let weightageIndex = index; trackBy: trackByWeightage">
                   <td
-                    *ngFor="let column of weightageColumns; trackBy: trackByWeightageColumn"
+                    *ngFor="let column of displayedWeightageColumns; trackBy: trackByWeightageColumn"
                     [class.app-data-table__cell--numeric]="column.align === 'right'">
                     <span *ngIf="column.key === 'department'; else weightageValue" class="pill-metric">
                       <span class="swatch" [ngClass]="'swatch--' + getWeightageSwatchTone(weightageShowingFrom + weightageIndex - 1)"></span>
@@ -246,7 +209,7 @@
                   </td>
                 </tr>
                 <tr *ngIf="!pagedWeightageRows.length">
-                  <td [attr.colspan]="weightageColumns.length" class="app-data-table__empty">No weightage configuration matches this search.</td>
+                  <td [attr.colspan]="displayedWeightageColumns.length" class="app-data-table__empty">No weightage configuration matches this search.</td>
                 </tr>
               </tbody>
             </table>
@@ -254,48 +217,42 @@
 
           <div class="performance-table-footer performance-table-footer--compact">
             <span>
-              Showing {{ weightageShowingFrom }}-{{ weightageShowingTo }} of {{ filteredWeightageRows.length }} configurations
+              Showing {{ weightageShowingFrom }}-{{ weightageShowingTo }} of {{ filteredWeightageRows.length }} records
             </span>
             <div class="performance-pagination" aria-label="Department weightage pagination">
-              <button
-                type="button"
-                title="First page"
-                aria-label="First page"
-                [disabled]="weightagePageIndex === 0"
-                (click)="goToWeightagePage(0)">
-                <i class="ri-skip-left-line"></i>
-              </button>
+              <label class="performance-page-size-control">
+                <span>Page Size</span>
+                <select [value]="weightagePageSize" (change)="onWeightagePageSizeChange($event)">
+                  <option *ngFor="let pageSize of weightagePageSizeOptions; trackBy: trackByNumber" [value]="pageSize">{{ pageSize }}</option>
+                </select>
+              </label>
+              <button type="button" [disabled]="weightagePageIndex === 0" (click)="goToWeightagePage(0)">First</button>
               <button
                 type="button"
                 title="Previous page"
                 aria-label="Previous page"
                 [disabled]="weightagePageIndex === 0"
                 (click)="goToWeightagePage(weightagePageIndex - 1)">
-                <i class="ri-arrow-left-s-line"></i>
+                Prev
               </button>
-              <button
-                *ngFor="let page of weightagePageNumbers; trackBy: trackByNumber"
-                type="button"
-                [class.performance-pagination__page--active]="weightagePageIndex === page - 1"
-                (click)="goToWeightagePage(page - 1)">
-                {{ page }}
-              </button>
+              <span class="app-pagination-pages">
+                <button
+                  *ngFor="let page of weightagePageNumbers; trackBy: trackByNumber"
+                  type="button"
+                  [class.performance-pagination__page--active]="weightagePageIndex === page - 1"
+                  (click)="goToWeightagePage(page - 1)">
+                  {{ page }}
+                </button>
+              </span>
               <button
                 type="button"
                 title="Next page"
                 aria-label="Next page"
                 [disabled]="weightagePageIndex >= weightageTotalPages - 1"
                 (click)="goToWeightagePage(weightagePageIndex + 1)">
-                <i class="ri-arrow-right-s-line"></i>
+                Next
               </button>
-              <button
-                type="button"
-                title="Last page"
-                aria-label="Last page"
-                [disabled]="weightagePageIndex >= weightageTotalPages - 1"
-                (click)="goToWeightagePage(weightageTotalPages - 1)">
-                <i class="ri-skip-right-line"></i>
-              </button>
+              <button type="button" [disabled]="weightagePageIndex >= weightageTotalPages - 1" (click)="goToWeightagePage(weightageTotalPages - 1)">Last</button>
             </div>
           </div>
 
@@ -375,7 +332,13 @@
                 {{ topIndex + 1 }}
               </div>
               <div class="final-info">
-                <div class="n">{{ row.employee_name }}</div>
+                <button
+                  type="button"
+                  class="n overall-winner-name"
+                  [attr.aria-label]="'View full performance details for ' + row.employee_name"
+                  (click)="openEmployeePerformanceDetails(row)">
+                  {{ row.employee_name }}
+                </button>
                 <!-- <div class="d">ID {{ row.employee_id || '-' }} &middot; {{ row.department_name }}</div> -->
               </div>
               <div
@@ -433,18 +396,10 @@
             </button>
           </label>
 
-          <label class="performance-page-size-control">
-            <span>Rows</span>
-            <select [value]="notEligiblePageSize" (change)="onNotEligiblePageSizeChange($event)">
-              <option *ngFor="let pageSize of notEligiblePageSizeOptions; trackBy: trackByNumber" [value]="pageSize">
-                {{ pageSize }}
-              </option>
-            </select>
-            <span>/ page</span>
-          </label>
         </div>
 
-        <div class="app-table-scroll">
+        <div class="app-table-scroll"
+          [class.app-table-scroll--ten-row-viewport]="notEligiblePageSize > tableVisibleRowCount">
           <table class="app-data-table app-data-table--xwide">
             <thead>
               <tr>
@@ -465,17 +420,21 @@
                 </th>
               </tr>
             </thead>
-              <tbody>
-                <tr *ngFor="let row of pagedNotEligibleRows; let rowIndex = index; trackBy: trackByRow">
+            <tbody>
+              <tr *ngFor="let row of pagedNotEligibleRows; let rowIndex = index; trackBy: trackByRow">
                 <td
                   *ngFor="let column of displayedNotEligibleColumns; trackBy: trackByNotEligibleColumn"
                   [class.app-data-table__cell--numeric]="column.align === 'right'">
                   <ng-container [ngSwitch]="column.key">
                     <span *ngSwitchCase="'index'" class="mono">{{ notEligibleShowingFrom + rowIndex }}</span>
-                    <span *ngSwitchCase="'employee'" class="emp-cell">
-                      <b>{{ row.employee_name }}</b>
-                      <span>ID {{ row.employee_id || '-' }}</span>
-                    </span>
+                    <button
+                      *ngSwitchCase="'employee'"
+                      type="button"
+                      class="not-eligible-employee-name"
+                      [attr.aria-label]="'View full performance details for ' + row.employee_name"
+                      (click)="openEmployeePerformanceDetails(row)">
+                      {{ row.employee_name }}
+                    </button>
                     <span *ngSwitchCase="'reason'" class="reason-pill">{{ getEligibilityReason(row) }}</span>
                     <span
                       *ngSwitchDefault
@@ -494,52 +453,205 @@
 
         <div class="performance-table-footer">
           <span>
-            Showing {{ notEligibleShowingFrom }}-{{ notEligibleShowingTo }} of {{ filteredNotEligibleRows.length }} employees
+            Showing {{ notEligibleShowingFrom }}-{{ notEligibleShowingTo }} of {{ filteredNotEligibleRows.length }} records
           </span>
           <div class="performance-pagination" aria-label="Not eligible employees pagination">
-            <button
-              type="button"
-              title="First page"
-              aria-label="First page"
-              [disabled]="notEligiblePageIndex === 0"
-              (click)="goToNotEligiblePage(0)">
-              <i class="ri-skip-left-line"></i>
-            </button>
+            <label class="performance-page-size-control">
+              <span>Page Size</span>
+              <select [value]="notEligiblePageSize" (change)="onNotEligiblePageSizeChange($event)">
+                <option *ngFor="let pageSize of notEligiblePageSizeOptions; trackBy: trackByNumber" [value]="pageSize">{{ pageSize }}</option>
+              </select>
+            </label>
+            <button type="button" [disabled]="notEligiblePageIndex === 0" (click)="goToNotEligiblePage(0)">First</button>
             <button
               type="button"
               title="Previous page"
               aria-label="Previous page"
               [disabled]="notEligiblePageIndex === 0"
               (click)="goToNotEligiblePage(notEligiblePageIndex - 1)">
-              <i class="ri-arrow-left-s-line"></i>
+              Prev
             </button>
-            <button
-              *ngFor="let page of notEligiblePageNumbers; trackBy: trackByNumber"
-              type="button"
-              [class.performance-pagination__page--active]="notEligiblePageIndex === page - 1"
-              (click)="goToNotEligiblePage(page - 1)">
-              {{ page }}
-            </button>
+            <span class="app-pagination-pages">
+              <button
+                *ngFor="let page of notEligiblePageNumbers; trackBy: trackByNumber"
+                type="button"
+                [class.performance-pagination__page--active]="notEligiblePageIndex === page - 1"
+                (click)="goToNotEligiblePage(page - 1)">
+                {{ page }}
+              </button>
+            </span>
             <button
               type="button"
               title="Next page"
               aria-label="Next page"
               [disabled]="notEligiblePageIndex >= notEligibleTotalPages - 1"
               (click)="goToNotEligiblePage(notEligiblePageIndex + 1)">
-              <i class="ri-arrow-right-s-line"></i>
+              Next
             </button>
-            <button
-              type="button"
-              title="Last page"
-              aria-label="Last page"
-              [disabled]="notEligiblePageIndex >= notEligibleTotalPages - 1"
-              (click)="goToNotEligiblePage(notEligibleTotalPages - 1)">
-              <i class="ri-skip-right-line"></i>
-            </button>
+            <button type="button" [disabled]="notEligiblePageIndex >= notEligibleTotalPages - 1" (click)="goToNotEligiblePage(notEligibleTotalPages - 1)">Last</button>
           </div>
         </div>
       </section>
     </ng-container>
+
+    <div
+      *ngIf="selectedPerformanceEmployee as employee"
+      class="performance-detail-modal-backdrop"
+      role="presentation"
+      (click)="closeEmployeePerformanceDetails()">
+      <section
+        class="performance-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="performance-detail-modal-title"
+        autofocus
+        tabindex="-1"
+        (click)="$event.stopPropagation()">
+        <header class="performance-detail-modal__header">
+          <div class="performance-detail-modal__identity">
+            <span class="performance-detail-modal__avatar">{{ getInitials(employee.employee_name) }}</span>
+            <div>
+              <p>Employee performance details</p>
+              <h2 id="performance-detail-modal-title">{{ employee.employee_name }}</h2>
+              <span>{{ employee.department_name || '-' }}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="performance-detail-modal__close"
+            aria-label="Close employee details"
+            title="Close"
+            (click)="closeEmployeePerformanceDetails()">
+            <i class="ri-close-line"></i>
+          </button>
+        </header>
+
+        <div class="performance-detail-modal__body">
+          <div class="performance-detail-summary">
+            <article>
+              <span>Final score</span>
+              <strong>{{ formatScore(employee.final_score) }}</strong>
+            </article>
+            <article>
+              <span>Eligibility</span>
+              <strong
+                [class.performance-detail-summary__eligible]="employee.eligible === true"
+                [class.performance-detail-summary__not-eligible]="employee.eligible === false">
+                {{ getEligibilityLabel(employee) }}
+              </strong>
+            </article>
+            <article>
+              <span>Employee ID</span>
+              <strong>{{ employee.employee_id || '-' }}</strong>
+            </article>
+            <article>
+              <span>Date range</span>
+              <strong>{{ employee.fromdate || '-' }} to {{ employee.todate || '-' }}</strong>
+            </article>
+          </div>
+
+          <div class="performance-detail-grid">
+            <section class="performance-detail-card">
+              <h3><i class="ri-bar-chart-grouped-line"></i> Scores and weights</h3>
+              <dl>
+                <div *ngIf="employee.release_score !== null || employee.score_weights.release !== null"><dt>Release score</dt><dd>{{ formatScore(employee.release_score) }}</dd></div>
+                <div *ngIf="employee.release_score !== null || employee.score_weights.release !== null"><dt>Release weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.release) }}</dd></div>
+                <div *ngIf="employee.dsr_score !== null || employee.score_weights.dsr !== null"><dt>DSR score</dt><dd>{{ formatScore(employee.dsr_score) }}</dd></div>
+                <div *ngIf="employee.dsr_score !== null || employee.score_weights.dsr !== null"><dt>DSR weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.dsr) }}</dd></div>
+                <div *ngIf="employee.release_status_score !== null || employee.score_weights.release_status !== null"><dt>Release status score</dt><dd>{{ formatScore(employee.release_status_score) }}</dd></div>
+                <div *ngIf="employee.release_status_score !== null || employee.score_weights.release_status !== null"><dt>Release status weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.release_status) }}</dd></div>
+                <div *ngIf="employee.task_score !== null || employee.score_weights.task !== null"><dt>Task score</dt><dd>{{ formatScore(employee.task_score) }}</dd></div>
+                <div *ngIf="employee.task_score !== null || employee.score_weights.task !== null"><dt>Task weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.task) }}</dd></div>
+                <div *ngIf="employee.release_pass_score !== null || employee.score_weights.release_pass !== null"><dt>Release pass score</dt><dd>{{ formatScore(employee.release_pass_score) }}</dd></div>
+                <div *ngIf="employee.release_pass_score !== null || employee.score_weights.release_pass !== null"><dt>Release pass weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.release_pass) }}</dd></div>
+                <div *ngIf="employee.issue_score !== null || employee.score_weights.issue !== null"><dt>Issue score</dt><dd>{{ formatScore(employee.issue_score) }}</dd></div>
+                <div *ngIf="employee.issue_score !== null || employee.score_weights.issue !== null"><dt>Issue weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.issue) }}</dd></div>
+                <div *ngIf="employee.ticket_score !== null || employee.score_weights.ticket !== null"><dt>Ticket score</dt><dd>{{ formatScore(employee.ticket_score) }}</dd></div>
+                <div *ngIf="employee.ticket_score !== null || employee.score_weights.ticket !== null"><dt>Ticket weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.ticket) }}</dd></div>
+                <div *ngIf="employee.client_score !== null || employee.score_weights.client !== null"><dt>Client score</dt><dd>{{ formatScore(employee.client_score) }}</dd></div>
+                <div *ngIf="employee.client_score !== null || employee.score_weights.client !== null"><dt>Client weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.client) }}</dd></div>
+                <div *ngIf="employee.quality_score !== null || employee.score_weights.quality !== null"><dt>Quality score</dt><dd>{{ formatScore(employee.quality_score) }}</dd></div>
+                <div *ngIf="employee.quality_score !== null || employee.score_weights.quality !== null"><dt>Quality weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.quality) }}</dd></div>
+              </dl>
+            </section>
+
+            <section *ngIf="hasTicketClientDetails(employee)" class="performance-detail-card performance-detail-card--ticket">
+              <h3><i class="ri-customer-service-2-line"></i> Ticket and client metrics</h3>
+              <dl>
+                <div><dt>Total work volume</dt><dd>{{ formatMetricNumber(employee.metrics.total_work_volume) }}</dd></div>
+                <div><dt>Self tickets</dt><dd>{{ formatMetricNumber(employee.metrics.self_tickets) }}</dd></div>
+                <div><dt>Handled clients</dt><dd>{{ formatMetricNumber(employee.metrics.handled_clients) }}</dd></div>
+                <div><dt>Assigned tickets</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_tickets) }}</dd></div>
+                <div><dt>Closed tickets</dt><dd>{{ formatMetricNumber(employee.metrics.closed_tickets) }}</dd></div>
+                <div><dt>Pending tickets</dt><dd>{{ formatMetricNumber(employee.metrics.pending_tickets) }}</dd></div>
+              </dl>
+            </section>
+
+            <section *ngIf="hasGeneralWorkDetails(employee) || hasReleaseDetails(employee)" class="performance-detail-card">
+              <h3><i class="ri-rocket-line"></i> Release and work metrics</h3>
+              <dl>
+                <div><dt>Total work volume</dt><dd>{{ formatMetricNumber(employee.metrics.total_work_volume) }}</dd></div>
+                <div><dt>Total releases</dt><dd>{{ formatMetricNumber(employee.metrics.total_releases) }}</dd></div>
+                <div><dt>Passed releases</dt><dd>{{ formatMetricNumber(employee.metrics.passed_releases) }}</dd></div>
+                <div><dt>Failed releases</dt><dd>{{ formatMetricNumber(employee.metrics.failed_releases) }}</dd></div>
+                <div><dt>On-time releases</dt><dd>{{ formatMetricNumber(employee.metrics.on_time_releases) }}</dd></div>
+                <div><dt>Tasks assigned</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_tasks) }}</dd></div>
+                <div><dt>Tasks completed</dt><dd>{{ formatMetricNumber(employee.metrics.completed_tasks) }}</dd></div>
+                <div><dt>Issues assigned</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_issues) }}</dd></div>
+                <div><dt>Tickets assigned</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_tickets) }}</dd></div>
+                <div><dt>Support tickets</dt><dd>{{ formatMetricNumber(employee.metrics.support_ticket_count) }}</dd></div>
+                <div><dt>Models</dt><dd>{{ formatMetricNumber(employee.metrics.model_count) }}</dd></div>
+              </dl>
+            </section>
+
+            <section *ngIf="hasDsrDetails(employee)" class="performance-detail-card">
+              <h3><i class="ri-calendar-check-line"></i> DSR attendance</h3>
+              <dl>
+                <div><dt>Required working days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_days_required) }}</dd></div>
+                <div><dt>Submitted days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_days_submitted) }}</dd></div>
+                <div><dt>On-time days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_on_time_days) }}</dd></div>
+                <div><dt>Late days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_late_days) }}</dd></div>
+              </dl>
+            </section>
+
+            <section class="performance-detail-card performance-detail-card--reasons">
+              <h3><i class="ri-information-line"></i> Eligibility reasons</h3>
+              <div class="not-eligible-reason-list">
+                <span *ngFor="let reason of getEligibilityReasonLabels(employee)">{{ reason }}</span>
+                <span *ngIf="!getEligibilityReasonLabels(employee).length">-</span>
+              </div>
+            </section>
+
+            <section class="performance-score-calculation">
+              <div class="performance-score-calculation__heading">
+                <div>
+                  <span>Final score calculation</span>
+                  <h3>Weighted score breakdown</h3>
+                </div>
+                <i class="ri-calculator-line"></i>
+              </div>
+
+              <div *ngIf="getFinalScoreCalculation(employee).length; else noScoreCalculation" class="performance-score-formula">
+                <article *ngFor="let item of getFinalScoreCalculation(employee)">
+                  <strong>{{ item.label }}</strong>
+                  <span>{{ formatScore(item.score) }} × {{ formatWeightWithPercent(item.weight) }}</span>
+                  <b>{{ formatScore(item.contribution) }}</b>
+                </article>
+              </div>
+
+              <ng-template #noScoreCalculation>
+                <p class="performance-score-calculation__empty">Score weights are not available for this employee.</p>
+              </ng-template>
+
+              <div class="performance-score-total">
+                <span>Calculated weighted score <strong>{{ formatScore(getCalculatedFinalScore(employee)) }}</strong></span>
+                <span>Final score from API <strong>{{ formatScore(employee.final_score) }}</strong></span>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </div>
 
     <ng-template #reportNoData>
       <div class="report-empty report-empty--inside">

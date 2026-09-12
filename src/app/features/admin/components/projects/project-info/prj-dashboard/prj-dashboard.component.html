@@ -1,109 +1,123 @@
-<div class="w-full mx-auto project-dashboard">
-  <div class="dashboard-filter-bar">
-    <div class="applied-range" aria-live="polite">
-      <span>Showing</span>
-      <strong>{{ currentDateRangeLabel }}</strong>
+<div class="prj-dashboard w-full mx-auto">
+    <div class="relative flex flex-col items-end mb-3">
+        <div class="relative flex flex-col items-end mb-3 custom-filter-container">
+
+            <!-- Segmented Preset Buttons -->
+            <div class="dashboard-filter-group p-1 rounded-xl shadow-sm flex items-center gap-1">
+                <button type="button" (click)="selectPreset('weekly')"
+                    [class.dashboard-filter-button--active]="selectedPreset === 'weekly'"
+                    class="dashboard-filter-button px-3 py-1.5 text-xs font-semibold rounded-lg transition-all">
+                    Weekly
+                </button>
+
+                <button type="button" (click)="selectPreset('bi-weekly')"
+                    [class.dashboard-filter-button--active]="selectedPreset === 'bi-weekly'"
+                    class="dashboard-filter-button px-3 py-1.5 text-xs font-semibold rounded-lg transition-all">
+                    Bi-Weekly
+                </button>
+
+                <button type="button" (click)="selectPreset('monthly')"
+                    [class.dashboard-filter-button--active]="selectedPreset === 'monthly'"
+                    class="dashboard-filter-button px-3 py-1.5 text-xs font-semibold rounded-lg transition-all">
+                    This Month
+                </button>
+
+                <button type="button" (click)="selectPreset('custom')"
+                    [class.dashboard-filter-button--active]="selectedPreset === 'custom'"
+                    class="dashboard-filter-button px-3 py-1.5 text-xs font-semibold rounded-lg transition-all">
+                    Custom
+                </button>
+            </div>
+
+            <!-- Conditional Date Picker & Apply Button Popup -->
+            <div *ngIf="isCustomOpen"
+                class="dashboard-filter-panel absolute right-0 top-full mt-2 p-4 rounded-2xl shadow-2xl z-50 flex flex-col gap-3 w-80">
+
+                <mat-form-field appearance="outline" class="text-sm custom-date-range w-full" subscriptSizing="dynamic">
+                    <mat-date-range-input [rangePicker]="picker">
+                        <input matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate"
+                            class="dashboard-date-input font-medium" />
+                        <input matEndDate placeholder="End Date" [(ngModel)]="filterEndDate"
+                            class="dashboard-date-input font-medium" />
+                    </mat-date-range-input>
+                    <mat-datepicker-toggle matIconSuffix [for]="picker" class="dashboard-date-toggle transition-colors">
+                    </mat-datepicker-toggle>
+                    <mat-date-range-picker #picker></mat-date-range-picker>
+                </mat-form-field>
+
+                <div class="dashboard-filter-actions flex items-center justify-end gap-2 pt-1 border-t">
+                    <button type="button" (click)="applyCustomFilter()" [disabled]="!filterStartDate || !filterEndDate"
+                        class="dashboard-filter-apply w-full py-2 px-4 text-xs font-semibold rounded-lg shadow-sm hover:opacity-95 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed">
+                        Apply Filter
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+
     </div>
 
-    <div class="custom-filter-container">
-      <div class="preset-buttons" role="group" aria-label="Dashboard date range">
-        <button type="button" class="preset-button" [class.preset-button--active]="selectedPreset === 'weekly'"
-          (click)="selectPreset('weekly')">Weekly</button>
-        <button type="button" class="preset-button" [class.preset-button--active]="selectedPreset === 'bi-weekly'"
-          (click)="selectPreset('bi-weekly')">Bi-Weekly</button>
-        <button type="button" class="preset-button" [class.preset-button--active]="selectedPreset === 'monthly'"
-          (click)="selectPreset('monthly')">This Month</button>
-        <button type="button" class="preset-button" [class.preset-button--active]="selectedPreset === 'custom'"
-          [attr.aria-expanded]="isCustomOpen" (click)="selectPreset('custom')">Custom</button>
-      </div>
-
-      <div *ngIf="isCustomOpen" class="custom-filter-popup">
-        <mat-form-field appearance="outline" class="custom-date-range w-full" subscriptSizing="dynamic">
-          <mat-date-range-input [rangePicker]="picker">
-            <input matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate" />
-            <input matEndDate placeholder="End Date" [(ngModel)]="filterEndDate" />
-          </mat-date-range-input>
-          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-          <mat-date-range-picker #picker></mat-date-range-picker>
-        </mat-form-field>
-
-        <button type="button" class="apply-filter-button" (click)="applyCustomFilter()"
-          [disabled]="!filterStartDate || !filterEndDate">
-          Apply Filter
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div *ngIf="loading" class="dashboard-state" aria-live="polite">
-    <mat-spinner diameter="36"></mat-spinner>
-    <span>Loading dashboard details...</span>
-  </div>
-
-  <div *ngIf="!loading && loadError" class="dashboard-state dashboard-state--error" role="alert">
-    <i class="ri-error-warning-line"></i>
-    <strong>Dashboard details could not be loaded</strong>
-    <span>{{ loadError }}</span>
-    <button type="button" (click)="retryLoad()">Retry</button>
-  </div>
-
-  <ng-container *ngIf="!loading && !loadError">
     <!-- Categorized Stats Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
         <!-- Tasks Group (Blue) -->
-        <div class="bg-bg-card rounded-xl border border-border-card shadow-sm overflow-hidden flex flex-col">
-            <div
-                class="px-5 py-3 bg-blue-50/80 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-semibold flex items-center gap-2">
+        <div
+            class="dashboard-metric-card dashboard-metric-card--tasks rounded-xl shadow-sm overflow-hidden flex flex-col">
+            <div class="dashboard-metric-header px-5 py-3 font-semibold flex items-center gap-2">
                 <i class="ri-stack-line text-lg"></i> Tasks
             </div>
-            <div class="p-6 flex items-center justify-around">
+            <div class="dashboard-metric-body p-6 flex items-center justify-around">
                 <div class="flex flex-col items-center">
-                    <span class="text-3xl font-bold text-text-main">{{dashboardData?.active_task || 0}}</span>
-                    <span class="text-xs font-semibold text-text-muted uppercase tracking-wider mt-1">Open</span>
+                    <span class="dashboard-metric-value text-3xl font-bold">{{dashboardData?.active_task || 0}}</span>
+                    <span class="dashboard-metric-label text-xs font-semibold uppercase tracking-wider mt-1">Open</span>
                 </div>
-                <div class="w-px h-12 bg-border-card"></div>
-                <div class="flex flex-col items-center opacity-60">
-                    <span class="text-3xl font-bold text-text-main">{{dashboardData?.closed_task || 0}}</span>
-                    <span class="text-xs font-semibold text-text-muted uppercase tracking-wider mt-1">Closed</span>
+                <div class="dashboard-metric-divider w-px h-12"></div>
+                <div class="dashboard-metric-closed flex flex-col items-center">
+                    <span class="dashboard-metric-value text-3xl font-bold">{{dashboardData?.closed_task || 0}}</span>
+                    <span
+                        class="dashboard-metric-label text-xs font-semibold uppercase tracking-wider mt-1">Closed</span>
                 </div>
             </div>
         </div>
 
         <!-- Issues Group (Red) -->
-        <div class="bg-bg-card rounded-xl border border-border-card shadow-sm overflow-hidden flex flex-col">
-            <div
-                class="px-5 py-3 bg-red-50/80 dark:bg-red-900/20 border-b border-red-100 dark:border-red-800 text-red-700 dark:text-red-300 font-semibold flex items-center gap-2">
+        <div
+            class="dashboard-metric-card dashboard-metric-card--issues rounded-xl shadow-sm overflow-hidden flex flex-col">
+            <div class="dashboard-metric-header px-5 py-3 font-semibold flex items-center gap-2">
                 <i class="ri-error-warning-line text-lg"></i> Issues
             </div>
-            <div class="p-6 flex items-center justify-around">
+            <div class="dashboard-metric-body p-6 flex items-center justify-around">
                 <div class="flex flex-col items-center">
-                    <span class="text-3xl font-bold text-text-main">{{dashboardData?.active_issue || 0}}</span>
-                    <span class="text-xs font-semibold text-text-muted uppercase tracking-wider mt-1">Open</span>
+                    <span class="dashboard-metric-value text-3xl font-bold">{{dashboardData?.active_issue || 0}}</span>
+                    <span class="dashboard-metric-label text-xs font-semibold uppercase tracking-wider mt-1">Open</span>
                 </div>
-                <div class="w-px h-12 bg-border-card"></div>
-                <div class="flex flex-col items-center opacity-60">
-                    <span class="text-3xl font-bold text-text-main">{{dashboardData?.closed_issue || 0}}</span>
-                    <span class="text-xs font-semibold text-text-muted uppercase tracking-wider mt-1">Closed</span>
+                <div class="dashboard-metric-divider w-px h-12"></div>
+                <div class="dashboard-metric-closed flex flex-col items-center">
+                    <span class="dashboard-metric-value text-3xl font-bold">{{dashboardData?.closed_issue || 0}}</span>
+                    <span
+                        class="dashboard-metric-label text-xs font-semibold uppercase tracking-wider mt-1">Closed</span>
                 </div>
             </div>
         </div>
 
         <!-- Phases Group (Teal) -->
-        <div class="bg-bg-card rounded-xl border border-border-card shadow-sm overflow-hidden flex flex-col">
-            <div
-                class="px-5 py-3 bg-teal-50/80 dark:bg-teal-900/20 border-b border-teal-100 dark:border-teal-800 text-teal-700 dark:text-teal-300 font-semibold flex items-center gap-2">
+        <div
+            class="dashboard-metric-card dashboard-metric-card--phases rounded-xl shadow-sm overflow-hidden flex flex-col">
+            <div class="dashboard-metric-header px-5 py-3 font-semibold flex items-center gap-2">
                 <i class="ri-flag-line text-lg"></i> Phases
             </div>
-            <div class="p-6 flex items-center justify-around">
+            <div class="dashboard-metric-body p-6 flex items-center justify-around">
                 <div class="flex flex-col items-center">
-                    <span class="text-3xl font-bold text-text-main">{{dashboardData?.active_phase || 0}}</span>
-                    <span class="text-xs font-semibold text-text-muted uppercase tracking-wider mt-1">Open</span>
+                    <span class="dashboard-metric-value text-3xl font-bold">{{dashboardData?.active_phase || 0}}</span>
+                    <span class="dashboard-metric-label text-xs font-semibold uppercase tracking-wider mt-1">Open</span>
                 </div>
-                <div class="w-px h-12 bg-border-card"></div>
-                <div class="flex flex-col items-center opacity-60">
-                    <span class="text-3xl font-bold text-text-main">{{dashboardData?.completed_phase || 0}}</span>
-                    <span class="text-xs font-semibold text-text-muted uppercase tracking-wider mt-1">Closed</span>
+                <div class="dashboard-metric-divider w-px h-12"></div>
+                <div class="dashboard-metric-closed flex flex-col items-center">
+                    <span class="dashboard-metric-value text-3xl font-bold">{{dashboardData?.completed_phase ||
+                        0}}</span>
+                    <span
+                        class="dashboard-metric-label text-xs font-semibold uppercase tracking-wider mt-1">Closed</span>
                 </div>
             </div>
         </div>
@@ -125,7 +139,7 @@
                 <div class="px-6 py-2 border-b border-slate-200 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800">
                         <span class="accent-bar" style="background-color: var(--danger);"></span>
-                        Overdue Items - {{ dashboardData?.overdue_items?.length || 0 }}
+                        Overdue Items - {{dashboardData?.overdue_items?.length}}
                     </h3>
                     <div class="relative">
                         <button (click)="toggleMenu($event, 3)"
@@ -162,7 +176,7 @@
                 <div class="px-6 py-2 border-b border-slate-200 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800">
                         <span class="accent-bar" style="background-color: var(--danger);"></span>
-                        Due Today - {{ dashboardData?.today_due?.length || 0 }}
+                        Due Today - {{dashboardData?.today_due?.length}}
                     </h3>
                     <div class="relative">
                         <button (click)="toggleMenu($event, 4)"
@@ -208,7 +222,7 @@
                 <div class="px-6 py-2 border-b border-slate-200 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 ">
                         <span class="accent-bar bg-blue"></span>
-                        Tasks - {{ dashboardData?.task_list?.length || 0 }}
+                        Tasks - {{dashboardData?.task_list?.length}}
                     </h3>
                     <div class="relative">
                         <button (click)="toggleMenu($event, 1)"
@@ -246,7 +260,7 @@
                 <div class="px-6 py-2 border-b border-slate-200 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 ">
                         <span class="accent-bar" style="background-color: #f59e0b;"></span>
-                        Issues - {{ dashboardData?.bug_list?.length || 0 }}
+                        Issues - {{dashboardData?.bug_list?.length}}
                     </h3>
                     <div class="relative">
                         <button (click)="toggleMenu($event, 2)"
@@ -281,5 +295,4 @@
 
 
     </div>
-  </ng-container>
 </div>

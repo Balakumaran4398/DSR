@@ -32,7 +32,9 @@ export class AssignTicketFormComponent {
   filteredEmployeesList:any[] =[];
   departmentFilterControl = new FormControl('');
   availableVersions: string[] = [];
+  filteredVersions: string[] = [];
   statusList: any[] = [];
+  filteredStatusList: any[] = [];
   private readonly hiddenStatusNames = new Set([
     'tobetested',
     'approved',
@@ -50,12 +52,15 @@ export class AssignTicketFormComponent {
     'Bug',
     'Business'
   ];
+  filteredTypes = [...this.types];
 
   readonly priorityOptions = [
     { id: 1, value: 'High', dotClass: 'bg-red-500' },
     { id: 2, value: 'Medium', dotClass: 'bg-amber-500' },
     { id: 3, value: 'Low', dotClass: 'bg-green-500' }
   ];
+  filteredPriorityOptions = [...this.priorityOptions];
+  selectSearch: Record<string, string> = {};
 
   constructor(
     private authService: AuthService,
@@ -122,6 +127,7 @@ export class AssignTicketFormComponent {
 
     if (selectedProduct) {
       this.availableVersions = this.getProductVersions(selectedProduct);
+      this.filteredVersions = [...this.availableVersions];
     }
 
     const selectedVersion = this.normalizeSelectedVersion(this.data.version ?? this.data.product_version);
@@ -213,12 +219,40 @@ export class AssignTicketFormComponent {
     );
 
     this.availableVersions = selectedProduct ? this.getProductVersions(selectedProduct) : [];
+    this.filteredVersions = [...this.availableVersions];
 
     if (resetVersion) {
       this.assignForm.patchValue({
         product_version: null
       });
     }
+  }
+
+  filterSimpleSelect(event: Event, field: string): void {
+    const input = event.target as HTMLInputElement;
+    const query = (input.value ?? '').trim().toLowerCase();
+    this.selectSearch[field] = input.value;
+
+    if (field === 'version') {
+      this.filteredVersions = this.filterByLabel(this.availableVersions, query, item => item);
+    } else if (field === 'type') {
+      this.filteredTypes = this.filterByLabel(this.types, query, item => item);
+    } else if (field === 'priority') {
+      this.filteredPriorityOptions = this.filterByLabel(this.priorityOptions, query, item => item.value);
+    } else if (field === 'status') {
+      this.filteredStatusList = this.filterByLabel(this.statusList, query, item => item?.name);
+    }
+  }
+
+  resetSimpleSelectFilter(opened: boolean, field: string): void {
+    if (!opened) return;
+    this.selectSearch[field] = '';
+    this.filterSimpleSelect({ target: { value: '' } } as unknown as Event, field);
+  }
+
+  private filterByLabel<T>(items: T[], query: string, label: (item: T) => any): T[] {
+    const source = Array.isArray(items) ? items : [];
+    return query ? source.filter(item => `${label(item) ?? ''}`.toLowerCase().includes(query)) : [...source];
   }
 
   onDepartmentChange(): void {
@@ -406,6 +440,7 @@ export class AssignTicketFormComponent {
       this.authService.updateTicket(updatePayload).subscribe({
         next: (res: any) => {
           this.toasterService.success(res?.message || 'Ticket assignment updated successfully');
+          this.refreshNotificationsWhenClosed(formValue.status);
           this.drawerService.notifyAction({ source: 'ticket', action: 'updated', payload: res });
           this.onCancel();
         },
@@ -417,6 +452,7 @@ export class AssignTicketFormComponent {
       this.authService.createTicketRise(payload).subscribe({
         next: (res: any) => {
           this.toasterService.success(res?.message || 'Ticket assigned successfully');
+          this.refreshNotificationsWhenClosed(formValue.status);
           this.drawerService.notifyAction({ source: 'ticket', action: 'created', payload: res });
           this.onCancel();
         },
@@ -430,6 +466,13 @@ export class AssignTicketFormComponent {
   getSelectedEmployeeDisplay(): string {
     return this.getSelectedEmployeeName(this.assignForm.get('assigned_to')?.value);
   }
+
+  private refreshNotificationsWhenClosed(status: unknown): void {
+    if (`${status ?? ''}`.trim().toLowerCase() === 'closed') {
+      this.authService.refreshNotificationCount();
+    }
+  }
+
   onClientSelectionChange(clientId: any): void {
     if (clientId === null || clientId === undefined) {
       this.assignForm.patchValue({
@@ -682,6 +725,7 @@ export class AssignTicketFormComponent {
             name: status
           }))
           .filter(status => this.isVisibleStatus(status.name, status.id));
+        this.filteredStatusList = [...this.statusList];
 
         if (this.data) {
           this.isEditMode = true;

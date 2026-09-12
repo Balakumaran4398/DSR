@@ -27,9 +27,15 @@
                 </div>
                 <mat-form-field appearance="outline" class="w-full xl:w-64" subscriptSizing="dynamic">
                     <mat-select [value]="version" placeholder="Select version"
-                        (selectionChange)="onVersionChange($event.value)">
+                        (selectionChange)="onVersionChange($event.value)" (openedChange)="onVersionSelectOpened($event)">
+                        <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100"
+                            (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                            <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                                placeholder="Search version..." [value]="versionSearchText" (input)="filterVersions($event)">
+                        </div>
                         <mat-option [value]="null">All Versions</mat-option>
-                        <mat-option *ngFor="let v of versionList" [value]="v">{{ v }}</mat-option>
+                        <mat-option *ngFor="let v of filteredVersionList" [value]="v">{{ v }}</mat-option>
+                        <mat-option *ngIf="!filteredVersionList.length" disabled>No versions found</mat-option>
                     </mat-select>
                 </mat-form-field>
             </div>
@@ -88,9 +94,15 @@
                 </div>
                 <mat-form-field appearance="outline" class="w-full xl:w-64" subscriptSizing="dynamic">
                     <mat-select [value]="version" placeholder="Select version"
-                        (selectionChange)="onVersionChange($event.value)">
+                        (selectionChange)="onVersionChange($event.value)" (openedChange)="onVersionSelectOpened($event)">
+                        <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100"
+                            (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                            <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                                placeholder="Search version..." [value]="versionSearchText" (input)="filterVersions($event)">
+                        </div>
                         <mat-option [value]="null">All Versions</mat-option>
-                        <mat-option *ngFor="let v of versionList" [value]="v">{{ v }}</mat-option>
+                        <mat-option *ngFor="let v of filteredVersionList" [value]="v">{{ v }}</mat-option>
+                        <mat-option *ngIf="!filteredVersionList.length" disabled>No versions found</mat-option>
                     </mat-select>
                 </mat-form-field>
             </div>

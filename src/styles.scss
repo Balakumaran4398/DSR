@@ -726,11 +726,28 @@ table tbody tr:hover td {
     color: var(--text-muted) !important;
 }
 
+.mat-mdc-select-arrow,
+.mat-mdc-select-arrow svg,
+.mat-mdc-select-arrow path {
+    color: var(--text-muted) !important;
+    fill: currentColor !important;
+}
+
 .mat-mdc-form-field.mat-focused .mat-datepicker-toggle,
 .mat-mdc-form-field.mat-focused .mat-mdc-form-field-icon-prefix,
 .mat-mdc-form-field.mat-focused .mat-mdc-form-field-icon-suffix,
 .mat-mdc-form-field.mat-focused .mat-mdc-icon-button {
     color: var(--text-active) !important;
+}
+
+.mat-mdc-form-field:hover .mat-mdc-select-arrow,
+.mat-mdc-form-field:hover .mat-mdc-select-arrow svg,
+.mat-mdc-form-field:hover .mat-mdc-select-arrow path,
+.mat-mdc-form-field.mat-focused .mat-mdc-select-arrow,
+.mat-mdc-form-field.mat-focused .mat-mdc-select-arrow svg,
+.mat-mdc-form-field.mat-focused .mat-mdc-select-arrow path {
+    color: var(--text-active) !important;
+    fill: currentColor !important;
 }
 
 .mdc-notched-outline__leading,
@@ -772,7 +789,9 @@ table tbody tr:hover td {
 .mat-mdc-menu-item .mdc-list-item__primary-text {
     color: inherit !important;
 }
-
+ .mdc-menu-surface.mat-mdc-select-panel{
+    padding: 0px 0 !important;
+}
 .mat-pseudo-checkbox {
     color: var(--text-active) !important;
 }
@@ -823,6 +842,42 @@ table tbody tr:hover td {
 .mat-calendar-body-label,
 .mat-calendar-body-cell-content {
     color: var(--text-main) !important;
+}
+
+/* Datepicker header, month/year selector, and navigation controls */
+.mat-datepicker-content .mat-calendar-header,
+.mat-datepicker-content .mat-calendar-controls,
+.mat-datepicker-content .mat-calendar-period-button,
+.mat-datepicker-content .mat-calendar-previous-button,
+.mat-datepicker-content .mat-calendar-next-button,
+.mat-datepicker-toggle,
+.mat-datepicker-toggle .mat-icon,
+.mat-datepicker-toggle svg {
+    color: var(--text-main) !important;
+}
+
+.mat-datepicker-content .mat-calendar-period-button:hover,
+.mat-datepicker-content .mat-calendar-previous-button:hover,
+.mat-datepicker-content .mat-calendar-next-button:hover,
+.mat-datepicker-toggle:hover {
+    color: var(--text-active) !important;
+}
+
+.mat-datepicker-content .mat-calendar-arrow {
+    border-top-color: currentColor !important;
+}
+
+/* The calendar's month/year chooser uses the same body-cell markup. */
+.mat-datepicker-content .mat-calendar-body-active > .mat-calendar-body-cell-content {
+    background-color: var(--text-active) !important;
+    color: var(--text-on-active) !important;
+    -webkit-text-fill-color: var(--text-on-active) !important;
+}
+
+.mat-datepicker-content .mat-calendar-body-cell:not(.mat-calendar-body-disabled):not(.mat-calendar-body-active):hover > .mat-calendar-body-cell-content,
+.mat-datepicker-content .mat-calendar-body-cell:not(.mat-calendar-body-active):focus > .mat-calendar-body-cell-content {
+    background-color: var(--bg-active) !important;
+    color: var(--text-active) !important;
 }
 
 .mat-calendar-body-disabled .mat-calendar-body-cell-content {

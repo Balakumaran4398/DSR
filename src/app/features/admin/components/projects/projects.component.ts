@@ -6,6 +6,7 @@ import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { TransientViewStateService } from 'src/app/_core/services/transient-view-state.service';
+import { attachStandardTabulatorPagination } from 'src/app/_core/utils/tabulator-pagination.util';
 import Swal from 'sweetalert2';
 declare const Tabulator: any;
 declare const luxon: any;
@@ -96,6 +97,7 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
   ngOnDestroy(): void {
     this.saveViewState();
     this.destroyed = true;
+    this.setProjectTableInlineLoading(false);
 
     if (this.tableCheckInterval) {
       clearInterval(this.tableCheckInterval);
@@ -150,7 +152,7 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
       selectable: true,
       editTriggerEvent: "dblclick",
       placeholder: "No Data Found",
-      paginationSizeSelector: [10, 15, 25, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       headerSortElement: function (col: any, dir: any) {
         if (dir === "asc") return '<i class="ri-arrow-up-line text-xs ml-1"></i>';
         if (dir === "desc") return '<i class="ri-arrow-down-line text-xs ml-1"></i>';
@@ -451,6 +453,10 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
       ],
     });
 
+    if (this.projectTableLoading) {
+      this.setProjectTableInlineLoading(true, 'Loading projects...');
+    }
+
     try {
       const tableRef = this.table;
       tableRef?.on?.('tableBuilt', () => {
@@ -468,6 +474,8 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
       this.resolveTableBuilt?.();
       this.resolveTableBuilt = null;
     }, 1000);
+
+    attachStandardTabulatorPagination(this.table);
 
     this.table.on("rowSelectionChanged", (data: any[], rows: any[]) => {
       this.selectedCount = rows.length;
@@ -653,9 +661,11 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
     }
 
     this.projectTableLoading = true;
+    this.setProjectTableInlineLoading(true, 'Loading projects...');
     this.authService.getAllProjectsByEmployeeId(employeeId)
       .pipe(finalize(() => {
         this.projectTableLoading = false;
+        this.setProjectTableInlineLoading(false);
       }))
       .subscribe({
       next: (res: any) => {
@@ -841,6 +851,30 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
         // ignore
       }
     }, tableRef);
+  }
+
+  private setProjectTableInlineLoading(loading: boolean, label = 'Loading data...'): void {
+    const host = this.tableDiv?.nativeElement as HTMLElement | undefined;
+    if (!host) return;
+
+    let loader = host.querySelector<HTMLElement>(':scope > .app-table-inline-loader');
+    if (!loading) {
+      loader?.remove();
+      return;
+    }
+
+    if (!loader) {
+      loader = document.createElement('div');
+      loader.className = 'app-table-inline-loader';
+      host.appendChild(loader);
+    }
+
+    loader.innerHTML = `
+      <div class="app-local-loading">
+        <i class="ri-loader-4-line app-spin"></i>
+        <span>${label}</span>
+      </div>
+    `;
   }
 
   private get viewStateKey(): string {

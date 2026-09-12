@@ -88,7 +88,7 @@ export class TeammatesComponent implements AfterViewInit, OnDestroy {
       movableColumns: true,
       selectable: true,
       editTriggerEvent: 'dblclick',
-      paginationSizeSelector: [10, 20, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       placeholder: 'No Data Found',
       headerSortElement: function (col: any, dir: any) {
         if (dir === 'asc') return '<i class="ri-arrow-up-line text-xs ml-1"></i>';
@@ -105,15 +105,7 @@ export class TeammatesComponent implements AfterViewInit, OnDestroy {
         {
           title: 'Status',
           field: 'isactive',
-          editor: 'list',
-          editorParams: {
-            values: [
-              { label: 'Active', value: true },
-              { label: 'Inactive', value: false }
-            ],
-            autocomplete: true,
-            clearable: false
-          },
+          editable: false,
           formatter: this.statusFormatter
         },
         { title: 'Shift', field: 'shift_type', width: 120, responsive: 4, formatter: (cell: any) => `<span class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs">${cell.getValue() || '-'}</span>` },

@@ -44,9 +44,15 @@
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">Project Title <span class="text-red-500">*</span></label>
               <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                <mat-select formControlName="projectid" placeholder="Select Project" (selectionChange)="onProjectChange($event.value)">
+                <mat-select formControlName="projectid" placeholder="Select Project" (selectionChange)="onProjectChange($event.value)"
+                  (openedChange)="resetSelectFilter($event, 'project')">
+                  <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                    <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                      placeholder="Search project..." [value]="selectSearch['project'] || ''" (input)="filterSelect($event, 'project')">
+                  </div>
                   <mat-option [value]="null">Select Project</mat-option>
-                  <mat-option *ngFor="let p of projectList" [value]="p.id">{{ p.project_title }}</mat-option>
+                  <mat-option *ngFor="let p of filteredProjectList" [value]="p.id">{{ p.project_title }}</mat-option>
+                  <mat-option *ngIf="!filteredProjectList.length" disabled>No projects found</mat-option>
                 </mat-select>
                 <mat-error *ngIf="rf.projectid?.invalid">Project Title is required.</mat-error>
               </mat-form-field>
@@ -56,9 +62,14 @@
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">Phase</label>
               <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                <mat-select formControlName="phaseid" placeholder="Select Phase">
+                <mat-select formControlName="phaseid" placeholder="Select Phase" (openedChange)="resetSelectFilter($event, 'phase')">
+                  <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                    <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                      placeholder="Search phase..." [value]="selectSearch['phase'] || ''" (input)="filterSelect($event, 'phase')">
+                  </div>
                   <mat-option [value]="null">Select Phase</mat-option>
-                  <mat-option *ngFor="let p of phaseList" [value]="p.id">{{ p.phase_title }}</mat-option>
+                  <mat-option *ngFor="let p of filteredPhaseList" [value]="p.id">{{ p.phase_title }}</mat-option>
+                  <mat-option *ngIf="!filteredPhaseList.length" disabled>No phases found</mat-option>
                 </mat-select>
               </mat-form-field>
             </div>
@@ -67,9 +78,14 @@
             <div class="md:col-span-1" >
               <label class="block text-sm font-medium text-slate-700 mb-1"> Version <span class="text-red-500">*</span></label>
                 <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                   <mat-select formControlName="version" placeholder="Select version">
+                   <mat-select formControlName="version" placeholder="Select version" (openedChange)="resetSelectFilter($event, 'version')">
+                     <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                       <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                         placeholder="Search version..." [value]="selectSearch['version'] || ''" (input)="filterSelect($event, 'version')">
+                     </div>
                      <mat-option [value]="null">Select Version</mat-option>
-                     <mat-option *ngFor="let v of versionList" [value]="v">{{ v }}</mat-option>
+                     <mat-option *ngFor="let v of filteredVersionList" [value]="v">{{ v }}</mat-option>
+                     <mat-option *ngIf="!filteredVersionList.length" disabled>No versions found</mat-option>
                    </mat-select>
                    <mat-error *ngIf="rf.version?.invalid && (rf.version?.touched || rf.version?.dirty)">Version is required.</mat-error>
                 </mat-form-field>
@@ -77,9 +93,14 @@
              <div class="md:col-span-1" >
               <label class="block text-sm font-medium text-slate-700 mb-1"> Task Category <span class="text-red-500">*</span></label>
                 <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                   <mat-select formControlName="task_category" placeholder="Select category">
+                   <mat-select formControlName="task_category" placeholder="Select category" (openedChange)="resetSelectFilter($event, 'taskCategory')">
+                     <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                       <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                         placeholder="Search task category..." [value]="selectSearch['taskCategory'] || ''" (input)="filterSelect($event, 'taskCategory')">
+                     </div>
                      <mat-option [value]="null">Select Category</mat-option>
-                     <mat-option *ngFor="let v of filteredTaskCategory" [value]="v">{{ v }}</mat-option>
+                     <mat-option *ngFor="let v of filteredTaskCategoryOptions" [value]="v">{{ v }}</mat-option>
+                     <mat-option *ngIf="!filteredTaskCategoryOptions.length" disabled>No categories found</mat-option>
                    </mat-select>
                    <mat-error *ngIf="rf.task_category?.invalid && (rf.task_category?.touched || rf.task_category?.dirty)">Task Category is required.</mat-error>
                 </mat-form-field>
@@ -101,13 +122,18 @@
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">Priority <span class="text-red-500">*</span></label>
               <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                <mat-select formControlName="priority" placeholder="Select Priority">
-                  <mat-option *ngFor="let priority of priorityOptions" [value]="priority.value">
+                <mat-select formControlName="priority" placeholder="Select Priority" (openedChange)="resetSelectFilter($event, 'priority')">
+                  <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                    <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                      placeholder="Search priority..." [value]="selectSearch['priority'] || ''" (input)="filterSelect($event, 'priority')">
+                  </div>
+                  <mat-option *ngFor="let priority of filteredPriorityOptions" [value]="priority.value">
                     <span class="inline-flex items-center gap-2">
                       <span class="w-2 h-2 rounded-full" [ngClass]="priority.dotClass"></span>
                       {{ priority.value }}
                     </span>
                   </mat-option>
+                  <mat-option *ngIf="!filteredPriorityOptions.length" disabled>No priorities found</mat-option>
                 </mat-select>
                 <mat-error *ngIf="rf.priority?.invalid">Priority is required.</mat-error>
               </mat-form-field>
@@ -117,8 +143,13 @@
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">Status <span class="text-red-500">*</span></label>
               <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                <mat-select formControlName="status" placeholder="Select Status">
-                  <mat-option *ngFor="let status of statusList" [value]="status">{{ status }}</mat-option>
+                <mat-select formControlName="status" placeholder="Select Status" (openedChange)="resetSelectFilter($event, 'status')">
+                  <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                    <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                      placeholder="Search status..." [value]="selectSearch['status'] || ''" (input)="filterSelect($event, 'status')">
+                  </div>
+                  <mat-option *ngFor="let status of filteredStatusList" [value]="status">{{ status }}</mat-option>
+                  <mat-option *ngIf="!filteredStatusList.length" disabled>No statuses found</mat-option>
                 </mat-select>
                 <mat-error *ngIf="rf.status?.invalid">Status is required.</mat-error>
               </mat-form-field>

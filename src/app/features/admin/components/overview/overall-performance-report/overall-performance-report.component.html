@@ -14,8 +14,8 @@
           <div class="department-filter-card__control">
             <span>Choose Department</span>
             <mat-form-field appearance="outline" class="department-filter-field" subscriptSizing="dynamic">
-              <mat-select [placeholder]="departmentFilterPlaceholder" multiple [value]="selectedDepartmentIds"
-                (selectionChange)="onDepartmentFilterChange($event.value)"
+              <mat-select #departmentSelect [placeholder]="departmentFilterPlaceholder" multiple [value]="selectedDepartmentIds"
+                (selectionChange)="onDepartmentFilterChange($event.value); departmentSelect.close()"
                 (openedChange)="onDepartmentSelectOpened($event)" panelClass="performance-department-select-panel">
                 <mat-select-trigger>
                   <span class="department-select-trigger" [title]="selectedDepartmentFullLabel">
@@ -28,10 +28,22 @@
                   <input type="text" class="department-select-search__input"
                     placeholder="Search Department" [value]="departmentSearchTerm" (input)="filterDepartments($event)">
                 </div>
-                <mat-option *ngIf="canSelectAllDepartments" [value]="allDepartmentsValue">All Department</mat-option>
+                <mat-option *ngIf="canSelectAllDepartments" [value]="allDepartmentsValue">
+                  <span class="department-option-checkbox"
+                    [class.department-option-checkbox--checked]="isDepartmentSelected(allDepartmentsValue)"
+                    aria-hidden="true">
+                    <i *ngIf="isDepartmentSelected(allDepartmentsValue)" class="ri-check-line"></i>
+                  </span>
+                  <span>All Department</span>
+                </mat-option>
                 <mat-option *ngFor="let department of filteredDepartments; trackBy: trackByDepartment"
                   [value]="department.filter_id" [disabled]="isDepartmentSelectionLocked">
-                  {{ department.department_name }}
+                  <span class="department-option-checkbox"
+                    [class.department-option-checkbox--checked]="isDepartmentSelected(department.filter_id)"
+                    aria-hidden="true">
+                    <i *ngIf="isDepartmentSelected(department.filter_id)" class="ri-check-line"></i>
+                  </span>
+                  <span>{{ department.department_name }}</span>
                 </mat-option>
                 <mat-option *ngIf="!filteredDepartments.length" disabled>{{ noDepartmentOptionMessage }}</mat-option>
               </mat-select>
@@ -101,7 +113,8 @@
     <span>{{ emptyPageMessage }}</span>
   </div>
 
-  <ng-container *ngFor="let section of sections; let sectionIndex = index; trackBy: trackBySection">
+  <div *ngIf="sections.length" class="performance-report-list">
+    <ng-container *ngFor="let section of sections; let sectionIndex = index; trackBy: trackBySection">
       <div *ngIf="section.showDepartmentHeading" class="department-report-heading">
         <div>
           <span>Department</span>
@@ -152,13 +165,6 @@
             </button>
           </label>
 
-          <label class="page-size-control">
-            <span>Rows</span>
-            <select [value]="section.pageSize" (change)="onPageSizeChange(section, $event)">
-              <option *ngFor="let pageSize of pageSizeOptions" [value]="pageSize">{{ pageSize }}</option>
-            </select>
-            <span>/ page</span>
-          </label>
         </div>
 
         <div *ngIf="section.errorMessage && section.filteredRows.length" class="report-inline-error">
@@ -167,7 +173,14 @@
           <button type="button" (click)="retrySection(section)">Retry</button>
         </div>
 
-        <div class="app-table-scroll">
+        <div *ngIf="section.warningMessage" class="report-inline-error report-inline-error--warning" role="status">
+          <i class="ri-information-line"></i>
+          <span>{{ section.warningMessage }}</span>
+          <button type="button" (click)="retrySection(section)">Retry</button>
+        </div>
+
+        <div class="app-table-scroll"
+          [class.app-table-scroll--ten-row-viewport]="section.pageSize > tableVisibleRowCount">
           <table class="app-data-table app-data-table--xwide performance-report-table"
             [style.min-width.rem]="section.tableMinWidthRem">
             <thead>
@@ -244,27 +257,38 @@
           </table>
         </div>
 
-        <div *ngIf="section.filteredRows.length" class="report-table-footer">
+        <div class="report-table-footer">
           <span>Showing {{ section.showingFrom }}-{{ section.showingTo }} of {{ section.filteredRows.length }}
             records</span>
           <div class="report-pagination" [attr.aria-label]="section.title + ' pagination'">
+            <label class="page-size-control">
+              <span>Page Size</span>
+              <select [value]="section.pageSize" (change)="onPageSizeChange(section, $event)">
+                <option *ngFor="let pageSize of pageSizeOptions" [value]="pageSize">{{ pageSize }}</option>
+              </select>
+            </label>
+            <button type="button" [disabled]="section.pageIndex === 0" (click)="goToPage(section, 0)">First</button>
             <button type="button" title="Previous page" aria-label="Previous page" [disabled]="section.pageIndex === 0"
               (click)="goToPage(section, section.pageIndex - 1)">
-              <i class="ri-arrow-left-s-line"></i>
+              Prev
             </button>
-            <button *ngFor="let page of section.pageNumbers; trackBy: trackByPage" type="button"
-              [class.report-pagination__page--active]="section.pageIndex === page - 1"
-              [attr.aria-label]="'Go to page ' + page" (click)="goToPage(section, page - 1)">
-              {{ page }}
-            </button>
+            <span class="app-pagination-pages">
+              <button *ngFor="let page of section.pageNumbers; trackBy: trackByPage" type="button"
+                [class.report-pagination__page--active]="section.pageIndex === page - 1"
+                [attr.aria-label]="'Go to page ' + page" (click)="goToPage(section, page - 1)">
+                {{ page }}
+              </button>
+            </span>
             <button type="button" title="Next page" aria-label="Next page"
               [disabled]="section.pageIndex >= section.totalPages - 1"
               (click)="goToPage(section, section.pageIndex + 1)">
-              <i class="ri-arrow-right-s-line"></i>
+              Next
             </button>
+            <button type="button" [disabled]="section.pageIndex >= section.totalPages - 1" (click)="goToPage(section, section.totalPages - 1)">Last</button>
           </div>
         </div>
 
       </section>
-  </ng-container>
+    </ng-container>
+  </div>
 </section>

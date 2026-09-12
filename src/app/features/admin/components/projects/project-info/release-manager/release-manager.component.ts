@@ -25,6 +25,10 @@ export interface Release {
   assignedTo?: string | number;
   assigned_to_id?: string | number;
   assignedToId?: string | number;
+  assigned_from?: string | number;
+  assignedFrom?: string | number;
+  assigned_from_id?: string | number;
+  assignedFromId?: string | number;
   assignee_name?: string;
   release_type: 'Internal' | 'External';
   ismail: boolean;
@@ -77,6 +81,9 @@ export class ReleaseManagerComponent {
   projectid: any = 0
   releaseTypeControl = new FormControl('');
   selectedReleaseType: string = 'All';
+  readonly releaseTypeOptions = ['Internal', 'External'];
+  filteredReleaseTypeOptions = [...this.releaseTypeOptions];
+  releaseTypeSearchText = '';
   releaseLoading = false;
   createReleaseLoading = false;
   deletingReleaseId: number | null = null;
@@ -314,7 +321,7 @@ export class ReleaseManagerComponent {
       movableColumns: true,
       selectable: true,
       editTriggerEvent: "dblclick",
-      paginationSizeSelector: [10, 15, 25, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       placeholder: "No Releases Found",
 
       headerSortElement: function (col: any, dir: any) {
@@ -634,16 +641,19 @@ export class ReleaseManagerComponent {
 
 
   canEditRelease(release: any): boolean {
-
     const loggedInEmpId = `${this.storageService.getEmpId() ?? ''}`;
-    const assignedFrom = `${release?.assigned_from ?? ''}`;
+    const assignedFrom = `${release?.assigned_from ?? release?.assignedFrom ?? release?.assigned_from_id ?? release?.assignedFromId ?? ''}`;
+    const assignedTo = `${release?.assigned_to ?? release?.assignedTo ?? release?.assigned_to_id ?? release?.assignedToId ?? ''}`;
     const roles = this.storageService.roles;
 
     if (roles?.isAdmin || roles?.isManager) {
       return true;
     }
 
-    return !!loggedInEmpId && !!assignedFrom && loggedInEmpId === assignedFrom;
+    return !!loggedInEmpId && (
+      (!!assignedFrom && loggedInEmpId === assignedFrom) ||
+      (!!assignedTo && loggedInEmpId === assignedTo)
+    );
   }
 
   canDragRelease(release: any): boolean {
@@ -679,6 +689,20 @@ export class ReleaseManagerComponent {
     this.selectedReleaseType = type;
     this.releaseTypeControl.setValue(type);
     this.applyFilters();
+  }
+
+  filterReleaseTypes(event: Event): void {
+    this.releaseTypeSearchText = (event.target as HTMLInputElement).value;
+    const query = this.releaseTypeSearchText.trim().toLowerCase();
+    this.filteredReleaseTypeOptions = query
+      ? this.releaseTypeOptions.filter(type => type.toLowerCase().includes(query))
+      : [...this.releaseTypeOptions];
+  }
+
+  onReleaseTypeSelectOpened(opened: boolean): void {
+    if (!opened) return;
+    this.releaseTypeSearchText = '';
+    this.filteredReleaseTypeOptions = [...this.releaseTypeOptions];
   }
 
   clearReleaseType() {

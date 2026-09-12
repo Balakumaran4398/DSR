@@ -25,6 +25,7 @@ export class AdminDocumentsComponent {
 	showUploadModal = false;
 		editModal = false;
 		isSubmitting = false;
+		validationSubmitted = false;
 		tableLoading = false;
 		deletingDocumentId: number | null = null;
 		downloadingDocumentId: number | null = null;
@@ -99,7 +100,7 @@ export class AdminDocumentsComponent {
 			pagination: 'local',
 			paginationSize: 10,
 			paginationCounter: 'rows',
-			paginationSizeSelector: [5, 10, 25, 50, 100],
+			paginationSizeSelector: [10, 25, 50, 100],
 			movableColumns: true,
 			selectable: true,
 			placeholder: 'No Data Found',
@@ -275,6 +276,7 @@ export class AdminDocumentsComponent {
 	}
 
 	addDoc() {
+		this.editModal = false;
 		this.showUploadModal = true;
 		this.resetForm();
 		document.body.classList.add('modal-open');
@@ -299,6 +301,7 @@ export class AdminDocumentsComponent {
 		this.selectedFiles = [];
 		this.fileNames = [];
 		this.deletedFileUrls = [];
+		this.syncAttachmentValidation();
 
 		document.body.classList.add('modal-open');
 	}
@@ -311,6 +314,7 @@ export class AdminDocumentsComponent {
 				this.deletedFileUrls.push(removedUrl);
 			}
 			this.doc.file_url.splice(index, 1);
+			this.syncAttachmentValidation(true);
 		}
 	}
 	closeModal() {
@@ -332,16 +336,9 @@ export class AdminDocumentsComponent {
 		const allowedFiles = files.filter(file => this.isAllowedDocumentFile(file));
 		const rejectedFiles = files.filter(file => !this.isAllowedDocumentFile(file));
 
-		if (rejectedFiles.length) {
-			this.toasterService.error('Only XLS, XLSX, PDF, PNG, JPG, or JPEG files are allowed');
-		}
-
 		if (!allowedFiles.length) {
-			if (!this.selectedFiles.length) {
-				this.uploadForm.patchValue({ file: '' });
-				this.uploadForm.get('file')?.setErrors({ invalidFileType: true });
-				this.uploadForm.get('file')?.markAsTouched();
-			}
+			this.uploadForm.get('file')?.setErrors({ invalidFileType: true });
+			this.uploadForm.get('file')?.markAsTouched();
 
 			input.value = '';
 			return;
@@ -357,7 +354,14 @@ export class AdminDocumentsComponent {
 		this.uploadForm.patchValue({
 			file: this.selectedFiles
 		});
-		this.uploadForm.get('file')?.setErrors(null);
+
+		if (rejectedFiles.length) {
+			this.uploadForm.get('file')?.setErrors({ invalidFileType: true });
+			this.uploadForm.get('file')?.markAsTouched();
+		} else {
+			this.uploadForm.get('file')?.setErrors(null);
+			this.syncAttachmentValidation();
+		}
 
 		console.log('Selected files:', this.selectedFiles);
 
@@ -372,10 +376,11 @@ export class AdminDocumentsComponent {
 		this.selectedFiles = [];
 		this.fileNames = [];
 		this.uploadForm.patchValue({ file: '' });
-		this.uploadForm.get('file')?.updateValueAndValidity();
+		this.syncAttachmentValidation(!!event);
 	}
 
 	resetForm() {
+		this.validationSubmitted = false;
 		this.uploadForm.reset();
 		this.clearFile();
 	}
@@ -384,42 +389,44 @@ export class AdminDocumentsComponent {
 		this.resetForm();
 	}
 
-		onSubmit() {
-			if (this.isSubmitting) return;
+	onSubmit() {
+		if (this.isSubmitting) return;
+		this.validationSubmitted = true;
 
-			if (this.uploadForm.get('title')?.invalid) {
-			this.toasterService.error('Please enter a valid document title');
-			this.uploadForm.get('title')?.markAsTouched();
-			return;
-		}
-
-		if (this.uploadForm.get('file')?.hasError('invalidFileType')) {
-			this.toasterService.error('Only XLS, XLSX, PDF, PNG, JPG, or JPEG files are allowed');
-			this.uploadForm.get('file')?.markAsTouched();
-			return;
-		}
-
-		if (this.uploadForm.invalid && !this.editModal) {
-			this.toasterService.error('Please fill all required fields');
-			Object.keys(this.uploadForm.controls).forEach(key => {
-				this.uploadForm.get(key)?.markAsTouched();
-			});
-			return;
-		}
-
-		if (!this.editModal && !this.selectedFiles.length) {
-			this.toasterService.error('Please select a file');
-			return;
-		}
+		const titleControl = this.uploadForm.get('title');
+		const fileControl = this.uploadForm.get('file');
+		titleControl?.markAsTouched();
+		titleControl?.updateValueAndValidity();
+		this.syncAttachmentValidation(true);
 
 		if (this.hasInvalidSelectedFiles()) {
-			this.toasterService.error('Only XLS, XLSX, PDF, PNG, JPG, or JPEG files are allowed');
-			this.uploadForm.get('file')?.setErrors({ invalidFileType: true });
-			this.uploadForm.get('file')?.markAsTouched();
+			fileControl?.setErrors({ ...(fileControl.errors || {}), invalidFileType: true });
+		}
+
+		if (titleControl?.invalid || fileControl?.invalid) {
 			return;
 		}
 
 		this.submitDocument();
+	}
+
+	private syncAttachmentValidation(markAsTouched = false): void {
+		const fileControl = this.uploadForm.get('file');
+		if (!fileControl) return;
+
+		const hasNewFiles = this.selectedFiles.length > 0;
+		const hasExistingFiles = this.editModal && Array.isArray(this.doc?.file_url) && this.doc.file_url.length > 0;
+		const errors = { ...(fileControl.errors || {}) };
+
+		delete errors['required'];
+		if (!hasNewFiles && !hasExistingFiles && !errors['invalidFileType']) {
+			errors['required'] = true;
+		}
+
+		fileControl.setErrors(Object.keys(errors).length ? errors : null);
+		if (markAsTouched) {
+			fileControl.markAsTouched();
+		}
 	}
 
 	private hasInvalidSelectedFiles(): boolean {
@@ -440,7 +447,7 @@ export class AdminDocumentsComponent {
 		this.isSubmitting = true;
 
 		const formData = new FormData();
-		formData.append('title', this.uploadForm.get('title')?.value);
+		formData.append('title', `${this.uploadForm.get('title')?.value ?? ''}`.trim());
 
 		if (this.editModal) {
 			formData.append('id', this.doc.id.toString());

@@ -19,6 +19,7 @@
     <div
       class="overall-details-table-wrap"
       [class.overall-details-table-wrap--scrolling]="scrollbarVisible"
+      [class.app-table-scroll--ten-row-viewport]="pageSize > tableVisibleRowCount"
       
       (scroll)="showTableScrollbar()">
       <table class="overall-details-table">
@@ -65,31 +66,40 @@
       <span>
         Showing {{ showingFrom }}-{{ showingTo }} of {{ rows.length }} records
       </span>
-      <span class="overall-details-page-size">10 rows/page</span>
       <div class="overall-details-pagination" aria-label="Details pagination">
+        <label class="overall-details-page-size-control">
+          <span>Page Size</span>
+          <select [value]="pageSize" (change)="onPageSizeChange($event)" aria-label="Page size">
+            <option *ngFor="let option of pageSizeOptions; trackBy: trackByNumber" [value]="option">{{ option }}</option>
+          </select>
+        </label>
+        <button type="button" [disabled]="pageIndex === 0" (click)="goToPage(0)">First</button>
         <button
           type="button"
           title="Previous page"
           aria-label="Previous page"
           [disabled]="pageIndex === 0"
           (click)="goToPage(pageIndex - 1)">
-          <i class="ri-arrow-left-s-line"></i>
+          Prev
         </button>
-        <button
-          *ngFor="let page of pageNumbers; trackBy: trackByNumber"
-          type="button"
-          [class.overall-details-pagination__page--active]="pageIndex === page - 1"
-          (click)="goToPage(page - 1)">
-          {{ page }}
-        </button>
+        <span class="app-pagination-pages">
+          <button
+            *ngFor="let page of pageNumbers; trackBy: trackByNumber"
+            type="button"
+            [class.overall-details-pagination__page--active]="pageIndex === page - 1"
+            (click)="goToPage(page - 1)">
+            {{ page }}
+          </button>
+        </span>
         <button
           type="button"
           title="Next page"
           aria-label="Next page"
           [disabled]="pageIndex >= totalPages - 1"
           (click)="goToPage(pageIndex + 1)">
-          <i class="ri-arrow-right-s-line"></i>
+          Next
         </button>
+        <button type="button" [disabled]="pageIndex >= totalPages - 1" (click)="goToPage(totalPages - 1)">Last</button>
       </div>
     </div>
   </div>

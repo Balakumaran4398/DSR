@@ -7,6 +7,7 @@ import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { TransientViewStateService } from 'src/app/_core/services/transient-view-state.service';
 import { formatStatusPill } from 'src/app/_core/utils/status-pill.util';
+import { attachStandardTabulatorPagination } from 'src/app/_core/utils/tabulator-pagination.util';
 import Swal from 'sweetalert2';
 declare const Tabulator: any;
 declare const luxon: any;
@@ -64,6 +65,8 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
   initialStartDate: string | null = null;
   initialEndDate: string | null = null;
   versionList: any[] = [];
+  filteredVersionList: any[] = [];
+  versionSearchText = '';
   taskCategory: any[] = [];
   tableLoading = false;
   deletingTaskId: number | null = null;
@@ -214,7 +217,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
       movableColumns: true,
       selectable: true,
       editTriggerEvent: "dblclick",
-      paginationSizeSelector: [10, 15, 25, 30, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       placeholder: "No Data Found",
       headerSortElement: function (col: any, dir: any) {
         if (dir === "asc") return '<i class="ri-arrow-up-line text-xs ml-1"></i>';
@@ -444,6 +447,8 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
         }
       ],
     });
+
+    attachStandardTabulatorPagination(this.table);
 
     this.table.on("rowSelectionChanged", (data: any[], rows: any[]) => {
       this.selectedCount = rows.length;
@@ -1131,12 +1136,27 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
     this.getTasksByProjectIdNdEmployeeId();
   }
 
+  filterVersions(event: Event): void {
+    this.versionSearchText = (event.target as HTMLInputElement).value;
+    const query = this.versionSearchText.trim().toLowerCase();
+    this.filteredVersionList = query
+      ? this.versionList.filter(item => `${item ?? ''}`.toLowerCase().includes(query))
+      : [...this.versionList];
+  }
+
+  onVersionSelectOpened(opened: boolean): void {
+    if (!opened) return;
+    this.versionSearchText = '';
+    this.filteredVersionList = [...this.versionList];
+  }
+
   loadVersionList(): void {
     if (!this.projectid) return;
 
     this.authService.getVersionsById(this.projectid).subscribe({
       next: (res: any) => {
         this.versionList = Array.isArray(res) ? res : [];
+        this.filteredVersionList = [...this.versionList];
         this.version = this.versionList.includes(this.version) ? this.version : '';
       },
       error: (err: any) => {

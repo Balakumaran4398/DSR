@@ -3,6 +3,201 @@
 .text-active { color: var(--text-active) !important; }
 .border-active { border-color: var(--text-active) !important; }
 
+.release-mails-list {
+    background: var(--bg-card, #ffffff);
+    color: var(--text-main, #0f172a);
+
+    .bg-white,
+    .bg-white\/95 {
+        background-color: var(--bg-card, #ffffff);
+    }
+
+    .bg-slate-50\/30 {
+        background-color: var(--bg-body, #f8fafc);
+    }
+
+    .border-slate-100,
+    .border-slate-200 {
+        border-color: var(--border-card, #e2e8f0);
+    }
+
+    .text-slate-900,
+    .text-slate-800 {
+        color: var(--text-main, #0f172a);
+    }
+
+    .text-slate-700,
+    .text-slate-600 {
+        color: var(--text-soft, #475569);
+    }
+
+    .text-slate-500,
+    .text-slate-400 {
+        color: var(--text-muted, #64748b);
+    }
+
+    .text-blue-600 {
+        color: var(--text-active, #2563eb);
+    }
+}
+
+.release-mails-list__header {
+    background-color: color-mix(in srgb, var(--bg-card, #ffffff) 94%, transparent);
+    border-color: var(--border-card, #e2e8f0);
+}
+
+.release-mails-list__content {
+    background: var(--bg-body, #f8fafc);
+}
+
+.release-mails-list__tab--active {
+    color: var(--text-active, #2563eb) !important;
+    border-color: var(--text-active, #2563eb) !important;
+}
+
+.release-mail-status {
+    border: 1px solid transparent !important;
+    color: #334155 !important;
+    background: #f1f5f9 !important;
+}
+
+.release-mail-status--success {
+    color: #047857 !important;
+    background: #d1fae5 !important;
+    border-color: #6ee7b7 !important;
+}
+
+.release-mail-status--info {
+    color: #1d4ed8 !important;
+    background: #dbeafe !important;
+    border-color: #93c5fd !important;
+}
+
+.release-mail-status--warning {
+    color: #b45309 !important;
+    background: #fef3c7 !important;
+    border-color: #fcd34d !important;
+}
+
+.release-mail-status--danger {
+    color: #b91c1c !important;
+    background: #fee2e2 !important;
+    border-color: #fca5a5 !important;
+}
+
+:host-context(.dark-mode) .release-mails-list {
+    .bg-white,
+    .bg-white\/95,
+    .bg-slate-50\/30 {
+        background-color: var(--bg-card) !important;
+    }
+
+    .bg-gray-300,
+    .bg-slate-100 {
+        background-color: var(--bg-elevated) !important;
+    }
+
+    .border-slate-100,
+    .border-slate-200,
+    .border-white,
+    .border-gray-200 {
+        border-color: var(--border-card) !important;
+    }
+
+    .text-slate-900,
+    .text-slate-800 {
+        color: var(--text-main) !important;
+    }
+
+    .text-slate-700,
+    .text-slate-600 {
+        color: var(--text-soft) !important;
+    }
+
+    .text-slate-500,
+    .text-slate-400,
+    .text-gray-500 {
+        color: var(--text-muted) !important;
+    }
+
+    .text-blue-600,
+    .hover\:text-slate-700:hover,
+    .hover\:text-slate-800:hover {
+        color: var(--text-active) !important;
+    }
+
+    [class~="bg-blue-50"],
+    [class~="bg-blue-50/40"] {
+        background-color: color-mix(in srgb, #3b82f6 18%, var(--bg-card)) !important;
+    }
+
+    [class~="bg-purple-50"],
+    [class~="bg-purple-50/40"] {
+        background-color: color-mix(in srgb, #a855f7 18%, var(--bg-card)) !important;
+    }
+
+    [class~="bg-emerald-50"],
+    [class~="bg-emerald-100"] {
+        background-color: color-mix(in srgb, #10b981 18%, var(--bg-card)) !important;
+    }
+
+    [class~="text-blue-700"] { color: #93c5fd !important; }
+    [class~="text-purple-700"] { color: #d8b4fe !important; }
+    [class~="text-emerald-700"] { color: #86efac !important; }
+    [class~="border-blue-100"],
+    [class~="border-blue-200"] { border-color: color-mix(in srgb, #3b82f6 42%, var(--border-card)) !important; }
+    [class~="border-purple-100"],
+    [class~="border-purple-200"] { border-color: color-mix(in srgb, #a855f7 42%, var(--border-card)) !important; }
+    [class~="border-emerald-200"] { border-color: color-mix(in srgb, #10b981 42%, var(--border-card)) !important; }
+}
+
+:host-context(.dark-mode) .release-mail-status {
+    color: var(--text-soft) !important;
+    background: var(--bg-elevated) !important;
+    border-color: var(--border-card) !important;
+}
+
+:host-context(.dark-mode) .release-mail-status--success {
+    color: #86efac !important;
+    background: color-mix(in srgb, #10b981 22%, var(--bg-card)) !important;
+    border-color: color-mix(in srgb, #10b981 52%, var(--border-card)) !important;
+}
+
+:host-context(.dark-mode) .release-mail-status--info {
+    color: #93c5fd !important;
+    background: color-mix(in srgb, #3b82f6 22%, var(--bg-card)) !important;
+    border-color: color-mix(in srgb, #3b82f6 52%, var(--border-card)) !important;
+}
+
+:host-context(.dark-mode) .release-mail-status--warning {
+    color: #fcd34d !important;
+    background: color-mix(in srgb, #f59e0b 22%, var(--bg-card)) !important;
+    border-color: color-mix(in srgb, #f59e0b 52%, var(--border-card)) !important;
+}
+
+:host-context(.dark-mode) .release-mail-status--danger {
+    color: #fca5a5 !important;
+    background: color-mix(in srgb, #ef4444 22%, var(--bg-card)) !important;
+    border-color: color-mix(in srgb, #ef4444 52%, var(--border-card)) !important;
+}
+
+:host-context(.dark-mode) ::ng-deep .release-mails-list .mat-mdc-text-field-wrapper {
+    background: var(--bg-elevated);
+}
+
+:host-context(.dark-mode) ::ng-deep .release-mails-list .mat-mdc-input-element,
+:host-context(.dark-mode) ::ng-deep .release-mails-list textarea,
+:host-context(.dark-mode) ::ng-deep .release-mails-list .mdc-floating-label {
+    color: var(--text-main) !important;
+    -webkit-text-fill-color: var(--text-main);
+}
+
+:host-context(.dark-mode) ::ng-deep .release-mails-list .mdc-notched-outline__leading,
+:host-context(.dark-mode) ::ng-deep .release-mails-list .mdc-notched-outline__notch,
+:host-context(.dark-mode) ::ng-deep .release-mails-list .mdc-notched-outline__trailing {
+    border-color: var(--border-card) !important;
+}
+
 .focus\:outline-none:focus {
     outline: 0px solid transparent;
     outline-offset: 2px;

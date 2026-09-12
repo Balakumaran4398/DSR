@@ -47,7 +47,7 @@ export class MailComponent {
       pagination: 'local',
       paginationSize: 10,
       paginationCounter: 'rows',
-      paginationSizeSelector: [5, 10, 25, 50, 100],
+      paginationSizeSelector: [10, 25, 50, 100],
       movableColumns: true,
       selectable: true,
       height: "900px",

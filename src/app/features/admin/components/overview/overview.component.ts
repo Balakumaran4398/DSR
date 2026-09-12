@@ -59,7 +59,11 @@ export class OverviewComponent {
     const savedTab = sessionStorage.getItem(this.tabStorageKey);
     const savedTabIsAvailable = this.mainTabs.some(tab => tab.id === savedTab);
 
-    this.activeTabId = savedTabIsAvailable ? savedTab! : roleDefaultTab;
+    // Admins always land on the organization-wide report when Overview opens.
+    // Managers and employees can continue from their last available tab.
+    this.activeTabId = isAdmin
+      ? this.overallPerformanceTab.id
+      : savedTabIsAvailable ? savedTab! : roleDefaultTab;
     sessionStorage.setItem(this.tabStorageKey, this.activeTabId);
   }
 

@@ -1,0 +1,109 @@
+:host {
+  display: block;
+}
+
+.user-form-shell {
+  background: var(--bg-body);
+  color: var(--text-main);
+}
+
+.user-form-card,
+.user-form-content {
+  background: var(--form-bg);
+  color: var(--text-main);
+}
+
+.user-form-header,
+.user-form-settings {
+  background: var(--form-surface);
+  border-color: var(--border-card);
+}
+
+.user-form-settings-title {
+  color: var(--text-muted);
+}
+
+:host ::ng-deep .user-form-privilege-checkbox .mdc-label {
+  color: var(--text-main);
+}
+
+:host ::ng-deep .user-form-settings .mat-mdc-checkbox,
+:host ::ng-deep .user-form-settings .mat-mdc-checkbox .mdc-form-field {
+  color: var(--text-main) !important;
+  --mdc-checkbox-unselected-icon-color: var(--form-border);
+  --mdc-checkbox-unselected-hover-icon-color: var(--text-active);
+  --mdc-checkbox-unselected-focus-icon-color: var(--text-active);
+  --mdc-checkbox-unselected-pressed-icon-color: var(--text-active);
+  --mdc-checkbox-selected-icon-color: var(--brand-color);
+  --mdc-checkbox-selected-hover-icon-color: var(--brand-color);
+  --mdc-checkbox-selected-focus-icon-color: var(--brand-color);
+  --mdc-checkbox-selected-pressed-icon-color: var(--brand-color);
+  --mdc-checkbox-label-text-color: var(--text-main);
+}
+
+:host ::ng-deep .user-form-privilege-checkbox .mdc-checkbox__background {
+  border-color: var(--form-border);
+}
+
+:host ::ng-deep .user-form-privilege-checkbox.mat-mdc-checkbox-checked .mdc-checkbox__background {
+  background-color: var(--brand-color);
+  border-color: var(--brand-color);
+}
+
+:host-context(.dark-mode) ::ng-deep .user-form-privilege-checkbox .mdc-checkbox__checkmark-path {
+  stroke: var(--text-on-active);
+}
+
+:host ::ng-deep .user-form-shell .mat-mdc-card,
+:host ::ng-deep .user-form-shell .mat-mdc-form-field,
+:host ::ng-deep .user-form-shell .mat-mdc-checkbox {
+  color: var(--text-main);
+}
+
+:host-context(.dark-mode) .user-form-shell .text-slate-900,
+:host-context(.dark-mode) .user-form-shell .text-slate-800,
+:host-context(.dark-mode) .user-form-shell .text-slate-700 {
+  color: var(--text-main) !important;
+}
+
+:host-context(.dark-mode) .user-form-shell .text-slate-600,
+:host-context(.dark-mode) .user-form-shell .text-slate-500,
+:host-context(.dark-mode) .user-form-shell .text-slate-400,
+:host-context(.dark-mode) .user-form-shell .text-slate-300,
+:host-context(.dark-mode) .user-form-shell .text-slate-200 {
+  color: var(--text-muted) !important;
+}
+
+:host-context(.dark-mode) .user-form-shell .bg-white,
+:host-context(.dark-mode) .user-form-shell .bg-slate-50,
+:host-context(.dark-mode) .user-form-shell .bg-slate-100 {
+  background-color: var(--form-surface) !important;
+}
+
+:host-context(.dark-mode) .user-form-shell .border-slate-100,
+:host-context(.dark-mode) .user-form-shell .border-slate-200,
+:host-context(.dark-mode) .user-form-shell .border-slate-300 {
+  border-color: var(--form-border) !important;
+}
+
+:host-context(.dark-mode) .user-form-shell .bg-red-50 {
+  background-color: color-mix(in srgb, var(--danger) 15%, var(--form-surface)) !important;
+}
+
+:host-context(.dark-mode) .user-form-shell .bg-red-100 {
+  background-color: color-mix(in srgb, var(--danger) 25%, var(--form-surface)) !important;
+}
+
+:host ::ng-deep .user-form-shell .mat-mdc-text-field-wrapper {
+  background-color: var(--form-bg);
+}
+
+:host-context(.dark-mode) ::ng-deep .user-form-shell .mat-mdc-text-field-wrapper {
+  background-color: var(--form-surface);
+}
+
+:host-context(.dark-mode) ::ng-deep .user-form-shell .mdc-text-field--outlined .mdc-notched-outline__leading,
+:host-context(.dark-mode) ::ng-deep .user-form-shell .mdc-text-field--outlined .mdc-notched-outline__notch,
+:host-context(.dark-mode) ::ng-deep .user-form-shell .mdc-text-field--outlined .mdc-notched-outline__trailing {
+  border-color: var(--form-border) !important;
+}

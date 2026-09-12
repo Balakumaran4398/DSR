@@ -258,12 +258,31 @@
   text-align: center !important;
 }
 
+.overall-details-page-size-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.overall-details-page-size-control select {
+  height: 2rem;
+  padding: 0 1.8rem 0 0.6rem;
+  border: 1px solid var(--overlay-border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-main);
+}
+
 .overall-details-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: wrap;
+  width: 100%;
   color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 800;
@@ -286,10 +305,15 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  max-width: 100%;
+  overflow-x: auto;
+  margin-left: auto;
 }
 
 .overall-details-pagination button {
-  width: 2rem;
+  flex: 0 0 auto;
+  min-width: 2rem;
+  width: auto;
   height: 2rem;
   display: inline-flex;
   align-items: center;
@@ -299,6 +323,7 @@
   background: var(--bg-card);
   color: var(--text-main);
   font: inherit;
+  padding: 0 0.5rem;
   cursor: pointer;
   transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
 }
@@ -324,6 +349,7 @@
 
   .overall-details-pagination {
     flex-wrap: wrap;
+    margin-left: 0;
   }
 }
 
