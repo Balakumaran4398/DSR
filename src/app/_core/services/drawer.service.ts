@@ -52,6 +52,16 @@ export type DrawerType = 'task' | 'project' | 'member' | 'teammate' | 'release' 
 export type DrawerTaskFormType = 'requirement' | 'bug';
 export type DrawerFormType = DrawerTaskFormType | null;
 
+export interface DrawerTaskCreateContext {
+  mode: 'create';
+  employee_id: string | number;
+  employee_name?: string;
+  start_date: string;
+  end_date: string;
+  locked_fields: Array<'start_date' | 'end_date'>;
+  not_send_dsr_request_id: string | number;
+}
+
 export interface DrawerAction {
   source: DrawerType;
   action: 'created' | 'updated' | 'deleted';

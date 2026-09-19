@@ -53,6 +53,7 @@ import { OverallDetailsDialogComponent } from './components/overall/overall-deta
 import { OverallPerformanceReportComponent } from './components/overview/overall-performance-report/overall-performance-report.component';
 import { PerformanceComponent } from './components/performance/performance.component';
 import { GoogleSheetComponent } from './components/google-sheet/google-sheet.component';
+import { NotSendDsrRequestDialogComponent } from './components/projects/project-info/_core/not-send-dsr/not-send-dsr-request-dialog.component';
 @NgModule({
   declarations: [
     DashboardComponent,
@@ -103,6 +104,7 @@ import { GoogleSheetComponent } from './components/google-sheet/google-sheet.com
     OverallPerformanceReportComponent,
     PerformanceComponent,
     GoogleSheetComponent,
+    NotSendDsrRequestDialogComponent,
 
   ],
   imports: [

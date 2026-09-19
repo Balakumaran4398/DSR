@@ -5,3 +5,9 @@ button.mat-mdc-unelevated-button[disabled] {
   opacity: 0.65;      /* Standard muted opacity for disabled elements */
   cursor: not-allowed;
 }
+
+// The global theme hides Material's subscript wrapper. This form needs it for
+// required-field errors and the Version format hint.
+:host ::ng-deep .release-form-validation .mat-mdc-form-field-subscript-wrapper {
+  display: block !important;
+}

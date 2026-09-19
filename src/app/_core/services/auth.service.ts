@@ -12,6 +12,19 @@ import { NotificationDateRange, NotificationDateRangeService } from './notificat
 const AUTH_URL = URL.AUTH_URL();
 const BASE_URL = URL.BASE_URL();
 const LOADER_SHOW_HEADER = 'X-Show-Loader';
+
+export interface NotSendDsrRequestPayload {
+  employee_id: number;
+  date: string;
+  reason: string;
+}
+
+export type NotSendDsrDecision = 'APPROVED' | 'REJECTED';
+
+export interface NotSendDsrDecisionPayload {
+  status: NotSendDsrDecision;
+  reason?: string;
+}
 @Injectable({
   providedIn: 'root'
 })
@@ -352,6 +365,14 @@ export class AuthService {
     return this.http.get(
       `${BASE_URL}/common/getnotsenddsr?employee_id=${payload.employee_id}&selected_employee_id=${payload.selected_employee_id}&fromdate=${payload.fromdate}&todate=${payload.todate}`
     )
+  }
+
+  createNotSendDsrRequest(payload: NotSendDsrRequestPayload) {
+    return this.http.post(`${BASE_URL}/common/notsenddsr/requests`, payload);
+  }
+
+  decideNotSendDsrRequest(requestId: number, payload: NotSendDsrDecisionPayload) {
+    return this.http.patch(`${BASE_URL}/common/notsenddsr/requests/${requestId}/decision`, payload);
   }
 
   getBestEmployee(payload: { employee_id: any; department_id: any; fromdate: string; todate: string; top?: number }): Observable<any> {

@@ -66,56 +66,56 @@
 .theme-blue {
     --brand-color: #3B82F6;
     --bg-active: #EFF6FF;
-    --text-active: #1D4ED8;
+    --text-active: #557ff5;
     --text-on-active: #ffffff;
 }
 
 .theme-indigo {
     --brand-color: #6366F1;
     --bg-active: #EEF2FF;
-    --text-active: #4338CA;
+    --text-active: #6e62e9;
     --text-on-active: #ffffff;
 }
 
 .theme-purple {
     --brand-color: #A855F7;
     --bg-active: #FAF5FF;
-    --text-active: #7E22CE;
+    --text-active: #a052e4;
     --text-on-active: #ffffff;
 }
 
 .theme-violet {
     --brand-color: #8B5CF6;
     --bg-active: #F5F3FF;
-    --text-active: #6D28D9;
+    --text-active: #8247e2;
     --text-on-active: #ffffff;
 }
 
 .theme-pink {
     --brand-color: #EC4899;
     --bg-active: #FDF2F8;
-    --text-active: #DB2777;
+    --text-active: #df6099;
     --text-on-active: #ffffff;
 }
 
 .theme-red {
     --brand-color: #EF4444;
     --bg-active: #FEF2F2;
-    --text-active: #DC2626;
+    --text-active: #e04848;
     --text-on-active: #ffffff;
 }
 
 .theme-orange {
     --brand-color: #F97316;
     --bg-active: #FFF7ED;
-    --text-active: #C2410C;
+    --text-active: #d1744f;
     --text-on-active: #ffffff;
 }
 
 .theme-amber {
     --brand-color: #F59E0B;
     --bg-active: #FFFBEB;
-    --text-active: #B45309;
+    --text-active: #c9793d;
     --text-on-active: #ffffff;
 }
 
@@ -123,21 +123,21 @@
 .theme-emerald {
     --brand-color: #22C55E;
     --bg-active: #F0FDF4;
-    --text-active: #15803D;
+    --text-active: #45c775;
     --text-on-active: #ffffff;
 }
 
 .theme-teal {
     --brand-color: #14B8A6;
     --bg-active: #F0FDFA;
-    --text-active: #0F766E;
+    --text-active: #3faca3;
     --text-on-active: #ffffff;
 }
 
 .theme-cyan {
     --brand-color: #06B6D4;
     --bg-active: #ECFEFF;
-    --text-active: #0E7490;
+    --text-active: #41a1bb;
     --text-on-active: #ffffff;
 }
 
@@ -145,7 +145,7 @@
 .theme-black {
     --brand-color: #1E3A8A;
     --bg-active: #EFF6FF;
-    --text-active: #1E3A8A;
+    --text-active: #4660a5;
     --text-on-active: #ffffff;
 }
 
@@ -1127,7 +1127,7 @@ body.dark-mode .app-status-pill--muted {
 
 .mat-mdc-form-field-subscript-wrapper {
     // display: block !important;
-    display: none !important;
+    // display: none !important;
 }
 
 .cdk-overlay-pane.profile-skill-dialog-panel,

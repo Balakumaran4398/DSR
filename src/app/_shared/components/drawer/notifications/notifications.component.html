@@ -256,6 +256,55 @@
 
       <!-- 4. Not sent DSR Card Group -->
       <div
+        class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden transition-all shadow-xs hover:border-blue-200">
+        <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
+          (click)="toggleDsrRequestExpand()">
+          <div class="flex items-center gap-3">
+            <div
+              class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm border border-blue-100">
+              {{ dsrRequestCount }}
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">DSR Requests</h3>
+              <p class="text-xs text-slate-600">Approvals and request decisions</p>
+            </div>
+          </div>
+          <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 transition-transform duration-300"
+            [class.rotate-180]="isDsrRequestExpanded">
+            <i class="ri-arrow-down-s-line"></i>
+          </div>
+        </div>
+
+        <div class="grid transition-all duration-300 ease-in-out"
+          [style.grid-template-rows]="isDsrRequestExpanded ? '1fr' : '0fr'">
+          <div class="overflow-hidden">
+            <div class="px-4 pb-4 pt-1 border-t border-slate-100">
+              <div *ngIf="dsrRequests.length === 0" class="text-xs text-slate-400 py-4 text-center">
+                No DSR request notifications.
+              </div>
+              <div class="max-h-[250px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                <button type="button" *ngFor="let request of dsrRequests" (click)="navigateToDsrRequest(request)"
+                  class="w-full text-left rounded-xl border border-slate-100 bg-slate-50/40 p-3 hover:bg-slate-100/60 transition-colors">
+                  <div class="flex items-center justify-between gap-3">
+                    <span class="text-xs font-bold text-slate-800 truncate">{{ request.employee_name }}</span>
+                    <span class="text-[10px] font-bold uppercase tracking-wide"
+                      [ngClass]="getDsrRequestStatus(request) === 'REJECTED' ? 'text-red-600' : getDsrRequestStatus(request) === 'APPROVED' ? 'text-emerald-600' : 'text-amber-600'">
+                      {{ getDsrRequestStatus(request).replace('_', ' ') }}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between gap-3 mt-1 text-[11px] text-slate-500">
+                    <span>{{ request.rejection_reason || request.request_reason || 'Open request details' }}</span>
+                    <span class="shrink-0">{{ request.date || request.missing_date }}</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Not sent DSR Card Group -->
+      <div
         class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden transition-all shadow-xs hover:border-emerald-200">
         <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
           (click)="toggleDsrExpand()">

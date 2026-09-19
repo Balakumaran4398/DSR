@@ -87,7 +87,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
       this.total = this.toNumber(data?.ticket_count)
         + this.toNumber(data?.total_issue_count)
         + this.toNumber(data?.total_release_count)
-        + this.toNumber(data?.not_send_dsr_count);
+        + this.toNumber(data?.not_send_dsr_count)
+        + this.toNumber(data?.not_send_dsr_request_count);
     });
     this.notificationLoadingSubscription = this.authService.notificationLoading$.subscribe(isLoading => {
       this.notificationLoading = isLoading;

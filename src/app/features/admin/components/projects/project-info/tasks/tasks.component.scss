@@ -2,6 +2,22 @@
   display: block;
 }
 
+:host ::ng-deep .tabulator-row.generated-task-highlight {
+  position: relative;
+  background: color-mix(in srgb, var(--text-active) 16%, var(--bg-card)) !important;
+  box-shadow: inset 4px 0 0 var(--text-active), inset 0 0 0 1px color-mix(in srgb, var(--text-active) 45%, transparent);
+  animation: generated-task-pulse 1.2s ease-in-out 2;
+}
+
+:host ::ng-deep .tabulator-row.generated-task-highlight .tabulator-cell {
+  background: transparent !important;
+}
+
+@keyframes generated-task-pulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.08); }
+}
+
 :host ::ng-deep .tabulator-tableholder {
   overflow-x: auto !important;
   -webkit-overflow-scrolling: touch;

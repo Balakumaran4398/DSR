@@ -56,6 +56,9 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
   private routeQueryParamSubscription?: Subscription;
   private navigationRangeKey = '';
   private hasNavigationDateRange = false;
+  private generatedTaskId: string | null = null;
+  private notSendDsrDate: string | null = null;
+  private notSendDsrRequestId: string | null = null;
   selectTask: any
   empid: any = 0;
   version: any = '';
@@ -76,6 +79,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
     this.projectid = this.route.snapshot.paramMap.get('projectid');
     this.empid = this.storageService.getEmpId();
     this.restoreViewState();
+    this.applyGeneratedTaskContext();
     this.hasNavigationDateRange = this.applyNavigationDateRange();
     if (!this.fromdate || !this.todate) {
       this.setCurrentMondayToSaturdayRange();
@@ -85,6 +89,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
   ngOnInit() {
     this.loadVersionList();
     this.routeQueryParamSubscription = this.route.queryParamMap.subscribe(params => {
+      this.applyGeneratedTaskContext(params);
       if (this.applyNavigationDateRange(params)) {
         this.getTasksByProjectIdNdEmployeeId();
       }
@@ -147,6 +152,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
           if (this.table) {
             this.safeReplaceData(this.table, this.tableData);
             this.applySearchFilter();
+            this.highlightGeneratedTask();
             if (this.pendingStateRestore) {
               this.restoreTableState();
             }
@@ -483,12 +489,14 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
     });
 
     this.table.on('tableBuilt', () => {
+      this.highlightGeneratedTask();
       if (this.pendingStateRestore) {
         this.restoreTableState();
       }
     });
 
     this.table.on('dataProcessed', () => {
+      this.highlightGeneratedTask();
       if (this.pendingStateRestore) {
         this.restoreTableState();
       }
@@ -900,7 +908,10 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
     return {
       tasktype: navigationTaskType || null,
       fromdate: navigationFromDate || null,
-      todate: navigationToDate || null
+      todate: navigationToDate || null,
+      generatedTaskId: this.generatedTaskId,
+      notSendDsrDate: this.notSendDsrDate,
+      notSendDsrRequestId: this.notSendDsrRequestId
     };
   }
 
@@ -974,6 +985,48 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
     this.suppressInitialRangeFetch = true;
     this.tableStateRestoreAttempts = 0;
     return true;
+  }
+
+  private applyGeneratedTaskContext(params = this.route.snapshot.queryParamMap): void {
+    this.generatedTaskId = params.get('generatedTaskId');
+    this.notSendDsrDate = params.get('notSendDsrDate');
+    this.notSendDsrRequestId = params.get('notSendDsrRequestId');
+
+    if (!this.generatedTaskId) {
+      this.clearGeneratedTaskHighlight();
+    }
+  }
+
+  private highlightGeneratedTask(): void {
+    if (!this.generatedTaskId || !this.table) return;
+    const generatedTaskId = this.generatedTaskId;
+
+    setTimeout(() => {
+      if (this.destroyed || !this.table || this.generatedTaskId !== generatedTaskId) return;
+      try {
+        const row = this.table.getRow?.(generatedTaskId)
+          || this.table.getRows?.().find((candidate: any) => `${candidate?.getData?.()?.id ?? ''}` === generatedTaskId);
+        if (!row) return;
+
+        this.clearGeneratedTaskHighlight();
+        row.getElement?.().classList.add('generated-task-highlight');
+        row.select?.();
+        const scrollResult = row.scrollTo?.('center', false);
+        Promise.resolve(scrollResult).catch(() => { });
+      } catch {
+        // Highlighting is best-effort while Tabulator is rebuilding or changing pages.
+      }
+    }, 75);
+  }
+
+  private clearGeneratedTaskHighlight(): void {
+    try {
+      this.table?.getRows?.().forEach((row: any) => {
+        row?.getElement?.().classList.remove('generated-task-highlight');
+      });
+    } catch {
+      // Ignore cleanup while Tabulator is rebuilding.
+    }
   }
 
   private isValidDateRangeValue(value: string | null): value is string {

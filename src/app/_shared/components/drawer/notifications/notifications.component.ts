@@ -35,6 +35,9 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   isDsrExpanded: boolean = false;
   dsrCount = 0;
   dsr: any[] = [];
+  dsrRequests: any[] = [];
+  dsrRequestCount = 0;
+  isDsrRequestExpanded = false;
   expandedProjects: { [projectId: number]: boolean } = {};
 
   @ViewChild('customPopup') customPopupRef?: ElementRef;
@@ -102,13 +105,16 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     this.ticket_count = res.ticket_count;
     this.issues = res.total_issue_count;
     this.release = res.total_release_count;
-    this.tickets = res.tickets;
+    this.tickets = Array.isArray(res?.tickets) ? res.tickets : [];
     this.dsrCount = res.not_send_dsr_count;
-    this.dsr = res.not_send_dsr;
+    this.dsr = Array.isArray(res?.not_send_dsr) ? res.not_send_dsr : [];
+    this.dsrRequests = Array.isArray(res?.not_send_dsr_requests) ? res.not_send_dsr_requests : [];
+    this.dsrRequestCount = this.toNumber(res?.not_send_dsr_request_count ?? this.dsrRequests.length);
     this.total = this.toNumber(res?.ticket_count)
       + this.toNumber(res?.total_issue_count)
       + this.toNumber(res?.total_release_count)
-    + this.toNumber(res?.not_send_dsr_count);
+    + this.toNumber(res?.not_send_dsr_count)
+    + this.dsrRequestCount;
 
     // Store ALL projects so releases and issues can filter independently.
     this.projects = res.project_counts || [];
@@ -366,6 +372,16 @@ export class NotificationsComponent implements OnInit, OnDestroy {
       this.isExpanded = false;
       this.isReleaseExpanded = false;
       this.isTicketExpanded = false;
+      this.isDsrRequestExpanded = false;
+    }
+  }
+  toggleDsrRequestExpand() {
+    this.isDsrRequestExpanded = !this.isDsrRequestExpanded;
+    if (this.isDsrRequestExpanded) {
+      this.isExpanded = false;
+      this.isReleaseExpanded = false;
+      this.isTicketExpanded = false;
+      this.isDsrExpanded = false;
     }
   }
   navigateTodsr() {
@@ -374,5 +390,22 @@ export class NotificationsComponent implements OnInit, OnDestroy {
       queryParams: this.getNavigationDateQueryParams()
     });
     this.drawerService.close();
+  }
+
+  navigateToDsrRequest(request: any) {
+    const date = request?.date || request?.missing_date;
+    this.storeNotificationDateRange();
+    this.router.navigate(['/main/notsenddsr'], {
+      queryParams: {
+        ...this.getNavigationDateQueryParams(),
+        ...(date ? { fromdate: date, todate: date, startDate: date, endDate: date } : {}),
+        requestId: request?.request_id ?? request?.id ?? null
+      }
+    });
+    this.drawerService.close();
+  }
+
+  getDsrRequestStatus(request: any): string {
+    return `${request?.request_status ?? request?.status ?? 'PENDING'}`.trim().toUpperCase().replace(/[\s-]+/g, '_');
   }
 }

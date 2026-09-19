@@ -6,8 +6,10 @@ describe('AuthService dashboard endpoints', () => {
   let service: AuthService;
 
   beforeEach(() => {
-    http = jasmine.createSpyObj('HttpClient', ['get']);
+    http = jasmine.createSpyObj('HttpClient', ['get', 'post', 'patch']);
     http.get.and.returnValue(of({}));
+    http.post.and.returnValue(of({}));
+    http.patch.and.returnValue(of({}));
     service = new AuthService(
       http,
       {} as any,
@@ -93,5 +95,23 @@ describe('AuthService dashboard endpoints', () => {
     service.refreshNotificationCount();
 
     expect(requestNotificationCount).toHaveBeenCalledOnceWith(activeRange, true);
+  });
+
+  it('creates a Not Send DSR request with the workflow payload', () => {
+    const payload = { employee_id: 42, date: '2026-09-17', reason: 'Missed task entry' };
+
+    service.createNotSendDsrRequest(payload).subscribe();
+
+    expect(http.post.calls.mostRecent().args[0]).toContain('/common/notsenddsr/requests');
+    expect(http.post.calls.mostRecent().args[1]).toEqual(payload);
+  });
+
+  it('submits an admin decision against the request ID', () => {
+    const payload = { status: 'APPROVED' as const };
+
+    service.decideNotSendDsrRequest(73, payload).subscribe();
+
+    expect(http.patch.calls.mostRecent().args[0]).toContain('/common/notsenddsr/requests/73/decision');
+    expect(http.patch.calls.mostRecent().args[1]).toEqual(payload);
   });
 });

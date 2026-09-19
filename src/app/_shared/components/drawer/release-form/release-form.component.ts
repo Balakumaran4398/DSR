@@ -1,5 +1,6 @@
 import { Component, Input, OnInit, SimpleChanges } from '@angular/core';
-import { FormControl, FormGroup, Validators } from '@angular/forms';
+import { AbstractControl, FormControl, FormGroup, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
+import { ErrorStateMatcher } from '@angular/material/core';
 import { finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
@@ -9,12 +10,29 @@ import { ToasterService } from 'src/app/_core/services/toaster.service';
 export type ReleaseStatus = 'Upcoming-Release' | 'On-Hold' | 'Open' | 'In-Progress' | 'To-be-Tested' | 'In-Review' | 'Rejected' | 'Pass' | 'Failed';
 export type ReleaseType = 'Internal' | 'External';
 
+export const RELEASE_VERSION_MAX_DIGITS = 6;
+export const VERSION_ERROR_STATE_MATCHER: ErrorStateMatcher = {
+  isErrorState: control => !!control?.invalid && (control.dirty || control.touched)
+};
+export const releaseVersionValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+  const value = `${control.value ?? ''}`;
+  if (!value) return null;
+
+  if (!/^V-?\d+(?:\.\d+)?$/.test(value)) {
+    return { versionFormat: true };
+  }
+
+  const digitCount = (value.match(/\d/g) || []).length;
+  return digitCount > RELEASE_VERSION_MAX_DIGITS ? { versionMaxDigits: true } : null;
+};
+
 @Component({
   selector: 'app-release-form',
   templateUrl: './release-form.component.html',
   styleUrls: ['./release-form.component.scss']
 })
 export class ReleaseFormComponent implements OnInit {
+  readonly versionErrorStateMatcher = VERSION_ERROR_STATE_MATCHER;
   isEditMode = false;
   readonly releaseTypeOptions: ReleaseType[] = ['Internal', 'External'];
   statusList: ReleaseStatus[] = ['Upcoming-Release', 'Open', 'To-be-Tested', 'On-Hold', 'In-Progress', 'Rejected', 'Pass', 'Failed'];
@@ -75,7 +93,11 @@ export class ReleaseFormComponent implements OnInit {
       id: new FormControl(0),
       title: new FormControl('', Validators.required),
       projectid: new FormControl<number | null>(this.projectid, Validators.required),
-      version: new FormControl('', Validators.required),
+      version: new FormControl('', [
+        Validators.required,
+        Validators.maxLength(9),
+        releaseVersionValidator
+      ]),
       planned_date: new FormControl(
         { value: this.getTodayDate(), disabled: !this.canModifyReleaseDates },
         Validators.required
@@ -243,7 +265,7 @@ export class ReleaseFormComponent implements OnInit {
 
     this.releaseForm.get('version')?.valueChanges.subscribe(value => {
       if (!value) return;
-      const normalized = value.replace(/^V/, 'v');
+      const normalized = `${value}`.replace(/^v/i, 'V');
       if (normalized !== value) {
         this.releaseForm.get('version')?.setValue(normalized, {
           emitEvent: false

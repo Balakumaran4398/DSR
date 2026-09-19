@@ -81,7 +81,12 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
       )
       .subscribe({
         next: (res: any) => {
-          this.tableData = res;
+          this.tableData = Array.isArray(res)
+            ? res.map((member: any) => ({
+              ...member,
+              attendance_status: this.normalizeAttendanceStatus(member?.attendance_status)
+            }))
+            : [];
           if (this.table) {
             this.safeReplaceData(this.table, this.tableData);
 
@@ -222,6 +227,13 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
           field: "isactive",
           formatter: (cell: any) => this.statusFormatter(cell),
         },
+        {
+          title: "Attendance",
+          field: "attendance_status",
+          width: 140,
+          hozAlign: "center",
+          formatter: (cell: any) => this.attendanceStatusFormatter(cell),
+        },
         // Shift (New)
         { title: "Shift", field: "shift_type", width: 120, responsive: 4, formatter: (cell: any) => `<span class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs">${cell.getValue() || '-'}</span>` },
         // Mobile (New)
@@ -278,6 +290,27 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
         </span>
     `;
   }
+
+  attendanceStatusFormatter(cell: any) {
+    const status = this.normalizeAttendanceStatus(cell.getValue());
+    const isPresent = status === 'Present';
+    const classes = isPresent
+      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-600/20'
+      : 'bg-red-50 text-red-700 border-red-200 ring-red-600/20';
+    const dotColor = isPresent ? 'bg-emerald-500' : 'bg-red-500';
+
+    return `
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${classes}">
+        <span class="w-1.5 h-1.5 rounded-full ${dotColor}"></span>
+        ${status}
+      </span>
+    `;
+  }
+
+  private normalizeAttendanceStatus(value: any): 'Present' | 'Absent' {
+    return String(value ?? '').trim().toLowerCase() === 'present' ? 'Present' : 'Absent';
+  }
+
   actionFormatter(cell: any) {
     const data = cell.getData?.() ?? {};
     const memberId = Number(data?.id);
@@ -420,7 +453,8 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
           { field: "blood_group", type: "like", value: value },
           { field: "marital_status", type: "like", value: value },
           { field: "shift_type", type: "like", value: value },
-          { field: 'attendanceid', type: "like", value: value }
+          { field: 'attendanceid', type: "like", value: value },
+          { field: 'attendance_status', type: "like", value: value }
         ]
       ]);
     } else {

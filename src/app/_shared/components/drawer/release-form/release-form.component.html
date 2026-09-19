@@ -16,7 +16,7 @@
     </div>
     <!-- 2. Scrollable Content -->
     <div class="flex-1 overflow-y-auto p-6 bg-white">
-        <form [formGroup]="releaseForm" class="flex flex-col gap-6">
+        <form [formGroup]="releaseForm" class="release-form-validation flex flex-col gap-6">
             <!-- Section 1: Core Release Details -->
             <section>
                 <div class="flex items-center gap-2 mb-4 text-[var(--text-active)]">
@@ -46,8 +46,18 @@
                         <label class="block text-sm font-medium text-slate-700 mb-1">Version <span
                                 class="text-red-500">*</span></label>
                         <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                            <input matInput formControlName="version" placeholder="e.g. v1.0.2">
-                            <mat-error *ngIf="releaseForm.controls['version'].invalid">Version is required.</mat-error>
+                            <input matInput formControlName="version" maxlength="9" autocomplete="off"
+                                [errorStateMatcher]="versionErrorStateMatcher"
+                                placeholder="e.g. V1.2345 or V-1.23456">
+                            <mat-error *ngIf="releaseForm.controls['version'].hasError('required')">
+                                Version is required.
+                            </mat-error>
+                            <mat-error *ngIf="releaseForm.controls['version'].hasError('versionFormat')">
+                                Use format V1.2345 or V-1.23456.
+                            </mat-error>
+                            <mat-error *ngIf="releaseForm.controls['version'].hasError('versionMaxDigits') || releaseForm.controls['version'].hasError('maxlength')">
+                                Version can contain a maximum of 6 digits.
+                            </mat-error>
                         </mat-form-field>
                     </div>
 

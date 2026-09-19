@@ -2440,11 +2440,12 @@ export class TicketsComponent implements AfterViewInit {
   private shouldShowActionsColumn(): boolean {
     return this.isRaisedTickets
       || !!this.storageService.roles?.isAdmin
+      || !!this.storageService.roles?.isManager
       || !!this.storageService.roles?.isEmployee;
   }
 
   private canEditTicket(data: any): boolean {
-    if (this.storageService.roles?.isAdmin) {
+    if (this.storageService.roles?.isAdmin || this.storageService.roles?.isManager) {
       return true;
     }
 
@@ -2453,9 +2454,8 @@ export class TicketsComponent implements AfterViewInit {
     const assignedTo = this.getAssignedToId(data);
 
     if (this.storageService.roles?.isEmployee) {
-      return this.isRaisedTickets
-        ? this.isSameId(loggedInEmpId, assignedFrom) || this.isSameId(loggedInEmpId, assignedTo)
-        : this.isSameId(loggedInEmpId, assignedFrom);
+      return this.isSameId(loggedInEmpId, assignedFrom)
+        || this.isSameId(loggedInEmpId, assignedTo);
     }
 
     return this.isRaisedTickets;
@@ -2465,9 +2465,22 @@ export class TicketsComponent implements AfterViewInit {
     const loggedInEmpId = this.storageService.getEmpId();
     const assignedFrom = this.getAssignedFromId(data);
     const assignedTo = this.getAssignedToId(data);
+    const isAssignedTicket = this.isReassignedTicket(data)
+      || this.areDifferentIds(assignedFrom, assignedTo)
+      || this.isReOpenTicketStatus(data?.status);
 
-    return this.isSameId(assignedFrom, loggedInEmpId)
-      && (this.areDifferentIds(assignedFrom, assignedTo) || this.isReOpenTicketStatus(data?.status));
+    if (this.storageService.roles?.isAdmin || this.storageService.roles?.isManager) {
+      return isAssignedTicket;
+    }
+
+    return (this.isSameId(assignedFrom, loggedInEmpId)
+      || this.isSameId(assignedTo, loggedInEmpId))
+      && isAssignedTicket;
+  }
+
+  private isReassignedTicket(data: any): boolean {
+    const value = this.firstPresent(data?.isreassign, data?.isReassign, data?.is_reassign);
+    return value === true || value === 1 || String(value).trim().toLowerCase() === 'true';
   }
 
   private getAssignedFromId(data: any): any {
@@ -2656,8 +2669,23 @@ export class TicketsComponent implements AfterViewInit {
     }
   }
   private updateTicketStatus(ticket: any): void {
+    const assignedTo = this.firstPresent(
+      ticket?.assigned_to,
+      ticket?.assignedTo,
+      ticket?.assigned_to_id,
+      ticket?.assignedToId
+    );
     const payload = { ...ticket, username: this.storageService.getUsername() };
-    console.log('updateTicketStatus', payload);
+
+    // `empId` can contain the logged-in admin's ID. For an update, always keep
+    // the ticket's existing/selected assignee and never default it to the admin.
+    delete payload.empId;
+    delete payload.emp_id;
+
+    if (assignedTo !== null) {
+      payload.assigned_to = assignedTo;
+      payload.empId = assignedTo;
+    }
 
     this.authService.updateTicket(payload).subscribe({
       next: (res: any) => {

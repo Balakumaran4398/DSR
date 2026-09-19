@@ -621,8 +621,10 @@ export class SelfTicketFormComponent {
     }
 
     const formValue = this.ticketForm.value;
-    const empId = this.storageService.getEmpId();
-    const deptId = this.dept.find(d => d.department_name === this.storageService.getDept())?.id ?? 2;
+    const currentEmpId = this.storageService.getEmpId();
+    const empId = this.isEditMode ? this.getTicketOwnerId() ?? currentEmpId : currentEmpId;
+    const loggedInDeptId = this.dept.find(d => d.department_name === this.storageService.getDept())?.id ?? 2;
+    const deptId = this.isEditMode ? this.getTicketDepartmentId() ?? loggedInDeptId : loggedInDeptId;
     const companyId = this.storageService.getCompanyId();
     const selectedModelName = this.isHardware ? this.getSelectedModelName() : '';
     const selectedModelCode = this.isHardware ? this.getSelectedModelCode() : '';
@@ -656,11 +658,9 @@ export class SelfTicketFormComponent {
       solution: formValue.solution,
       deptHead: 4,
       deptHeadStatus: 0,
-      updatedBy: this.storageService.getEmpId(),
+      updatedBy: currentEmpId,
       path: '',
-      ...(!this.isEditMode && {
-        assignedFrom: empId
-      }),
+      assignedFrom: empId,
       ...hardwarePayload
     };
 
@@ -720,6 +720,24 @@ export class SelfTicketFormComponent {
         }
       });
     }
+  }
+
+  private getTicketOwnerId(): any {
+    return this.data?.assigned_from
+      ?? this.data?.assignedFrom
+      ?? this.data?.assigned_from_id
+      ?? this.data?.assignedFromId
+      ?? this.data?.empId
+      ?? this.data?.emp_id
+      ?? null;
+  }
+
+  private getTicketDepartmentId(): any {
+    return this.data?.dept_id
+      ?? this.data?.deptId
+      ?? this.data?.department_id
+      ?? this.data?.departmentId
+      ?? null;
   }
 
   formatWorkedHours(value: any): string {

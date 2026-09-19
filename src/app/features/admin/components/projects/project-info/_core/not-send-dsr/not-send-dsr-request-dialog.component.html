@@ -1,0 +1,53 @@
+<div class="dsr-request-dialog">
+  <button type="button" class="dsr-request-dialog__close" (click)="close()" aria-label="Close dialog">
+    <i class="ri-close-line"></i>
+  </button>
+
+  <div class="dsr-request-dialog__heading">
+    <span class="dsr-request-dialog__icon" [class.dsr-request-dialog__icon--danger]="data.mode === 'reject'">
+      <i [class]="icon"></i>
+    </span>
+    <div>
+      <h2>{{ title }}</h2>
+      <p>{{ description }}</p>
+    </div>
+  </div>
+
+  <div class="dsr-request-dialog__summary">
+    <div>
+      <span>Employee</span>
+      <strong>{{ data.employeeName || '-' }}</strong>
+    </div>
+    <div>
+      <span>Missing date</span>
+      <strong>{{ data.date | date:'mediumDate' }}</strong>
+    </div>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <div *ngIf="data.existingReason && data.mode === 'approve'" class="dsr-request-dialog__existing-reason">
+      <span>Request reason</span>
+      <p>{{ data.existingReason }}</p>
+    </div>
+
+    <div *ngIf="requiresReason" class="dsr-request-dialog__field">
+      <label for="dsr-request-reason">{{ data.mode === 'reject' ? 'Rejection reason' : 'Reason' }}</label>
+      <textarea id="dsr-request-reason" formControlName="reason" rows="4" maxlength="500"
+        [placeholder]="data.mode === 'reject' ? 'Enter the reason for rejection...' : 'Enter the reason for this request...'">
+      </textarea>
+      <div class="dsr-request-dialog__field-meta">
+        <span class="dsr-request-dialog__error" *ngIf="form.get('reason')?.invalid && form.get('reason')?.touched">
+          A reason is required.
+        </span>
+        <span>{{ (form.get('reason')?.value || '').length }}/500</span>
+      </div>
+    </div>
+
+    <div class="dsr-request-dialog__actions">
+      <button type="button" mat-stroked-button class="dsr-request-dialog__cancel" (click)="close()">Cancel</button>
+      <button type="submit" mat-flat-button color="primary" [class.dsr-request-dialog__reject]="data.mode === 'reject'">
+        {{ data.mode === 'approve' ? 'Approve' : data.mode === 'reject' ? 'Reject' : 'Send request' }}
+      </button>
+    </div>
+  </form>
+</div>

@@ -134,7 +134,7 @@ export class AssignTicketFormComponent {
     const assignedTo = this.getAssignedToId();
 
     this.assignForm.patchValue({
-      clientId: this.data.clientUserId || this.data.clients_id,
+      clientId: this.data.clientUserId ?? this.data.clientsId ?? this.data.clients_id ?? null,
       productId: targetProductId ? Number(targetProductId) : null,
       product_version: selectedVersion && this.availableVersions.includes(selectedVersion) ? selectedVersion : null,
       type: this.data.type,
@@ -407,6 +407,9 @@ export class AssignTicketFormComponent {
 
     const formValue = this.assignForm.value;
     const assignedTo = formValue.assigned_to ?? this.getAssignedToId();
+    const assignedFrom = this.isEditMode
+      ? this.getAssignedFromId() ?? this.storageService.getEmpId()
+      : this.storageService.getEmpId();
     const payload = {
       clientUserId: formValue.clientId,
       clientsId: formValue.clientId,
@@ -424,11 +427,8 @@ export class AssignTicketFormComponent {
       clientComments: formValue.comments || "",
       isreassign: true,
       deptId: formValue.department,
-      assignedFrom: this.storageService.getEmpId(),
+      assignedFrom,
       updatedBy: this.storageService.getEmpId(),
-      ...(!this.isEditMode && {
-        assignedFrom: this.empid
-      })
     };
 
     // if (!this.data) {
@@ -546,6 +546,15 @@ export class AssignTicketFormComponent {
       this.data?.assigned_to_id,
       this.data?.empId,
       this.data?.emp_id
+    );
+  }
+
+  private getAssignedFromId(): any {
+    return this.firstPresent(
+      this.data?.assigned_from,
+      this.data?.assignedFrom,
+      this.data?.assigned_from_id,
+      this.data?.assignedFromId
     );
   }
 

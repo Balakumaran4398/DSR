@@ -1,0 +1,46 @@
+:host ::ng-deep .dsr-status {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .3rem .65rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .dsr-status--neutral { background: var(--bg-elevated); color: var(--text-muted); border-color: var(--border-card); }
+:host ::ng-deep .dsr-status--pending { background: color-mix(in srgb, #d97706 12%, var(--bg-card)); color: #b45309; border-color: color-mix(in srgb, #d97706 28%, transparent); }
+:host ::ng-deep .dsr-status--approved,
+:host ::ng-deep .dsr-status--applied { background: color-mix(in srgb, #059669 12%, var(--bg-card)); color: #047857; border-color: color-mix(in srgb, #059669 28%, transparent); }
+:host ::ng-deep .dsr-status--rejected { background: color-mix(in srgb, #dc2626 11%, var(--bg-card)); color: #dc2626; border-color: color-mix(in srgb, #dc2626 26%, transparent); }
+
+:host ::ng-deep .dsr-actions { display: flex; align-items: center; justify-content: center; gap: .45rem; }
+:host ::ng-deep .dsr-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .3rem;
+  min-height: 2rem;
+  padding: .35rem .7rem;
+  border: 1px solid var(--border-card);
+  border-radius: .6rem;
+  background: var(--bg-card);
+  color: var(--text-soft);
+  font-size: .72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease;
+}
+:host ::ng-deep .dsr-action:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--text-active); }
+:host ::ng-deep .dsr-action:disabled { cursor: wait; opacity: .6; }
+:host ::ng-deep .dsr-action--request,
+:host ::ng-deep .dsr-action--apply,
+:host ::ng-deep .dsr-action--approve { background: var(--text-active); color: var(--text-on-active, #fff); border-color: var(--text-active); }
+:host ::ng-deep .dsr-action--reject { color: #dc2626; border-color: color-mix(in srgb, #dc2626 35%, var(--border-card)); }
+:host ::ng-deep .dsr-action-note { display: inline-flex; align-items: center; gap: .3rem; color: var(--text-muted); font-size: .76rem; }
+:host ::ng-deep .dsr-action-spinner { animation: dsr-action-spin .8s linear infinite; }
+:host ::ng-deep .dsr-request-highlight { box-shadow: inset 4px 0 0 var(--text-active); background: var(--bg-active) !important; }
+
+@keyframes dsr-action-spin { to { transform: rotate(360deg); } }

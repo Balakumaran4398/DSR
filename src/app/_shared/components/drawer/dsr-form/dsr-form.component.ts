@@ -20,6 +20,12 @@ interface DsrDrawerTask {
   editMode?: boolean;
   selectedEntryId?: number | string | null;
   dsrRecord?: DsrLogEntry | null;
+  fixedDsrDate?: string | null;
+  notSendDsrRequestId?: string | number | null;
+  not_send_dsr_request_id?: string | number | null;
+  request_id?: string | number | null;
+  requestId?: string | number | null;
+  generatedTaskId?: string | number | null;
 }
 
 interface DsrTaskItem {
@@ -48,6 +54,7 @@ interface DsrTaskLogEntry {
   date: string;
   completion_percentage: number;
   username?: string;
+  request_id?: number | string;
 }
 
 interface DsrApiMessage {
@@ -99,7 +106,7 @@ export class DsrFormComponent
         this.selectedDsr = null;
         this.editId = null;
         this.taskForm.reset({
-          date: this.initialDate,
+          date: this.getEntryDate(),
           worked_hours: '08:00:00',
           completion_percentage: this.data?.completion_percentage ?? 0,
           subtaskid: this.getInitialSelectionId(),
@@ -134,6 +141,10 @@ export class DsrFormComponent
     return !!this.data?.editMode;
   }
 
+  get isDateLocked(): boolean {
+    return !this.isEditMode && !!this.parseLocalDate(this.data?.fixedDsrDate);
+  }
+
   private resolveProjectId(): number | string {
     return this.data?.projectid
       ?? this.data?.project_id
@@ -163,8 +174,10 @@ export class DsrFormComponent
     this.editId = null;
     this.taskForm.get('subtaskid')?.setValue(this.getInitialSelectionId());
     this.taskForm.get('completion_percentage')?.setValue(this.data?.completion_percentage ?? 0);
-    this.fromdate = this.formatDateToYMD(this.initialDate);
-    this.todate = this.formatDateToYMD(this.initialDate);
+    const entryDate = this.getEntryDate();
+    this.taskForm.get('date')?.setValue(entryDate);
+    this.fromdate = this.formatDateToYMD(entryDate);
+    this.todate = this.formatDateToYMD(entryDate);
 
     if (this.isEditMode && this.data?.dsrRecord) {
       this.applyEditState(this.data.dsrRecord);
@@ -259,7 +272,7 @@ export class DsrFormComponent
 
   resetForm(): void {
     this.taskForm.reset({
-      date: this.initialDate,
+      date: this.getEntryDate(),
       worked_hours: '08:00:00',
       completion_percentage: 0,
       subtaskid: this.getInitialSelectionId(),
@@ -279,6 +292,10 @@ export class DsrFormComponent
   }
   submit(): void {
     if (this.taskForm.invalid) return;
+    if (this.isTaskEntryMode && this.isDateLocked && this.resolveHistoricalRequestId() === null) {
+      this.toasterService.error('The approved DSR request ID is missing. Please reopen the approved request.');
+      return;
+    }
     this.taskForm.get('date')?.setValue(this.storageService.toLocalDate(this.taskForm.get('date')?.value));
     const formVal = this.taskForm.getRawValue();
     const payload = this.selectedDsr ? { ...this.selectedDsr, ...formVal } : formVal;
@@ -323,13 +340,39 @@ export class DsrFormComponent
       ?? this.taskid;
     const selectedTask = this.taskList.find((item) => item?.id == taskid);
     const { subtaskid, ...taskPayload } = payload;
+    const requestId = this.isDateLocked ? this.resolveHistoricalRequestId() : null;
 
     return {
       ...taskPayload,
       subtaskid: 0,
       taskid,
-      task: payload.task ?? selectedTask?.task ?? this.data?.task ?? ''
+      task: payload.task ?? selectedTask?.task ?? this.data?.task ?? '',
+      ...(requestId !== null ? { request_id: requestId } : {})
     };
+  }
+
+  private normalizeRequestId(value: unknown): number | string | null {
+    if (value === null || value === undefined || `${value}`.trim() === '') return null;
+    const normalized = `${value}`.trim();
+    const numericValue = Number(normalized);
+    return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : normalized;
+  }
+
+  private resolveHistoricalRequestId(): number | string | null {
+    const candidates = [
+      this.data?.notSendDsrRequestId,
+      this.data?.not_send_dsr_request_id,
+      this.data?.request_id,
+      this.data?.requestId,
+      this.route?.snapshot?.queryParamMap?.get('notSendDsrRequestId')
+    ];
+
+    for (const candidate of candidates) {
+      const requestId = this.normalizeRequestId(candidate);
+      if (requestId !== null) return requestId;
+    }
+
+    return null;
   }
 
   private getSelectedSubtask(): any | null {
@@ -427,6 +470,24 @@ export class DsrFormComponent
       d.getDate()
     ).padStart(2, '0')}`;
   }
+
+  private getEntryDate(): Date {
+    return this.parseLocalDate(this.data?.fixedDsrDate) ?? new Date(this.initialDate);
+  }
+
+  private parseLocalDate(value: unknown): Date | null {
+    const normalized = `${value ?? ''}`.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+
+    const [year, month, day] = normalized.split('-').map(Number);
+    const parsed = new Date(year, month - 1, day);
+    if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) {
+      return null;
+    }
+    parsed.setHours(0, 0, 0, 0);
+    return parsed;
+  }
+
   getSubtasks() {
     const activeTaskId = this.resolveTaskId();
     if (!activeTaskId) {

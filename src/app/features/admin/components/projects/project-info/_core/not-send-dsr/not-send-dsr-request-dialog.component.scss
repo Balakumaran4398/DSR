@@ -1,0 +1,105 @@
+:host { display: block; }
+
+.dsr-request-dialog {
+  position: relative;
+  width: min(34rem, calc(100vw - 2rem));
+  padding: 1.5rem;
+  color: var(--text-main);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--text-active) 14%, transparent), transparent 34%),
+    var(--bg-card);
+}
+
+.dsr-request-dialog__close {
+  position: absolute;
+  top: .9rem;
+  right: .9rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.dsr-request-dialog__heading { display: flex; gap: 1rem; padding-right: 2.5rem; }
+.dsr-request-dialog__heading h2 { margin: 0; font-size: 1.35rem; color: var(--text-main); }
+.dsr-request-dialog__heading p { margin: .35rem 0 0; color: var(--text-muted); line-height: 1.5; }
+
+.dsr-request-dialog__icon {
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 3rem;
+  display: grid;
+  place-items: center;
+  border-radius: 1rem;
+  background: var(--bg-active);
+  color: var(--text-active);
+  font-size: 1.35rem;
+}
+.dsr-request-dialog__icon--danger { background: color-mix(in srgb, #dc2626 12%, var(--bg-card)); color: #dc2626; }
+
+.dsr-request-dialog__summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .75rem;
+  margin: 1.25rem 0;
+}
+.dsr-request-dialog__summary div,
+.dsr-request-dialog__existing-reason { padding: .9rem 1rem; border: 1px solid var(--border-card); border-radius: .9rem; background: var(--bg-elevated); }
+.dsr-request-dialog__summary span,
+.dsr-request-dialog__existing-reason span { display: block; margin-bottom: .25rem; color: var(--text-muted); font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.dsr-request-dialog__summary strong { color: var(--text-main); font-size: .9rem; }
+.dsr-request-dialog__existing-reason { margin-bottom: 1rem; }
+.dsr-request-dialog__existing-reason p { margin: .35rem 0 0; color: var(--text-soft); white-space: pre-wrap; }
+
+.dsr-request-dialog__field label { display: block; margin-bottom: .5rem; color: var(--text-soft); font-size: .85rem; font-weight: 700; }
+.dsr-request-dialog__field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+  padding: .9rem 1rem;
+  border: 1px solid var(--form-border);
+  border-radius: .9rem;
+  outline: none;
+  background: var(--form-bg);
+  color: var(--text-main);
+  font: inherit;
+}
+.dsr-request-dialog__field textarea:focus { border-color: var(--text-active); box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-active) 16%, transparent); }
+.dsr-request-dialog__field-meta { min-height: 1.25rem; display: flex; justify-content: space-between; margin-top: .35rem; color: var(--text-muted); font-size: .72rem; }
+.dsr-request-dialog__error { color: #dc2626; }
+.dsr-request-dialog__actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1.25rem; }
+.dsr-request-dialog__reject { background: #dc2626 !important; color: #fff !important; }
+
+:host-context(.dark-mode) ::ng-deep .dsr-request-dialog__cancel.mat-mdc-outlined-button {
+  --mdc-outlined-button-label-text-color: #ffffff;
+  --mdc-outlined-button-outline-color: rgba(255, 255, 255, .72);
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, .72) !important;
+  background: var(--bg-elevated) !important;
+}
+
+:host-context(.dark-mode) ::ng-deep .dsr-request-dialog__cancel.mat-mdc-outlined-button:hover,
+:host-context(.dark-mode) ::ng-deep .dsr-request-dialog__cancel.mat-mdc-outlined-button:focus-visible {
+  border-color: #ffffff !important;
+  background: color-mix(in srgb, #ffffff 12%, var(--bg-elevated)) !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .16);
+}
+
+:host-context(.dark-mode) ::ng-deep .dsr-request-dialog__cancel.mat-mdc-outlined-button:disabled {
+  --mdc-outlined-button-disabled-label-text-color: rgba(255, 255, 255, .58);
+  --mdc-outlined-button-disabled-outline-color: rgba(255, 255, 255, .38);
+  color: rgba(255, 255, 255, .58) !important;
+  border-color: rgba(255, 255, 255, .38) !important;
+  background: color-mix(in srgb, #ffffff 5%, var(--bg-elevated)) !important;
+}
+
+@media (max-width: 520px) {
+  .dsr-request-dialog { padding: 1.15rem; }
+  .dsr-request-dialog__summary { grid-template-columns: 1fr; }
+  .dsr-request-dialog__actions { flex-direction: column-reverse; }
+}

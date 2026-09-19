@@ -1,6 +1,6 @@
 import { Component, ElementRef, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, ViewChild } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
@@ -99,7 +99,8 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
   private currentTabInitTimer?: ReturnType<typeof setTimeout>;
   private drawerActionSubscription?: Subscription;
   private isComponentInitialized = false;
-  constructor(private authService: AuthService, private storageService: StorageService, private toasterService: ToasterService, private drawerService: DrawerService, private route: ActivatedRoute) {
+  private pendingFixedDsrSubmission = false;
+  constructor(private authService: AuthService, private storageService: StorageService, private toasterService: ToasterService, private drawerService: DrawerService, private route: ActivatedRoute, private router: Router) {
     this.taskid = this.route.snapshot.paramMap.get('taskid');
     this.projectid = this.route.snapshot.paramMap.get('projectid');
     this.empid = this.storageService.getEmpId();
@@ -189,11 +190,14 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
     this.refreshContent();
     this.drawerActionSubscription = this.drawerService.drawerAction$
       .pipe(filter(a => a.source === 'sub-task' || a.source === 'dsr'))
-      .subscribe(() => {
+      .subscribe(action => {
         if (this.contentMode === 'task') {
           this.getSubtasks();
         }
         this.getDsrEntries();
+        if (action.source === 'dsr' && this.pendingFixedDsrSubmission) {
+          this.clearNotSendDsrWorkflowContext();
+        }
       });
   }
 
@@ -323,6 +327,10 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
     const subtaskid = entryMode === 'sub-task'
       ? (rowData?.subtaskid ?? rowData?.sub_taskid ?? rowData?.id ?? null)
       : null;
+    const workflowContext = entryMode === 'dsr-entries'
+      ? this.getNotSendDsrWorkflowContext(taskid)
+      : null;
+    this.pendingFixedDsrSubmission = !!workflowContext;
 
     this.drawerService.open('dsr', {
       ...selectedTaskContext,
@@ -335,11 +343,13 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
       entryMode,
       selectedEntryId: entryMode === 'dsr-entries'
         ? (taskid ?? null)
-        : subtaskid
+        : subtaskid,
+      ...(workflowContext ?? {})
     }, '');
   }
 
   private openDsrEditDrawer(rowData: any, entryMode: 'sub-task' | 'dsr-entries' = 'dsr-entries'): void {
+    this.pendingFixedDsrSubmission = false;
     const selectedTaskContext = this.buildSelectedTaskContext();
     const taskid = rowData?.taskid ?? rowData?.task_id ?? this.taskid;
     const subtaskid = entryMode === 'sub-task'
@@ -378,6 +388,41 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
     }
 
     this.openDsrDrawer(this.buildSelectedTaskContext(), 'dsr-entries');
+  }
+
+  private getNotSendDsrWorkflowContext(taskId: any): Record<string, any> | null {
+    const generatedTaskId = this.route.snapshot.queryParamMap.get('generatedTaskId');
+    const fixedDsrDate = this.route.snapshot.queryParamMap.get('notSendDsrDate');
+    const requestId = this.route.snapshot.queryParamMap.get('notSendDsrRequestId');
+
+    if (
+      !generatedTaskId
+      || `${generatedTaskId}` !== `${taskId ?? ''}`
+      || !fixedDsrDate
+      || !/^\d{4}-\d{2}-\d{2}$/.test(fixedDsrDate)
+    ) {
+      return null;
+    }
+
+    return {
+      fixedDsrDate,
+      generatedTaskId,
+      notSendDsrRequestId: requestId
+    };
+  }
+
+  private clearNotSendDsrWorkflowContext(): void {
+    this.pendingFixedDsrSubmission = false;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        generatedTaskId: null,
+        notSendDsrDate: null,
+        notSendDsrRequestId: null
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
   }
   //   getDsrDetailsBySubtaskId(e?: any) {
   //   this.authService.getDsrDetailsBySubtaskId(e ? e.value : this.data.id).subscribe({

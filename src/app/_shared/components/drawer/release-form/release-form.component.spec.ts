@@ -1,5 +1,5 @@
 import { FormControl } from '@angular/forms';
-import { ReleaseFormComponent, ReleaseStatus, ReleaseType } from './release-form.component';
+import { ReleaseFormComponent, releaseVersionValidator, ReleaseStatus, ReleaseType, VERSION_ERROR_STATE_MATCHER } from './release-form.component';
 
 describe('ReleaseFormComponent select filters', () => {
   let component: ReleaseFormComponent;
@@ -47,5 +47,31 @@ describe('ReleaseFormComponent select filters', () => {
     (component as any).refreshNotificationsWhenPassed('Failed');
 
     expect(authService.refreshNotificationCount).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts the supported release version formats', () => {
+    const control = new FormControl('V1.2345', releaseVersionValidator);
+    expect(control.valid).toBeTrue();
+
+    control.setValue('V-1.23434');
+    expect(control.valid).toBeTrue();
+  });
+
+  it('rejects invalid release version formats and more than six digits', () => {
+    const control = new FormControl('1.2345', releaseVersionValidator);
+    expect(control.hasError('versionFormat')).toBeTrue();
+
+    control.setValue('V1.234345');
+    expect(control.hasError('versionMaxDigits')).toBeTrue();
+
+    control.setValue('V1.2.3');
+    expect(control.hasError('versionFormat')).toBeTrue();
+  });
+
+  it('shows the version error state as soon as an invalid control is edited', () => {
+    const control = new FormControl('invalid', releaseVersionValidator);
+    control.markAsDirty();
+
+    expect(VERSION_ERROR_STATE_MATCHER.isErrorState(control, null)).toBeTrue();
   });
 });

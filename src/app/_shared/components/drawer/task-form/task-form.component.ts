@@ -3,7 +3,7 @@ import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms'
 import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
-import { DrawerService, DrawerTaskFormType } from 'src/app/_core/services/drawer.service';
+import { DrawerService, DrawerTaskCreateContext, DrawerTaskFormType } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 
@@ -41,7 +41,7 @@ export class TaskFormComponent implements OnInit, OnChanges {
   get type(): DrawerTaskFormType {
     return this._type;
   }
-  @Input() data: any;
+  @Input() data: Record<string, any> | DrawerTaskCreateContext | null = null;
   // Mock Data
   projectList: any[] = [];
   phaseList: any[] = [];
@@ -65,7 +65,13 @@ export class TaskFormComponent implements OnInit, OnChanges {
   selectedFiles: File[] = [];
   selectedFileName: string = '';
   private originalAssignedFrom: any = null;
+  private originalStartDate: Date | null = null;
   submitting:boolean = false;
+  isDsrCreateContext = false;
+  lockDsrDates = false;
+  private dsrEmployeeId: any = null;
+  private dsrEmployeeName = '';
+  private dsrRequestId: any = null;
   constructor(private authService: AuthService, private drawerService: DrawerService, private route: ActivatedRoute, private toasterService: ToasterService, private storageService: StorageService) {
     this.empid = this.storageService.getEmpId();
     const stored = localStorage.getItem('projectDetails');
@@ -96,6 +102,10 @@ export class TaskFormComponent implements OnInit, OnChanges {
     this.employeeFilterControl.valueChanges.subscribe(value => {
       this.applyEmployeeFilter(value);
     });
+
+    this.taskForm.get('assigned_to')?.valueChanges.subscribe(() => {
+      this.taskForm.get('start_date')?.updateValueAndValidity({ emitEvent: false });
+    });
   }
   ngOnChanges(changes: SimpleChanges): void {
     const stored = localStorage.getItem('projectDetails');
@@ -109,7 +119,9 @@ export class TaskFormComponent implements OnInit, OnChanges {
     this.getEmployees(projectId);
 
     if (changes['data']) {
-      if (this.data) {
+      if (this.data?.mode === 'create') {
+        this.patchCreateContext(this.data);
+      } else if (this.data) {
         this.patchTaskForm(this.data);
       } else {
         this.resetTaskForm();
@@ -147,6 +159,43 @@ export class TaskFormComponent implements OnInit, OnChanges {
     }
 
     return this.taskCategory.filter(category => `${category ?? ''}`.trim() !== 'Support');
+  }
+
+  readonly startDateFilter = (date: Date | null): boolean => this.isStartDateAllowed(date);
+
+  private isStartDateAllowed(date: Date | null): boolean {
+    if (!date || !this.shouldRestrictPastStartDates()) return true;
+
+    const candidate = this.toStartOfDay(date);
+    if (candidate.getTime() >= this.todayDate.getTime()) return true;
+
+    return this.isEditMode
+      && !!this.originalStartDate
+      && candidate.getTime() === this.originalStartDate.getTime();
+  }
+
+  private shouldRestrictPastStartDates(): boolean {
+    if (this.lockDsrDates) return false;
+
+    const roles = this.storageService.roles;
+    if (roles?.isAdmin) return false;
+
+    if (roles?.isManager) {
+      return this.idsMatch(this.taskForm?.get('assigned_to')?.value, this.empid);
+    }
+
+    return !!roles?.isEmployee;
+  }
+
+  private idsMatch(first: unknown, second: unknown): boolean {
+    if (first === null || first === undefined || second === null || second === undefined) return false;
+    return `${first}`.trim() === `${second}`.trim();
+  }
+
+  private toStartOfDay(value: Date): Date {
+    const date = new Date(value);
+    date.setHours(0, 0, 0, 0);
+    return date;
   }
 
 	getTaskCategory(){
@@ -256,7 +305,9 @@ export class TaskFormComponent implements OnInit, OnChanges {
     this.taskForm.get('status')?.valueChanges.subscribe(() => {
       this.setCategoryValidation();
     });
-    if (this.data) {
+    if (this.data?.mode === 'create') {
+      this.patchCreateContext(this.data);
+    } else if (this.data) {
       this.patchTaskForm(this.data);
     }
   }
@@ -293,7 +344,14 @@ export class TaskFormComponent implements OnInit, OnChanges {
 
   private resetTaskForm(): void {
     this.isEditMode = false;
+    this.isDsrCreateContext = false;
+    this.lockDsrDates = false;
+    this.dsrEmployeeId = null;
+    this.dsrEmployeeName = '';
+    this.dsrRequestId = null;
     this.originalAssignedFrom = null;
+    this.originalStartDate = null;
+    this.taskForm.get('assigned_to')?.enable({ emitEvent: false });
     this.resetEmployeeFilter();
     const projectId = this.projectDetails?.id ?? this.projectid;
     this.projectid = projectId;
@@ -333,11 +391,12 @@ export class TaskFormComponent implements OnInit, OnChanges {
       this.submitting = true;
       this.taskForm.get("task_type")?.setValue(this.type)
       console.log('Form Submitted:', this.taskForm.value);
-      const raw = this.taskForm.value;
+      const raw = this.taskForm.getRawValue();
       const payload = {
         ...raw,
         start_date: this.storageService.toLocalDate(raw.start_date),
-        end_date: this.storageService.toLocalDate(raw.end_date)
+        end_date: this.storageService.toLocalDate(raw.end_date),
+        ...(this.dsrRequestId ? { not_send_dsr_request_id: this.dsrRequestId } : {})
       };
       console.log(this.type);
       try {
@@ -354,10 +413,24 @@ export class TaskFormComponent implements OnInit, OnChanges {
             next: ((res: any) => {
               this.toasterService.success(res?.message);
               this.refreshNotificationsWhenClosed(requestPayload.status);
+              if (this.dsrRequestId) {
+                this.authService.refreshNotificationCount();
+              }
               this.drawerService.notifyAction({
                 source: 'task',
                 action: 'created',
-                payload: res
+                payload: this.dsrRequestId
+                  ? {
+                    response: res,
+                    task_id: this.resolveCreatedTaskId(res),
+                    project_id: requestPayload.projectid,
+                    employee_id: requestPayload.assigned_to,
+                    task: requestPayload.task,
+                    date: requestPayload.start_date,
+                    task_type: requestPayload.task_type,
+                    not_send_dsr_request_id: this.dsrRequestId
+                  }
+                  : res
               });
               this.onCancel();
               // this.taskForm.reset();
@@ -391,7 +464,7 @@ export class TaskFormComponent implements OnInit, OnChanges {
     this.employeeFilterControl.setValue('', { emitEvent: false });
     this.taskForm.patchValue({
       phaseid: null,
-      assigned_to: null,
+      assigned_to: this.isDsrCreateContext ? this.dsrEmployeeId : null,
       version: ''
     });
     this.getEmployees(projectid);
@@ -439,22 +512,36 @@ export class TaskFormComponent implements OnInit, OnChanges {
     this.authService.getEmployeelistByProjectId(projectid).subscribe({
       next: (res: any) => {
         this.employeeList = Array.isArray(res?.assigned_employee_list) ? res.assigned_employee_list : [];
+        if (this.isDsrCreateContext && this.dsrEmployeeId && !this.employeeList.some(employee => `${employee?.id ?? employee?.employee_id}` === `${this.dsrEmployeeId}`)) {
+          this.employeeList = [...this.employeeList, { id: this.dsrEmployeeId, employee_name: this.dsrEmployeeName || 'Selected employee' }];
+        }
+        if (this.isDsrCreateContext) {
+          this.taskForm.get('assigned_to')?.setValue(this.dsrEmployeeId);
+        }
         this.applyEmployeeFilter(this.employeeFilterControl.value);
       }
     });
   }
 
   patchTaskForm(data: any): void {
+    this.taskForm.get('assigned_to')?.enable({ emitEvent: false });
     if (!this.taskForm || !data) return;
     console.log(data);
 
     this.isEditMode = true;
+    this.isDsrCreateContext = false;
+    this.lockDsrDates = false;
+    this.dsrEmployeeId = null;
+    this.dsrEmployeeName = '';
+    this.dsrRequestId = null;
     const taskType = this.normalizeTaskType(data.task_type ?? this.type);
     const projectId = data.projectid ?? this.projectid;
     const assignedFrom = this.resolveAssignedFrom(data);
+    const startDate = data.start_date ? new Date(data.start_date) : null;
     this._type = taskType;
     this.projectid = projectId;
     this.originalAssignedFrom = assignedFrom;
+    this.originalStartDate = startDate ? this.toStartOfDay(startDate) : null;
     this.employeeFilterControl.setValue('', { emitEvent: false });
     this.getPhasesByProjectId({ value: projectId });
     this.getEmployees(projectId);
@@ -466,7 +553,7 @@ export class TaskFormComponent implements OnInit, OnChanges {
       phaseid: data.phaseid ?? null,
       task: data.task ?? '',
       priority: data.priority ?? null,
-      start_date: data.start_date ? new Date(data.start_date) : null,
+      start_date: startDate,
       end_date: data.end_date ? new Date(data.end_date) : null,
       assigned_to: data.assigned_to ?? null,
       status: data.status ?? null,
@@ -487,6 +574,36 @@ export class TaskFormComponent implements OnInit, OnChanges {
     this.syncTaskCategorySelection();
   }
 
+  private patchCreateContext(data: any): void {
+    if (!this.taskForm || !data) return;
+    this.isEditMode = false;
+    this.isDsrCreateContext = true;
+    this.originalAssignedFrom = null;
+    this.originalStartDate = null;
+    this.lockDsrDates = Array.isArray(data?.locked_fields)
+      && data.locked_fields.includes('start_date')
+      && data.locked_fields.includes('end_date');
+    this.dsrEmployeeId = data?.employee_id ?? data?.employeeid ?? null;
+    this.dsrEmployeeName = `${data?.employee_name ?? ''}`;
+    this.dsrRequestId = data?.not_send_dsr_request_id ?? null;
+    const projectId = this.projectDetails?.id ?? this.projectid;
+    const approvedDate = data?.start_date || data?.end_date;
+
+    this.taskForm.patchValue({
+      projectid: projectId,
+      start_date: approvedDate ? new Date(`${approvedDate}T00:00:00`) : this.getTodayDate(),
+      end_date: approvedDate ? new Date(`${approvedDate}T00:00:00`) : this.getTodayDate(),
+      assigned_to: this.dsrEmployeeId,
+      assigned_from: this.storageService.getEmpId(),
+      task_type: this.type
+    });
+    // An approved DSR request grants task entry only for the original requester.
+    this.taskForm.get('assigned_to')?.disable({ emitEvent: false });
+    this.getEmployees(projectId);
+    this.taskForm.markAsPristine();
+    this.taskForm.markAsUntouched();
+  }
+
   private getTodayDate(): Date {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -497,6 +614,25 @@ export class TaskFormComponent implements OnInit, OnChanges {
     if (this.isBugType && `${status ?? ''}`.trim().toLowerCase() === 'closed') {
       this.authService.refreshNotificationCount();
     }
+  }
+
+  private resolveCreatedTaskId(response: any): string | number | null {
+    const candidates = [
+      response?.task_id,
+      response?.taskid,
+      response?.id,
+      response?.data?.task_id,
+      response?.data?.taskid,
+      response?.data?.id,
+      response?.task?.task_id,
+      response?.task?.taskid,
+      response?.task?.id,
+      response?.result?.task_id,
+      response?.result?.taskid,
+      response?.result?.id
+    ];
+
+    return candidates.find(value => value !== null && value !== undefined && `${value}`.trim() !== '') ?? null;
   }
 
   updateTask(selectTask: any) {
