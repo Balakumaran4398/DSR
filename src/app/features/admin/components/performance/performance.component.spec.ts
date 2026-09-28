@@ -3,6 +3,7 @@ import { AuthService } from 'src/app/_core/services/auth.service';
 import { ExcelService } from 'src/app/_core/services/excel.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
+import { of } from 'rxjs';
 
 describe('PerformanceComponent not eligible employee details', () => {
   let component: PerformanceComponent;
@@ -57,6 +58,94 @@ describe('PerformanceComponent not eligible employee details', () => {
 
     expect(component.weightagePageSize).toBeGreaterThan(component.tableVisibleRowCount);
     expect(component.notEligiblePageSize).toBeGreaterThan(component.tableVisibleRowCount);
+  });
+
+  it('defaults to the first and last day of the current month', () => {
+    const today = new Date();
+
+    (component as any).setDefaultDateRange();
+
+    expect(component.fromDate).toEqual(new Date(today.getFullYear(), today.getMonth(), 1));
+    expect(component.toDate).toEqual(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+  });
+
+  it('loads the current-month report for the manager assigned department on page open', () => {
+    const today = new Date();
+    const getBestEmployee = jasmine.createSpy('getBestEmployee').and.returnValue(of({}));
+    const authService = {
+      getAllDepartments: () => of({ data: [
+        { department_id: 7, department_name: 'SQA' },
+        { department_id: 8, department_name: 'Hardware' }
+      ] }),
+      getBestEmployee
+    } as unknown as AuthService;
+    const storageService = {
+      getEmpId: () => 'EMP-10',
+      getUser: () => ({ empid: 'EMP-10', department_id: 7, department_name: 'SQA' }),
+      getDept: () => 'SQA',
+      roles: { isAdmin: false, isManager: true, isEmployee: false }
+    } as unknown as StorageService;
+    component = new PerformanceComponent(
+      authService,
+      {} as ExcelService,
+      storageService,
+      { error: jasmine.createSpy('error') } as unknown as ToasterService
+    );
+
+    component.ngOnInit();
+
+    expect(component.departments).toEqual([{ id: 7, department_name: 'SQA' }]);
+    expect(component.selectedDepartmentId).toBe(7);
+    expect(getBestEmployee).toHaveBeenCalledOnceWith({
+      employee_id: 'EMP-10',
+      department_id: 7,
+      fromdate: (component as any).formatDateToYMD(new Date(today.getFullYear(), today.getMonth(), 1)),
+      todate: (component as any).formatDateToYMD(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
+      top: 3
+    });
+  });
+
+  it('loads the initial admin report but keeps later filter changes manual', () => {
+    const getBestEmployee = jasmine.createSpy('getBestEmployee').and.returnValue(of({}));
+    const authService = {
+      getAllDepartments: () => of({ data: [
+        { department_id: 7, department_name: 'SQA' },
+        { department_id: 8, department_name: 'Hardware' }
+      ] }),
+      getBestEmployee
+    } as unknown as AuthService;
+    const storageService = {
+      getEmpId: () => 'EMP-1',
+      getUser: () => ({ empid: 'EMP-1', department_id: 8, department_name: 'Hardware' }),
+      getDept: () => 'Hardware',
+      roles: { isAdmin: true, isManager: false, isEmployee: false }
+    } as unknown as StorageService;
+    component = new PerformanceComponent(
+      authService,
+      {} as ExcelService,
+      storageService,
+      { error: jasmine.createSpy('error') } as unknown as ToasterService
+    );
+
+    component.ngOnInit();
+    expect(component.selectedDepartmentId).toBe(8);
+    expect(getBestEmployee).toHaveBeenCalledTimes(1);
+
+    component.selectedDepartmentId = 7;
+    component.onDepartmentChanged();
+    component.fromDate = new Date(2026, 0, 1);
+    component.toDate = new Date(2026, 0, 31);
+    component.onDateRangeChanged();
+
+    expect(getBestEmployee).toHaveBeenCalledTimes(1);
+
+    component.loadBestEmployees(true);
+    expect(getBestEmployee).toHaveBeenCalledTimes(2);
+    expect(getBestEmployee.calls.mostRecent().args[0]).toEqual(jasmine.objectContaining({
+      department_id: 7,
+      fromdate: '2026-01-01',
+      todate: '2026-01-31'
+    }));
   });
 
   function mapEmployee(value: any = notEligibleEmployee, index = 0): any {

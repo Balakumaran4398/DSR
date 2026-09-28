@@ -11,6 +11,7 @@ import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { ReleaseMailsListComponent } from '../../../core/mails/release-mails-list/release-mails-list.component';
 import { MatDialog } from '@angular/material/dialog';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
+import { getReleaseDayStatus, isReleaseInDateRange } from 'src/app/_core/utils/release-day-status.util';
 import Swal from 'sweetalert2';
 declare const Tabulator: any;
 declare const luxon: any;
@@ -24,10 +25,12 @@ export interface Release {
   released_date: string;
   projectid: string;
   assigned_to: string;
+  assign_to?: string | number;
   assignedTo?: string | number;
   assigned_to_id?: string | number;
   assignedToId?: string | number;
   assigned_from?: string | number;
+  assign_from?: string | number;
   assignedFrom?: string | number;
   assigned_from_id?: string | number;
   assignedFromId?: string | number;
@@ -45,6 +48,8 @@ export interface Release {
   to_be_tested_date?: string;
   toBeTestedDate?: string;
   status_changed_date?: string;
+  release_transition_date?: string;
+  releaseTransitionDate?: string;
   file_url?: string;
   mail_content?: string;
   project_name?: string
@@ -95,6 +100,12 @@ interface ReleaseOverviewExportSection {
 }
 export type ReleaseStatus = 'Upcoming-Release' | 'On-Hold' | 'Open' | 'In-Progress' | 'To-be-Tested' | 'Rejected' | 'Pass' | 'Failed';
 type ReleasePerformanceState = 'none' | 'excellent' | 'very-good' | 'good' | 'poor';
+type ReleaseOverviewView = 'table' | 'kanban';
+const OVERVIEW_RELEASE_CURRENT_VIEW_KEY = 'overviewReleaseCurrentView';
+// The overview API filters by request dates rather than by the full planned-to-release interval.
+// Fetch the available release timeline, then apply inclusive overlap to the selected week locally.
+const RELEASE_OVERVIEW_TIMELINE_START = '1900-01-01';
+const RELEASE_OVERVIEW_TIMELINE_END = '9999-12-31';
 @Component({
   selector: 'app-overview-releases',
   templateUrl: './overview-releases.component.html',
@@ -103,7 +114,7 @@ type ReleasePerformanceState = 'none' | 'excellent' | 'very-good' | 'good' | 'po
 export class OverviewReleasesComponent {
   tabulator: any;
   // View State
-  currentView: string = 'table';
+  currentView: ReleaseOverviewView = 'table';
   searchQuery: string = '';
   readonly allProjectsValue = '__all_projects__';
   readonly allEmployeesValue = '__all_employees__';
@@ -176,9 +187,8 @@ export class OverviewReleasesComponent {
     this.username = this.storageService.getUsername();
 
   }
-  setActiveTab(id: any): void {
-    this.currentView = id;
-    this.setView(id)
+  setActiveTab(id: ReleaseOverviewView): void {
+    this.setView(id);
   }
   mainTabs: any[] = [
     {
@@ -195,6 +205,7 @@ export class OverviewReleasesComponent {
     }
   ];
   ngOnInit(): void {
+    this.currentView = this.restoreCurrentView();
     this.departmentTabs = this.buildReleaseDepartmentTabs([]);
     this.applyRoleBasedDepartmentState();
     this.initializeReleaseTypeFilter();
@@ -202,9 +213,7 @@ export class OverviewReleasesComponent {
     this.setCurrentWeekDates();
     this.loadData();
 
-    if (this.currentView === 'table') {
-      this.setView('table');
-    }
+    this.setView(this.currentView);
 
     this.drawerService.drawerAction$
       .pipe(filter(a => a.source === 'release'))
@@ -229,8 +238,9 @@ export class OverviewReleasesComponent {
 
   // --- View & Search ---
 
-  setView(view: 'table' | 'kanban') {
+  setView(view: ReleaseOverviewView) {
     this.currentView = view;
+    this.storeCurrentView(view);
     if (view === 'table') {
       // wait a tick for *ngIf to render the container
       setTimeout(() => {
@@ -248,7 +258,7 @@ export class OverviewReleasesComponent {
   }
 
   filterData() {
-    let data = [...this.releaseList];
+    let data = this.releaseList.filter(release => isReleaseInDateRange(release, this.startDate, this.endDate));
     const selectedDepartment = this.getSelectedDepartmentOption();
 
     data = this.applySelectedProjectFilter(data);
@@ -396,6 +406,7 @@ export class OverviewReleasesComponent {
         }
       },
       columns: [
+        { title: "Project", field: "project_name" },
         {
           title: "Title", field: "title", editor: "input",
           editable: canEditTableCell,
@@ -427,7 +438,7 @@ export class OverviewReleasesComponent {
             }
           }
         },
-        { title: "Project", field: "project_name", },
+        { title: "Version", field: "version", editor: "input", editable: canEditTableCell },
         {
           title: "Manager / TL",
           field: "manager_name",
@@ -435,15 +446,34 @@ export class OverviewReleasesComponent {
           hozAlign: "center",
         },
         {
-          title: "Assiged from",
+          title: "Worked / Released By",
           field: "assignee_from_name",
           width: 200,
           hozAlign: "center",
         },
-         {
-          title: "Assignee To",
+        {
+          title: "Planned Date",
+          field: "planned_date"
+        },
+        {
+          title: "Released Date",
+          field: "released_date"
+        },
+        {
+          title: "Overdue",
+          field: "overdue",
+          width: 200,
+          formatter: (cell: any) => {
+            const result = getReleaseDayStatus(cell.getData());
+            const tone = result.tone === 'red' ? 'danger' : result.tone === 'blue' ? 'info' : result.tone === 'green' ? 'success' : 'warning';
+            return result.tone === 'none'
+              ? '-'
+              : `<span class="release-date-pill release-date-pill--${tone}">${this.escapeHtml(result.text)}</span>`;
+          }
+        },
+        {
+          title: "Tested By",
           field: "assigned_to",
-          minWidth: 200,
           editable: canEditTableCell,
           editor: "list",
           editorParams: () => ({
@@ -455,47 +485,35 @@ export class OverviewReleasesComponent {
             listOnEmpty: true,
             clearable: true
           }),
-          formatter: (cell: any) => {
-            const name = this.getReleaseAssigneeDisplayName(cell.getData());
-            const initials = name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
-            return `
-                <div class="flex items-center gap-2">
-                    <div class="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] text-gray-600">${this.escapeHtml(initials)}</div>
-                    <span class="text-m">${this.escapeHtml(name)}</span>
-                </div>
-                `;
-          }
+          formatter: (cell: any) => this.escapeHtml(this.getReleaseAssigneeDisplayName(cell.getData()))
         },
         {
-          title: "Release Performance",
-          field: "release_performance",
-          width: 180,
-          hozAlign: "center",
-          headerSort: true,
-          sorter: (_a: any, _b: any, aRow: any, bRow: any) =>
-            this.getReleasePerformanceSortValue(aRow?.getData?.()) - this.getReleasePerformanceSortValue(bRow?.getData?.()),
-          formatter: (cell: any) => {
-            const performance = this.getReleasePerformance(cell.getData());
-            return performance && performance !== '-'
-              ? `<span class="release-performance-pill ${this.getReleasePerformancePillClass(performance)}">${this.escapeHtml(performance)}</span>`
-              : '-';
-          }
+          title: "QC Testing Start Date",
+          field: "qc_testing_start_date"
         },
-        { title: "Version", field: "version", editor: "input", editable: canEditTableCell },
-        { title: "Reject Reason", field: "reject_reason", width: 200, editor: "input", editable: canEditTableCell },
+        {
+          title: "QC Testing End Date",
+          field: "qc_testing_end_date"
+        },
+        {
+          title: "QC Release Date",
+          field: "closed_date"
+        },
         {
           title: "Status",
           field: "status", width: 200,
           editable: canEditTableCell,
           editor: "list", editorParams: { values: this.statusList },
           formatter: (cell: any) => {
-            const val = `${cell.getValue() ?? ''}`.trim();
+            const val = getReleaseDayStatus(cell.getData()).status;
             return val
               ? `<span class="release-status-pill ${this.getReleaseStatusPillClass(val)}">${this.escapeHtml(val)}</span>`
               : '';
           }
         },
-       
+        { title: "Release Type", field: "release_type" },
+        { title: "Remarks", field: "reject_reason", width: 220 },
+        { title: "Client", field: "company_name", width: 180 },
 
         {
           title: "Actions",
@@ -761,24 +779,27 @@ export class OverviewReleasesComponent {
     this.releaseLoading = true;
     this.setReleaseTableInlineLoading(true, 'Loading releases...');
     this.authService.getReleaseOverviewByEmp(this.getReleaseOverviewPayload())
-      .pipe(finalize(() => {
-        if (loadRunId === this.releaseOverviewLoadRunId) {
-          this.releaseLoading = false;
-          this.setReleaseTableInlineLoading(false);
-        }
-      }))
       .subscribe({
         next: (res: any) => {
           if (loadRunId !== this.releaseOverviewLoadRunId) {
             return;
           }
 
-          this.releaseList = this.normalizeReleaseResponse(res);
-          this.filterData();
-          if (!callback) {
-            this.resetPdfPreviewState();
-          }
-          callback?.(this.filteredReleases);
+          const releases = this.normalizeReleaseResponse(res);
+          this.getReportableReleases(releases, (enrichedReleases: Release[]) => {
+            if (loadRunId !== this.releaseOverviewLoadRunId) {
+              return;
+            }
+
+            this.releaseList = enrichedReleases;
+            this.filterData();
+            this.releaseLoading = false;
+            this.setReleaseTableInlineLoading(false);
+            if (!callback) {
+              this.resetPdfPreviewState();
+            }
+            callback?.(this.filteredReleases);
+          });
         },
         error: (err: any) => {
           if (loadRunId !== this.releaseOverviewLoadRunId) {
@@ -787,6 +808,8 @@ export class OverviewReleasesComponent {
 
           this.releaseList = [];
           this.filterData();
+          this.releaseLoading = false;
+          this.setReleaseTableInlineLoading(false);
           this.toasterService.error(err?.error?.message || 'Unable to load release overview.');
         }
       });
@@ -809,8 +832,8 @@ export class OverviewReleasesComponent {
       employee_id: this.empid,
       selected_emp_id: this.getSelectedEmployeeIdParam(),
       projectid: this.projectid,
-      fromdate: this.startDate,
-      todate: this.endDate,
+      fromdate: RELEASE_OVERVIEW_TIMELINE_START,
+      todate: RELEASE_OVERVIEW_TIMELINE_END,
       department_id: this.getSelectedDepartmentApiId(),
       manager_name: this.getSelectedManagerNameParam()
     };
@@ -985,7 +1008,11 @@ export class OverviewReleasesComponent {
     this.getReleaseOverviewListByEmp((data: Release[]) => {
       this.getReportableReleases(data, (reportData: Release[]) => {
         const projectName = this.getSelectedProjectNameLabel();
-        const departmentSections = this.buildReleaseOverviewExportSections(reportData);
+        const selectedDepartment = this.getSelectedDepartmentOption();
+        const isAllDepartments = this.isAllDepartment(selectedDepartment);
+        const departmentSections = isAllDepartments
+          ? []
+          : this.buildReleaseOverviewExportSections(reportData);
 
         try {
           this.excelService.generateReleaseOverviewExcel(
@@ -996,7 +1023,7 @@ export class OverviewReleasesComponent {
               releaseType: this.selectedReleaseType,
               department: this.getSelectedDepartmentLabel(),
               managerName: this.getSelectedManagerNameLabel(reportData),
-              departmentWiseReleaseReport: true,
+              departmentWiseReleaseReport: !isAllDepartments,
               departmentSections
             },
             this.startDate,
@@ -1016,33 +1043,14 @@ export class OverviewReleasesComponent {
 
   private getReportableReleases(data: Release[], callback: (releases: Release[]) => void): void {
     const releases = Array.isArray(data) ? data : [];
-
-    if (releases.length === 0) {
-      callback([]);
-      return;
-    }
-
-    const releaseRequests = releases.map((release: Release) => {
-      const knownTransitionDate = this.getReleaseCompletionDate(release, []);
-
-      if (this.normalizeReleaseStatus(release?.status) === 'upcoming-release' || knownTransitionDate) {
-        return of(this.attachToBeTestedTransitionDate(release, []));
-      }
-
-      if (!release?.id) {
-        return of(this.attachToBeTestedTransitionDate(release, []));
-      }
-
-      return this.authService.getActivityLogs('release', release.id, 'status').pipe(
-        map((logs: any) => this.attachToBeTestedTransitionDate(release, logs)),
-        catchError(() => of(this.attachToBeTestedTransitionDate(release, [])))
-      );
+    const reportReleases = releases.map((release: Release) => {
+      const releaseData = release as any;
+      const embeddedLogs = releaseData?.status_logs || releaseData?.statusLogs || releaseData?.activity_logs || releaseData?.activityLogs || releaseData?.logs || [];
+      return this.attachReleaseTransitionDate(release, embeddedLogs);
     });
 
-    forkJoin(releaseRequests).subscribe({
-      next: (reportReleases: Release[]) => callback(reportReleases),
-      error: () => callback(releases)
-    });
+    // Avoid one gettasklog request per release on every overview refresh.
+    callback(reportReleases);
   }
 
   private buildReleaseOverviewExportSections(releases: Release[]): ReleaseOverviewExportSection[] {
@@ -1090,49 +1098,45 @@ export class OverviewReleasesComponent {
       }];
   }
 
-  private attachToBeTestedTransitionDate(release: Release, logs: any): Release {
-    const transitionDate = this.getToBeTestedTransitionDate(release, logs);
+  private attachReleaseTransitionDate(release: Release, logs: any): Release {
+    const transitionDate = this.getReleaseTransitionDate(release, logs);
 
-    if (!transitionDate) {
-      return release;
-    }
-
-    return {
-      ...release,
-      to_be_tested_date: transitionDate
-    };
-  }
-
-  private getToBeTestedTransitionDate(release: Release, logs: any): string | null {
-    const explicitTransitionDate = this.getFirstDateValue(release, [
+    const toBeTestedDate = this.getFirstDateValue(release, [
       'to_be_tested_date',
       'toBeTestedDate',
       'to_be_tested_at',
       'toBeTestedAt',
-      'release_tested_date',
-      'release_status_changed_date',
-      'status_changed_date'
+      'release_tested_date'
+    ]) || this.getFirstToBeTestedTimelineDate(logs);
+
+    return {
+      ...release,
+      ...(transitionDate ? { release_transition_date: transitionDate } : {}),
+      ...(toBeTestedDate ? { to_be_tested_date: toBeTestedDate } : {})
+    };
+  }
+
+  private getReleaseTransitionDate(release: Release, logs: any): string | null {
+    const explicitTransitionDate = this.getFirstDateValue(release, [
+      'release_transition_date',
+      'releaseTransitionDate'
     ]);
 
     if (explicitTransitionDate) {
       return explicitTransitionDate;
     }
 
-    const timelineDate = this.getFirstToBeTestedTimelineDate(logs);
+    const timelineDate = this.getFirstNonUpcomingTimelineDate(logs);
 
     if (timelineDate) {
       return timelineDate;
-    }
-
-    if (this.normalizeReleaseStatus(release?.status) === 'to-be-tested') {
-      return this.getFirstDateValue(release, ['updateddate', 'updated_date']);
     }
 
     return null;
   }
 
   private getReleaseCompletionDate(release: Release | any, logs: any = []): string | null {
-    const transitionDate = this.getToBeTestedTransitionDate(release, logs);
+    const transitionDate = this.getReleaseTransitionDate(release, logs);
 
     if (transitionDate) {
       return transitionDate;
@@ -1154,14 +1158,25 @@ export class OverviewReleasesComponent {
     ]);
   }
 
+  private getFirstNonUpcomingTimelineDate(logs: any): string | null {
+    return this.getFirstStatusTimelineDate(logs, status => !!status && status !== 'upcoming-release');
+  }
+
   private getFirstToBeTestedTimelineDate(logs: any): string | null {
+    return this.getFirstStatusTimelineDate(logs, status => status === 'to-be-tested');
+  }
+
+  private getFirstStatusTimelineDate(
+    logs: any,
+    includesStatus: (status: string) => boolean
+  ): string | null {
     const timeline = Array.isArray(logs) ? logs : [];
-    const toBeTestedLogs = timeline
+    const statusChangeLogs = timeline
       .map((log: any) => ({
         date: this.getFirstDateValue(log, ['logdate', 'created_date', 'createddate', 'updated_date', 'updateddate']),
         status: this.normalizeReleaseStatus(log?.status)
       }))
-      .filter((log: any) => log.status === 'to-be-tested' && !!log.date)
+      .filter((log: any) => includesStatus(log.status) && !!log.date)
       .map((log: any) => ({
         date: log.date,
         time: this.getReleaseDateTime(log.date)
@@ -1169,7 +1184,7 @@ export class OverviewReleasesComponent {
       .filter((log: any) => log.time !== null)
       .sort((first: any, second: any) => first.time - second.time);
 
-    return toBeTestedLogs[0]?.date || null;
+    return statusChangeLogs[0]?.date || null;
   }
 
   private getFirstDateValue(source: any, keys: string[]): string | null {
@@ -1195,7 +1210,7 @@ export class OverviewReleasesComponent {
   private getReleaseStatusPillClass(status: any): string {
     const normalizedStatus = this.normalizeReleaseStatus(status);
 
-    if (['active', 'on-track', 'approved', 'pass', 'invoiced', 'open'].includes(normalizedStatus)) {
+    if (['active', 'on-track', 'approved', 'pass', 'invoiced', 'open', 'released'].includes(normalizedStatus)) {
       return 'release-status--success';
     }
 
@@ -1381,19 +1396,44 @@ export class OverviewReleasesComponent {
   }
 
   canEditRelease(release: any): boolean {
-    const loggedInEmpId = `${this.storageService.getEmpId() ?? ''}`;
-    const assignedFrom = `${release?.assigned_from ?? release?.assignedFrom ?? release?.assigned_from_id ?? release?.assignedFromId ?? ''}`;
-    const assignedTo = `${release?.assigned_to ?? release?.assignedTo ?? release?.assigned_to_id ?? release?.assignedToId ?? ''}`;
+    const normalizeId = (value: unknown): string => String(value ?? "").trim();
     const roles = this.storageService.roles;
 
+    // Privileged roles can edit independently of assignment and status.
     if (roles?.isAdmin || roles?.isManager) {
       return true;
     }
 
-    return !!loggedInEmpId && (
-      (!!assignedFrom && loggedInEmpId === assignedFrom) ||
-      (!!assignedTo && loggedInEmpId === assignedTo)
+    const employeeId = normalizeId(this.storageService.getEmpId());
+    if (!employeeId) {
+      return false;
+    }
+
+    const assignedFrom = normalizeId(
+      release?.assign_from ?? release?.assigned_from ?? release?.assignedFrom
+        ?? release?.assigned_from_id ?? release?.assignedFromId
     );
+    const assignedTo = normalizeId(
+      release?.assign_to ?? release?.assigned_to ?? release?.assignedTo
+        ?? release?.assigned_to_id ?? release?.assignedToId
+    );
+    const status = String(release?.status ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[_\s]+/g, "-");
+
+    // The assigning employee retains edit access at every release status.
+    if (assignedFrom && employeeId === assignedFrom) {
+      return true;
+    }
+
+    // When assignments differ, the assigned-to employee cannot edit while upcoming.
+    const hasDifferentAssignments = !!assignedFrom && !!assignedTo && assignedFrom !== assignedTo;
+    if (hasDifferentAssignments && (status === "upcoming" || status === "upcoming-release")) {
+      return false;
+    }
+
+    return !!assignedTo && employeeId === assignedTo;
   }
 
   canDragOrDrop(sourceStatus: string, targetStatus?: string): boolean {
@@ -1713,7 +1753,6 @@ export class OverviewReleasesComponent {
 
   private clearStoredReleaseOverviewState(): void {
     const keys = [
-      'overviewReleaseCurrentView',
       'overviewReleaseDepartment',
       'overviewReleaseSelectedEmployeeId',
       'overviewReleaseSelectedEmployeeName'
@@ -1732,6 +1771,23 @@ export class OverviewReleasesComponent {
     }
   }
 
+  private restoreCurrentView(): ReleaseOverviewView {
+    try {
+      const storedView = sessionStorage.getItem(OVERVIEW_RELEASE_CURRENT_VIEW_KEY);
+      return storedView === 'kanban' || storedView === 'table' ? storedView : 'table';
+    } catch {
+      return 'table';
+    }
+  }
+
+  private storeCurrentView(view: ReleaseOverviewView): void {
+    try {
+      sessionStorage.setItem(OVERVIEW_RELEASE_CURRENT_VIEW_KEY, view);
+    } catch {
+      // Keep view switching functional when browser storage is unavailable.
+    }
+  }
+
 
   setReleaseType(type: string) {
     const selectedType = this.releaseTypeOptions.find(option =>
@@ -1742,7 +1798,6 @@ export class OverviewReleasesComponent {
     this.releaseTypeControl.setValue(selectedType, { emitEvent: false });
     this.resetPdfPreviewState();
     this.applyFilters();
-    this.setView(this.normalizeReleaseType(selectedType) === 'external' ? 'table' : 'kanban');
   }
 
   clearReleaseType() {
@@ -3138,30 +3193,20 @@ export class OverviewReleasesComponent {
   }
 
   isReleaseOverdue(release: Release): boolean {
-    const status = `${release?.status ?? ''}`.trim().toLowerCase().replace(/[_\s]+/g, '-');
-    if (status !== 'upcoming-release') {
-      return false;
-    }
+    const result = getReleaseDayStatus(release);
+    const status = `${result.status}`.trim().toLowerCase().replace(/[\s_]+/g, '-');
+    return result.tone === 'red';
+  }
 
-    const daysUntilRelease = this.getDaysUntilRelease(release?.released_date);
-    return daysUntilRelease !== null && daysUntilRelease < 0;
+  getReleaseDisplayStatus(release: Release): string {
+    return getReleaseDayStatus(release).status;
   }
 
   getReleaseDateBadgeClass(release: Release): string {
-    const daysUntilRelease = this.getDaysUntilRelease(release?.released_date);
-
-    if (daysUntilRelease !== null && daysUntilRelease < 0) {
-      return 'release-date-pill--danger';
-    }
-
-    if (daysUntilRelease !== null && daysUntilRelease <= 1) {
-      return 'release-date-pill--high-warning';
-    }
-
-    if (daysUntilRelease !== null) {
-      return 'release-date-pill--warning';
-    }
-
+    const tone = getReleaseDayStatus(release).tone;
+    if (tone === 'red') return 'release-date-pill--danger';
+    if (tone === 'green') return 'release-date-pill--success';
+    if (tone === 'warning') return 'release-date-pill--warning';
     return 'release-date-pill--info';
   }
 
@@ -3186,6 +3231,10 @@ export class OverviewReleasesComponent {
     today.setHours(0, 0, 0, 0);
 
     return Math.ceil((releaseDate.getTime() - today.getTime()) / 86400000);
+  }
+
+  private getReleaseTableOverdue(release: Release | any): string {
+    return getReleaseDayStatus(release).text;
   }
 
   private isCompactViewport(): boolean {

@@ -1,0 +1,57 @@
+import { getReleaseDayStatus } from './release-day-status.util';
+
+describe('getReleaseDayStatus', () => {
+  const today = new Date(2026, 8, 22);
+
+  it('keeps Upcoming live against released_date', () => {
+    expect(getReleaseDayStatus({ planned_date: '2026-09-25', released_date: '2026-09-25', status: 'Upcoming-Release' }, today))
+      .toEqual({ count: 3, text: '3 days remaining', tone: 'warning', status: 'Upcoming-Release' });
+    expect(getReleaseDayStatus({ planned_date: '2026-09-20', released_date: '2026-09-22', status: 'Upcoming-Release' }, today))
+      .toEqual({ count: 0, text: '0 days remaining', tone: 'warning', status: 'Upcoming-Release' });
+    expect(getReleaseDayStatus({ planned_date: '2026-09-18', released_date: '2026-09-20', status: 'Upcoming-Release' }, today))
+      .toEqual({ count: 2, text: '2 days overdue', tone: 'red', status: 'Upcoming-Release' });
+  });
+
+  it('falls back to planned_date only when an Upcoming release has no released_date', () => {
+    expect(getReleaseDayStatus({ planned_date: '2026-09-25', released_date: null, status: 'Upcoming-Release' }, today))
+      .toEqual({ count: 3, text: '3 days remaining', tone: 'warning', status: 'Upcoming-Release' });
+    expect(getReleaseDayStatus({ planned_date: '2026-09-20', released_date: '', status: 'Upcoming-Release' }, today))
+      .toEqual({ count: 2, text: '2 days overdue', tone: 'red', status: 'Upcoming-Release' });
+  });
+
+  it('freezes non-Upcoming releases as early, on time, or late and always uses green', () => {
+    expect(getReleaseDayStatus({ released_date: '2026-09-25', release_transition_date: '2026-09-23', status: 'In-Progress' }, today))
+      .toEqual({ count: 2, text: '2 days early', tone: 'green', status: 'In-Progress' });
+    expect(getReleaseDayStatus({ released_date: '2026-09-25', status_changed_date: '2026-09-25', status: 'Pass' }, today))
+      .toEqual({ count: 0, text: 'On time', tone: 'green', status: 'Pass' });
+    expect(getReleaseDayStatus({ released_date: '2026-09-25', to_be_tested_date: '2026-09-27', status: 'Failed' }, today))
+      .toEqual({ count: 2, text: '2 days late', tone: 'green', status: 'Failed' });
+  });
+
+  it('treats equal planned and released dates as on time after leaving Upcoming', () => {
+    expect(getReleaseDayStatus({
+      planned_date: '2026-09-25',
+      released_date: '2026-09-25',
+      release_transition_date: '2026-09-28',
+      status: 'On-Hold'
+    }, today)).toEqual({ count: 3, text: '2026-09-25 (3 days overdue)', tone: 'red', status: 'On-Hold' });
+  });
+
+  it('uses frozen calculations for every non-Upcoming release status', () => {
+    ['In-Progress', 'On-Hold', 'To-be-Tested', 'Rejected', 'Pass', 'Failed'].forEach(status => {
+      expect(getReleaseDayStatus({
+        released_date: '2026-09-25',
+        release_transition_date: '2026-09-24',
+        status
+      }, today)).withContext(status)
+        .toEqual({ count: 1, text: '2026-09-25 (1 day before)', tone: 'green', status });
+    });
+  });
+
+  it('does not invent a frozen result from missing or invalid dates', () => {
+    expect(getReleaseDayStatus({ released_date: '2026-09-25', status: 'Pass' }, today))
+      .toEqual({ count: null, text: '-', tone: 'none', status: 'Pass' });
+    expect(getReleaseDayStatus({ released_date: '2026-02-30', release_transition_date: '2026-09-22', status: 'Pass' }, today))
+      .toEqual({ count: null, text: '-', tone: 'none', status: 'Pass' });
+  });
+});

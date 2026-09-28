@@ -94,6 +94,9 @@
   overflow-x: auto;
   overflow-y: auto;
   scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
   scrollbar-gutter: stable;
   border: 1px solid var(--overlay-border);
   border-radius: 8px;
@@ -364,4 +367,17 @@
 }
 .overall-details-table-wrap--persistent-scrollbars .overall-details-table {
   min-width: calc(100% + 1rem);
+}
+
+
+::ng-deep .ticket-dialog-panel {
+  width: min(96vw, 1600px) !important;
+  max-width: 96vw !important;
+}
+
+::ng-deep .ticket-dialog-panel .mat-dialog-container,
+::ng-deep .ticket-dialog-panel .mat-mdc-dialog-container .mdc-dialog__surface {
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
 }

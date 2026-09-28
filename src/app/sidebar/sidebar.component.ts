@@ -8,6 +8,7 @@ import { ToasterService } from '../_core/services/toaster.service';
 import { ThemeService } from '../_core/services/theme.service';
 import { Subscription } from 'rxjs';
 import { NotificationDateRangeService } from '../_core/services/notification-date-range.service';
+import { URL } from '../api.base';
 
 @Component({
   selector: 'app-sidebar',
@@ -15,6 +16,8 @@ import { NotificationDateRangeService } from '../_core/services/notification-dat
   styleUrls: ['./sidebar.component.scss']
 })
 export class SidebarComponent implements OnInit, OnDestroy {
+  readonly version = URL.CURRENT_VERSION();
+
   private readonly routeRoles: Record<string, string[]> = {
     home: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     overall: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],

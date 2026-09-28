@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit,ElementRef, ViewChild, HostListener  } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { catchError, finalize, forkJoin, of, Subscription } from 'rxjs';
@@ -9,7 +9,9 @@ import { StorageService } from 'src/app/_core/services/storage.service';
 import { OverdueComponent } from '../../core/charts/overdue/overdue.component';
 import { ProjectStatusReportComponent } from '../../core/charts/project-status-report/project-status-report.component';
 import { OverallDetailsDialogComponent } from './overall-details-dialog/overall-details-dialog.component';
-import { APP_TABLE_DEFAULT_PAGE_SIZE, APP_TABLE_PAGE_SIZE_OPTIONS, APP_TABLE_VISIBLE_ROW_COUNT, buildTablePageNumbers } from 'src/app/_core/utils/tabulator-pagination.util';
+import { APP_TABLE_DEFAULT_PAGE_SIZE, APP_TABLE_PAGE_SIZE_OPTIONS, APP_TABLE_VISIBLE_ROW_COUNT, attachStandardTabulatorPagination, buildTablePageNumbers } from 'src/app/_core/utils/tabulator-pagination.util';
+
+declare const Tabulator: any;
 
 type MetricTone = 'blue' | 'purple' | 'orange' | 'green' | 'cyan' | 'violet';
 type OverallMetricDialogType = 'employees' | 'tasks' | 'issues' | 'releases' | 'tickets' ;
@@ -124,7 +126,7 @@ interface OverallMetricSnapshot {
   styleUrls: ['./overall.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class OverallComponent implements OnInit, OnDestroy {
+export class OverallComponent implements AfterViewInit, OnInit, OnDestroy {
   dashboardData: any = {};
   projectList: any[] = [];
   employeeList: any[] = [];
@@ -223,7 +225,7 @@ export class OverallComponent implements OnInit, OnDestroy {
   private readonly releaseDateKeys = ['release_date', 'released_date', 'release_status_changed_date', 'status_changed_date', 'updateddate', 'updated_date', 'created_date', 'createddate', 'date'];
   private readonly ticketCreatedDateKeys = ['created_date', 'createddate', 'assigned_date', 'ticket_date', 'date'];
   private readonly ticketClosedDateKeys = ['closed_date', 'closeddate', 'resolved_date', 'resolveddate', 'completed_date', 'completeddate', 'updated_date', 'updateddate', 'status_changed_date', 'created_date', 'createddate'];
-  private readonly ticketListKeys = ['ticket_list', 'ticketList', 'ticketlist', 'all_ticket_list', 'overall_ticket_list', 'tickets', 'ticket_details', 'ticketDetails'];
+  private readonly ticketListKeys = ['ticket_list', 'active_ticket_list', 'ticketList', 'ticketlist', 'all_ticket_list', 'overall_ticket_list', 'tickets', 'ticket_details', 'ticketDetails'];
   private readonly chartColors = {
     metricEmployees: 'var(--overall-metric-employees)',
     metricEmployeesSoft: 'var(--overall-metric-employees-soft)',
@@ -258,6 +260,10 @@ export class OverallComponent implements OnInit, OnDestroy {
   isCustomOpen: boolean = false;
 
   @ViewChild('customDateFilter') customDateFilterRef?: ElementRef<HTMLElement>;
+  @ViewChild('performanceTableDiv') performanceTableDiv?: ElementRef<HTMLElement>;
+  private performanceTable: any;
+  private performanceTableCheckInterval?: ReturnType<typeof setInterval>;
+  private destroyed = false;
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     if (!this.isCustomOpen) return;
@@ -297,8 +303,32 @@ export class OverallComponent implements OnInit, OnDestroy {
     this.loadOverallAnalytics();
   }
 
+  ngAfterViewInit(): void {
+    this.performanceTableCheckInterval = setInterval(() => {
+      if (this.destroyed || !this.performanceTableDiv?.nativeElement?.isConnected) {
+        return;
+      }
+
+      if (typeof Tabulator !== 'undefined') {
+        clearInterval(this.performanceTableCheckInterval);
+        this.performanceTableCheckInterval = undefined;
+        this.initializePerformanceTable();
+      }
+    }, 50);
+  }
+
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.loadSubscription?.unsubscribe();
+    if (this.performanceTableCheckInterval) {
+      clearInterval(this.performanceTableCheckInterval);
+    }
+    try {
+      this.performanceTable?.destroy?.();
+    } catch {
+      // Ignore Tabulator teardown races during navigation.
+    }
+    this.performanceTable = null;
     if (this.countAnimationFrame) {
       cancelAnimationFrame(this.countAnimationFrame);
     }
@@ -441,7 +471,7 @@ export class OverallComponent implements OnInit, OnDestroy {
     }
 
     if (type === 'tickets') {
-      this.openTicketDialog(this.getTicketRowsForDialog(), 'Tickets');
+      this.openTicketDialog(this.getActiveTicketRows(), 'Active Tickets');
       return;
     }
 
@@ -678,6 +708,7 @@ export class OverallComponent implements OnInit, OnDestroy {
     this.releaseChartLoading = isLoading;
     this.ticketChartLoading = isLoading;
     this.projectPerformanceLoading = isLoading;
+    this.setPerformanceTableLoading(isLoading);
   }
 
   private hasDashboardData(): boolean {
@@ -785,6 +816,14 @@ export class OverallComponent implements OnInit, OnDestroy {
     return this.uniqueRows(this.collectTicketRowsFromSource(this.dashboardData));
   }
 
+  private getActiveTicketRows(): any[] {
+    return this.uniqueRows(this.getRowsForCompany(this.arrayFromKeys(['active_ticket_list'])));
+  }
+
+  private getTicketPipelineSourceRows(): any[] {
+    return this.getRowsForCompany(this.arrayFromKeys(['ticket_list']));
+  }
+
   private buildGlobalMetricSnapshot(): OverallMetricSnapshot {
     const activeEmployees = this.employeeList.filter(employee => this.isActiveEmployee(employee)).length;
     const activeTasks = this.firstNumber(['active_task', 'open_task', 'open_tasks'], this.arrayLength(['open_task_list', 'active_task_list']));
@@ -797,7 +836,8 @@ export class OverallComponent implements OnInit, OnDestroy {
       + this.arrayLength(['external_passed_release_list', 'external_pass_release_list'])
     );
     const loadedTicketCount = this.allTicketRows.length;
-    const tickets = loadedTicketCount || this.firstNumber(['total_ticket', 'total_tickets', 'ticket_count'], 0);
+    const activeTicketRows = this.getActiveTicketRows();
+    const tickets = this.firstNumber(['active_ticket_count'], activeTicketRows.length || loadedTicketCount || this.firstNumber(['total_ticket', 'total_tickets', 'ticket_count'], 0));
     const closedTickets = loadedTicketCount
       ? this.countClosedTickets(this.allTicketRows)
       : this.firstNumber(['closed_ticket', 'closed_tickets', 'resolved_ticket', 'resolved_tickets'], 0);
@@ -810,7 +850,7 @@ export class OverallComponent implements OnInit, OnDestroy {
       employees: this.firstNumber(['active_employees', 'active_employee', 'active_staff'], activeEmployees),
       activeTasks,
       completedTasks,
-      issues: this.firstNumber(['active_issue', 'open_issue', 'open_issues'], this.arrayLength(['bug_list', 'open_bug_list', 'open_issue_list'])),
+      issues: this.firstNumber(['active_issue', 'open_issue', 'open_issues'], this.arrayLength(['active_issue_list', 'open_bug_list', 'open_issue_list'])),
       resolvedIssues: this.firstNumber(['closed_issue', 'closed_issues', 'resolved_issue', 'resolved_issues'], this.arrayLength(['closed_bug_list', 'closed_issue_list'])),
       releases,
       inProgressReleases,
@@ -949,7 +989,7 @@ export class OverallComponent implements OnInit, OnDestroy {
   }
 
   private buildIssueDistribution(): DistributionItem[] {
-    const openBugRows = this.uniqueRows(this.getRowsForCompany(this.arrayFromKeys(['open_bug_list'])));
+    const openBugRows = this.uniqueRows(this.getRowsForCompany(this.arrayFromKeys(['active_issue_list'])));
     const closedBugRows = this.uniqueRows(this.getRowsForCompany(this.arrayFromKeys(['closed_bug_list'])));
 
     return this.withPercents([
@@ -988,23 +1028,17 @@ export class OverallComponent implements OnInit, OnDestroy {
   }
 
   private buildTicketPipeline(): PipelineItem<TicketPipelineDialogType>[] {
-    const rows = this.getTicketRowsForCurrentScope();
-    const hasRows = rows.length > 0;
-    const totalTickets = hasRows ? rows.length : this.metricSnapshot.tickets;
+    const rows = this.getTicketPipelineSourceRows();
+    const totalTickets = rows.length;
     const categoryCounts: Record<Exclude<TicketPipelineDialogType, 'total'>, number> = {
       open: 0,
       inProgress: 0,
 
     };
 
-    if (hasRows) {
-      rows.forEach(row => {
-        categoryCounts[this.getTicketPipelineType(row)] += 1;
-      });
-    } else {
-      categoryCounts.open = this.metricSnapshot.openTickets;
-      // categoryCounts.closed = this.metricSnapshot.closedTickets;
-    }
+    rows.forEach(row => {
+      categoryCounts[this.getTicketPipelineType(row)] += 1;
+    });
 
     return this.pipelineItems<TicketPipelineDialogType>([
       { label: 'Total Tickets', value: totalTickets, color: this.chartColors.ticketTotal, dialogType: 'total' },
@@ -1059,7 +1093,7 @@ export class OverallComponent implements OnInit, OnDestroy {
   }
 
   private getActiveIssueRows(): any[] {
-    return this.uniqueRows(this.getRowsForCompany(this.arrayFromKeys(['open_bug_list'])));
+    return this.uniqueRows(this.getRowsForCompany(this.arrayFromKeys(['active_issue_list'])));
   }
 
   private getClosedIssueRows(): any[] {
@@ -1333,7 +1367,191 @@ export class OverallComponent implements OnInit, OnDestroy {
     this.performanceShowingFrom = this.filteredCompanyRows.length ? startIndex + 1 : 0;
     this.performanceShowingTo = this.filteredCompanyRows.length ? Math.min(startIndex + this.performancePageSize, this.filteredCompanyRows.length) : 0;
     this.performancePageNumbers = this.buildPerformancePageNumbers();
+    this.replacePerformanceTableData();
     this.cdr.markForCheck();
+  }
+
+  private initializePerformanceTable(): void {
+    const host = this.performanceTableDiv?.nativeElement;
+    if (!host || this.destroyed) {
+      return;
+    }
+
+    this.performanceTable = new Tabulator(host, {
+      data: this.filteredCompanyRows,
+      layout: 'fitDataStretch',
+      responsiveLayout: false,
+      autoResize: true,
+      pagination: 'local',
+      paginationSize: APP_TABLE_DEFAULT_PAGE_SIZE,
+      paginationCounter: 'rows',
+      paginationSizeSelector: [...APP_TABLE_PAGE_SIZE_OPTIONS],
+      movableColumns: true,
+      placeholder: 'No project data available for this filter.',
+      initialSort: [{ column: 'company', dir: 'asc' }],
+      headerSortElement: (_column: any, direction: string) => {
+        if (direction === 'asc') return '<i class="ri-arrow-up-line text-xs ml-1"></i>';
+        if (direction === 'desc') return '<i class="ri-arrow-down-line text-xs ml-1"></i>';
+        return '<i class="ri-arrow-up-down-line text-xs ml-1"></i>';
+      },
+      columns: [
+        {
+          title: 'Project',
+          field: 'company',
+          width: 230,
+          widthGrow: 2,
+          formatter: (cell: any) => this.buildCompanyCell(cell.getData())
+        },
+        { title: 'Customer', field: 'customerName', width: 190, widthGrow: 2 },
+        { title: 'Active Tasks', field: 'activeTasks', width: 130, hozAlign: 'right', headerHozAlign: 'right' },
+        { title: 'Completed Tasks', field: 'completedTasks', width: 155, hozAlign: 'right', headerHozAlign: 'right' },
+        {
+          title: 'Open Issues',
+          field: 'openIssues',
+          width: 125,
+          hozAlign: 'right',
+          headerHozAlign: 'right',
+          formatter: (cell: any) => this.buildTextCell(cell.getValue(), 'overall-danger-text')
+        },
+        {
+          title: 'Releases',
+          field: 'releases',
+          width: 110,
+          hozAlign: 'right',
+          headerHozAlign: 'right',
+          formatter: (cell: any) => this.buildTextCell(cell.getValue(), 'overall-release-text')
+        },
+        {
+          title: 'Tickets',
+          field: 'tickets',
+          width: 100,
+          hozAlign: 'right',
+          headerHozAlign: 'right',
+          formatter: (cell: any) => this.buildTextCell(cell.getValue(), 'overall-ticket-text')
+        },
+        {
+          title: 'Current Scenario',
+          field: 'currentScenario',
+          width: 180,
+          formatter: (cell: any) => this.buildTextCell(cell.getValue(), 'overall-scenario-pill')
+        },
+        {
+          title: 'Completion Rate',
+          field: 'completionRate',
+          width: 175,
+          hozAlign: 'right',
+          headerHozAlign: 'right',
+          sorter: 'number',
+          formatter: (cell: any) => this.buildCompletionCell(Number(cell.getValue()) || 0)
+        },
+        {
+          title: 'Trend',
+          field: 'trendPoints',
+          width: 130,
+          headerSort: false,
+          formatter: (cell: any) => this.buildTrendCell(cell.getData())
+        }
+      ]
+    });
+
+    attachStandardTabulatorPagination(this.performanceTable);
+    this.setPerformanceTableLoading(this.projectPerformanceLoading);
+  }
+
+  private replacePerformanceTableData(): void {
+    const table = this.performanceTable;
+    if (!table || this.destroyed) {
+      return;
+    }
+
+    try {
+      const operation = typeof table.replaceData === 'function'
+        ? table.replaceData(this.filteredCompanyRows)
+        : table.setData?.(this.filteredCompanyRows);
+      void Promise.resolve(operation).catch(() => undefined);
+    } catch {
+      // The next dashboard refresh will retry the table update.
+    }
+  }
+
+  private setPerformanceTableLoading(loading: boolean): void {
+    const host = this.performanceTableDiv?.nativeElement;
+    if (!host) {
+      return;
+    }
+
+    let loader = host.querySelector<HTMLElement>(':scope > .app-table-inline-loader');
+    if (!loading) {
+      loader?.remove();
+      return;
+    }
+
+    if (!loader) {
+      loader = document.createElement('div');
+      loader.className = 'app-table-inline-loader';
+      host.appendChild(loader);
+    }
+
+    const loadingContent = document.createElement('div');
+    loadingContent.className = 'app-local-loading';
+    const icon = document.createElement('i');
+    icon.className = 'ri-loader-4-line app-spin';
+    const label = document.createElement('span');
+    label.textContent = this.filteredCompanyRows.length
+      ? 'Refreshing project performance...'
+      : 'Loading project performance...';
+    loadingContent.replaceChildren(icon, label);
+    loader.replaceChildren(loadingContent);
+  }
+
+  private buildCompanyCell(row: CompanyPerformance): HTMLElement {
+    const container = document.createElement('div');
+    container.className = 'overall-company-cell';
+    const avatar = document.createElement('span');
+    avatar.className = 'overall-company-avatar';
+    avatar.style.background = row.color;
+    avatar.textContent = row.initials;
+    const name = document.createElement('span');
+    name.className = 'overall-company-name';
+    const strong = document.createElement('strong');
+    strong.textContent = row.company;
+    name.appendChild(strong);
+    container.append(avatar, name);
+    return container;
+  }
+
+  private buildTextCell(value: unknown, className: string): HTMLElement {
+    const element = document.createElement('span');
+    element.className = className;
+    element.textContent = String(value ?? '');
+    return element;
+  }
+
+  private buildCompletionCell(value: number): HTMLElement {
+    const container = document.createElement('div');
+    container.className = 'overall-progress-cell';
+    const label = document.createElement('strong');
+    label.textContent = `${value}%`;
+    const track = document.createElement('span');
+    const bar = document.createElement('i');
+    bar.style.width = `${Math.max(0, Math.min(100, value))}%`;
+    track.appendChild(bar);
+    container.append(label, track);
+    return container;
+  }
+
+  private buildTrendCell(row: CompanyPerformance): SVGElement {
+    const namespace = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(namespace, 'svg');
+    svg.classList.add('overall-sparkline');
+    svg.setAttribute('viewBox', '0 0 96 30');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('aria-hidden', 'true');
+    const polyline = document.createElementNS(namespace, 'polyline');
+    polyline.setAttribute('points', row.trendPoints);
+    polyline.style.stroke = row.color;
+    svg.appendChild(polyline);
+    return svg;
   }
 
   private matchesPerformanceSearch(row: CompanyPerformance, searchTerm: string): boolean {
@@ -1627,8 +1845,8 @@ export class OverallComponent implements OnInit, OnDestroy {
       data: { data: dialogRows, title, icon },
       width: '96vw',
       height: '75vh',
-      maxWidth: '1180px',
-      panelClass: 'project-status-report-dialog-panel'
+      maxWidth: '1600px',
+      panelClass: 'overdue-dialog-panel'
     });
   }
 
@@ -1638,7 +1856,7 @@ export class OverallComponent implements OnInit, OnDestroy {
       width: '96vw',
       height: '75vh',
       maxWidth: '1600px',
-      panelClass: 'project-status-report-dialog-panel'
+      panelClass: 'release-dialog-panel'
     });
   }
 
@@ -1675,8 +1893,8 @@ export class OverallComponent implements OnInit, OnDestroy {
       },
       width: '96vw',
       height: '75vh',
-      maxWidth: '1180px',
-      panelClass: 'project-status-report-dialog-panel'
+      maxWidth: '1600px',
+      panelClass: 'ticket-dialog-panel'
     });
   }
 
@@ -2272,7 +2490,7 @@ export class OverallComponent implements OnInit, OnDestroy {
   }
 
   private getTicketPipelineRows(type: TicketPipelineDialogType): any[] {
-    const rows = this.getTicketRowsForCurrentScope();
+    const rows = this.getTicketPipelineSourceRows();
 
     if (type === 'total') {
       return rows;

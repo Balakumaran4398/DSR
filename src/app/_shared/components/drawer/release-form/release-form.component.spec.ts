@@ -1,4 +1,5 @@
-import { FormControl } from '@angular/forms';
+import { FormControl, FormGroup, Validators } from '@angular/forms';
+import { of, throwError } from 'rxjs';
 import { ReleaseFormComponent, releaseVersionValidator, ReleaseStatus, ReleaseType, VERSION_ERROR_STATE_MATCHER } from './release-form.component';
 
 describe('ReleaseFormComponent select filters', () => {
@@ -9,7 +10,6 @@ describe('ReleaseFormComponent select filters', () => {
     (component as any).releaseTypeOptions = ['Internal', 'External'] as ReleaseType[];
     component.statusList = [
       'Upcoming-Release',
-      'Open',
       'To-be-Tested',
       'On-Hold',
       'In-Progress',
@@ -37,6 +37,7 @@ describe('ReleaseFormComponent select filters', () => {
 
     (component as any).applyStatusFilter('');
     expect(component.filteredStatuses).toEqual(component.statusList);
+    expect(component.filteredStatuses).not.toContain('Open');
   });
 
   it('refreshes notifications only when a release is saved with Pass status', () => {
@@ -50,22 +51,44 @@ describe('ReleaseFormComponent select filters', () => {
   });
 
   it('accepts the supported release version formats', () => {
-    const control = new FormControl('V1.2345', releaseVersionValidator);
-    expect(control.valid).toBeTrue();
+    const control = new FormControl('', releaseVersionValidator);
 
-    control.setValue('V-1.23434');
-    expect(control.valid).toBeTrue();
+    [
+      'v1.2', 'v-1.2', 'v1.2.3', 'v-1.2.3',
+      'v11.22.33', 'v-11.22.33', 'v123.213.312', 'v-123.45.6',
+      'v123.123.123'
+    ].forEach(version => {
+      control.setValue(version);
+      expect(control.valid).withContext(version).toBeTrue();
+    });
   });
 
-  it('rejects invalid release version formats and more than six digits', () => {
-    const control = new FormControl('1.2345', releaseVersionValidator);
+  it('rejects invalid release version formats', () => {
+    const control = new FormControl('', releaseVersionValidator);
+
+    [
+      'V1.2', 'V-1.2.3', '1.2', 'v 1.2', 'v- 1.2', 'v1. 2',
+      'v-1', 'v1', 'v.1.2', 'v1..2', 'v1.2.', 'v1.2a',
+      'v-1-2', 'v--1.2', 'v1234.2', 'v1.2345', 'v1.2.3.4'
+    ].forEach(version => {
+      control.setValue(version);
+      expect(control.hasError('versionFormat')).withContext(version).toBeTrue();
+    });
+  });
+
+  it('keeps required and format validation errors separate', () => {
+    const control = new FormControl('', [Validators.required, releaseVersionValidator]);
+
+    expect(control.hasError('required')).toBeTrue();
+    expect(control.hasError('versionFormat')).toBeFalse();
+
+    control.setValue('V1.2');
+    expect(control.hasError('required')).toBeFalse();
     expect(control.hasError('versionFormat')).toBeTrue();
 
-    control.setValue('V1.234345');
-    expect(control.hasError('versionMaxDigits')).toBeTrue();
-
-    control.setValue('V1.2.3');
-    expect(control.hasError('versionFormat')).toBeTrue();
+    control.setValue('v1.2');
+    expect(control.valid).toBeTrue();
+    expect(control.errors).toBeNull();
   });
 
   it('shows the version error state as soon as an invalid control is edited', () => {
@@ -73,5 +96,144 @@ describe('ReleaseFormComponent select filters', () => {
     control.markAsDirty();
 
     expect(VERSION_ERROR_STATE_MATCHER.isErrorState(control, null)).toBeTrue();
+  });
+
+  it('limits assignee changes for employees only at To-be-Tested status', () => {
+    (component as any).storageService = { roles: { isAdmin: false, isManager: false } };
+
+    expect(component.canEditAssignedTo('Upcoming-Release')).toBeTrue();
+    expect(component.canEditAssignedTo('To-be-Tested')).toBeFalse();
+    expect(component.canEditAssignedTo('In-Progress')).toBeTrue();
+
+    (component as any).storageService.roles = { isAdmin: false, isManager: true };
+    expect(component.canEditAssignedTo('Upcoming-Release')).toBeTrue();
+  });
+});
+
+describe('ReleaseFormComponent submission', () => {
+  let component: ReleaseFormComponent;
+  let authService: jasmine.SpyObj<any>;
+  let toasterService: jasmine.SpyObj<any>;
+  let drawerService: jasmine.SpyObj<any>;
+
+  const createValidForm = (ismail = false) => new FormGroup({
+    title: new FormControl('Release title', Validators.required),
+    ismail: new FormControl(ismail),
+    username: new FormControl('test.user')
+  });
+
+  beforeEach(() => {
+    component = Object.create(ReleaseFormComponent.prototype);
+    authService = jasmine.createSpyObj('AuthService', ['createRelease', 'updateRelease', 'refreshNotificationCount']);
+    toasterService = jasmine.createSpyObj('ToasterService', ['success', 'warning', 'error']);
+    drawerService = jasmine.createSpyObj('DrawerService', ['notifyAction', 'close']);
+    (component as any).authService = authService;
+    (component as any).toasterService = toasterService;
+    (component as any).drawerService = drawerService;
+    (component as any).storageService = {
+      getUsername: () => 'test.user',
+      getEmpId: () => 42,
+      roles: { isAdmin: false, isManager: false, isEmployee: true }
+    };
+    component.submitting = false;
+    component.selectedFiles = [];
+  });
+
+  it('marks invalid fields touched and shows a validation error without calling an API', async () => {
+    const title = new FormControl('', Validators.required);
+    component.releaseForm = new FormGroup({ title });
+    component.isEditMode = false;
+
+    await component.onSubmit();
+
+    expect(title.touched).toBeTrue();
+    expect(toasterService.error).toHaveBeenCalledOnceWith('Please complete all required fields.');
+    expect(authService.createRelease).not.toHaveBeenCalled();
+    expect(authService.updateRelease).not.toHaveBeenCalled();
+  });
+
+  it('blocks an edit submission when the release is assigned to a different employee', async () => {
+    component.releaseForm = createValidForm();
+    component.isEditMode = true;
+    component.data = { id: 1, mode: 'edit', status: 'Upcoming-Release', assigned_from: 7, assigned_to: 8 };
+    spyOn<any>(component, 'buildReleaseRequestPayload').and.resolveTo({ title: 'Release title' });
+
+    await component.onSubmit();
+
+    expect(authService.updateRelease).not.toHaveBeenCalled();
+    expect(component.submitting).toBeFalse();
+    expect(toasterService.error).toHaveBeenCalledOnceWith('You are Not Allowed.');
+  });
+
+  it('allows the assigned employee to submit an edit and restores the button on API error', async () => {
+    component.releaseForm = createValidForm();
+    component.isEditMode = true;
+    component.data = { id: 1, mode: 'edit', status: 'Upcoming-Release', assigned_from: 7, assigned_to: 42 };
+    spyOn<any>(component, 'buildReleaseRequestPayload').and.resolveTo({ title: 'Release title' });
+    authService.updateRelease.and.returnValue(throwError(() => ({ error: { message: 'Update failed.' } })));
+
+    await component.onSubmit();
+
+    expect(authService.updateRelease).toHaveBeenCalled();
+    expect(component.submitting).toBeFalse();
+    expect(toasterService.error).toHaveBeenCalledWith('Update failed.');
+  });
+
+  it('allows the assign-from employee to update a release at Upcoming-Release status', async () => {
+    component.releaseForm = createValidForm();
+    component.isEditMode = true;
+    component.data = { id: 1, mode: 'edit', status: 'Upcoming-Release', assign_from: 42, assigned_to: 8 };
+    spyOn<any>(component, 'buildReleaseRequestPayload').and.resolveTo({ title: 'Release title' });
+    authService.updateRelease.and.returnValue(throwError(() => ({ error: { message: 'Update failed.' } })));
+
+    await component.onSubmit();
+
+    expect(authService.updateRelease).toHaveBeenCalled();
+    expect(toasterService.error).toHaveBeenCalledWith('Update failed.');
+  });
+
+  it('shows the create fallback message and restores the button when the API has no error message', async () => {
+    component.releaseForm = createValidForm();
+    component.isEditMode = false;
+    component.data = { mode: 'create' };
+    spyOn<any>(component, 'buildReleaseRequestPayload').and.resolveTo({ title: 'Release title' });
+    authService.createRelease.and.returnValue(throwError(() => ({})));
+
+    await component.onSubmit();
+
+    expect(component.submitting).toBeFalse();
+    expect(toasterService.error).toHaveBeenCalledWith('Unable to create release.');
+  });
+
+  it('restores the button when attachment processing fails', async () => {
+    component.releaseForm = createValidForm();
+    component.isEditMode = false;
+    spyOn<any>(component, 'buildReleaseRequestPayload').and.rejectWith(new Error('File error'));
+
+    await component.onSubmit();
+
+    expect(component.submitting).toBeFalse();
+    expect(toasterService.error).toHaveBeenCalledWith('Unable to process the selected attachments.');
+    expect(authService.createRelease).not.toHaveBeenCalled();
+  });
+
+  it('reports a successful update when only email delivery fails', async () => {
+    component.releaseForm = createValidForm(true);
+    component.isEditMode = true;
+    component.data = { id: 1, mode: 'edit', assigned_to: 42 };
+    spyOn<any>(component, 'buildReleaseRequestPayload').and.resolveTo({ title: 'Release title' });
+    spyOn(component, 'onCancel');
+    authService.updateRelease.and.returnValue(of({
+      mail_status: 'FAILED',
+      failed_recipients: 'recipient@example.com'
+    }));
+
+    await component.onSubmit();
+
+    expect(toasterService.warning).toHaveBeenCalledWith(
+      'Release updated, but email was not sent\nrecipient@example.com',
+      'Failed:'
+    );
+    expect(component.submitting).toBeFalse();
   });
 });

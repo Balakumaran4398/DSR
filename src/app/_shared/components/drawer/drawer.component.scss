@@ -3,6 +3,11 @@
 }
 
 .drawer-shell {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
   background: var(--bg-card);
   color: var(--text-main);
   border-left: 1px solid var(--border-card);
@@ -16,7 +21,39 @@
 }
 
 .drawer-body {
+  min-height: 0;
+  overflow: hidden;
   background: var(--bg-body);
+}
+
+.drawer-form-host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-color: var(--text-muted) var(--bg-body);
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.drawer-form-host::-webkit-scrollbar {
+  width: 8px;
+}
+
+.drawer-form-host::-webkit-scrollbar-track {
+  background: var(--bg-body);
+}
+
+.drawer-form-host::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border: 2px solid var(--bg-body);
+  border-radius: 999px;
+}
+
+.drawer-form-host::-webkit-scrollbar-thumb:hover {
+  background: var(--text-active);
 }
 
 .drawer-close-btn {

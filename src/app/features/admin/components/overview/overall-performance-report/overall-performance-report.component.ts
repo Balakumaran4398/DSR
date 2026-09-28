@@ -1,10 +1,14 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { catchError, EMPTY, finalize, forkJoin, mergeMap, Observable, of, Subject, Subscription, tap, timeout } from 'rxjs';
+import { catchError, EMPTY, finalize, forkJoin, map, mergeMap, Observable, of, Subject, Subscription, tap, timeout } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { ExcelService, OverallPerformanceExcelSection } from 'src/app/_core/services/excel.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { APP_TABLE_DEFAULT_PAGE_SIZE, APP_TABLE_PAGE_SIZE_OPTIONS, APP_TABLE_VISIBLE_ROW_COUNT, buildTablePageNumbers } from 'src/app/_core/utils/tabulator-pagination.util';
+import { getReleaseDayStatus, isReleaseInDateRange, ReleaseDayTone } from 'src/app/_core/utils/release-day-status.util';
+
+const RELEASE_OVERVIEW_TIMELINE_START = '1900-01-01';
+const RELEASE_OVERVIEW_TIMELINE_END = '9999-12-31';
 
 type ReportSectionId = string;
 type SummaryTone = 'neutral' | 'blue' | 'green' | 'amber' | 'red' | 'cyan';
@@ -44,6 +48,8 @@ interface ReportRow {
     statusKey?: string;
     categoryKey?: string;
     workedMinutes?: number;
+    releaseDayTone?: ReleaseDayTone;
+    isReleaseRow?: boolean;
   };
 }
 
@@ -907,7 +913,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
 
   getChipClass(value: any): string {
     const key = this.normalizeStatusKey(value);
-    if (['pass', 'passed', 'completed', 'approved', 'closed', 'production', 'excellent'].includes(key)) return 'status-chip--success';
+    if (['pass', 'passed', 'completed', 'approved', 'closed', 'production', 'excellent', 'released'].includes(key)) return 'status-chip--success';
     if (['failed', 'rejected', 'cancelled', 'canceled', 'poor', 'overdue'].includes(key)) return 'status-chip--danger';
     if (['inprogress', 'testing', 'intesting', 'tobetested', 'service'].includes(key)) return 'status-chip--info';
     if (['good'].includes(key)) return 'status-chip--info';
@@ -915,6 +921,15 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       ['open', 'pending', 'onhold', 'delayed', 'upcoming', 'upcomingrelease', 'ordinary', 'reopen', 'reopened', 'duetoday', 'duetomorrow'].includes(key)
       || key.startsWith('duein')
     ) return 'status-chip--warning';
+    return 'status-chip--neutral';
+  }
+
+  private getReleaseStatusChipClass(value: any): string {
+    const key = this.normalizeStatusKey(value);
+    if (['active', 'ontrack', 'approved', 'pass', 'invoiced', 'open', 'released'].includes(key)) return 'status-chip--success';
+    if (['inprogress', 'inreview', 'intesting', 'planning'].includes(key)) return 'status-chip--info';
+    if (['onhold', 'tobetested', 'upcomingrelease'].includes(key)) return 'status-chip--warning';
+    if (['delayed', 'cancelled', 'canceled', 'rejected', 'failed', 'closed'].includes(key)) return 'status-chip--danger';
     return 'status-chip--neutral';
   }
 
@@ -1021,21 +1036,42 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
         catchError(error => {
         console.error('Overall performance employee metadata load error:', error);
         return of(this.employeeList);
+      })),
+      employeeDirectory: this.authService.getEmployeeList().pipe(
+        timeout(this.requestTimeoutMs),
+        catchError(error => {
+        console.error('Overall performance employee directory load error:', error);
+        return of([]);
       }))
     }).subscribe({
-      next: ({ departments, employees }) => {
+      next: ({ departments, employees, employeeDirectory }) => {
         this.departmentList = this.extractResponseList(departments, [
           'departments',
           'departmentList',
           'data',
           'details'
         ]);
-        this.employeeList = this.extractResponseList(employees, [
+        const userRows = this.extractResponseList(employees, [
           'employees',
           'users',
+          'employee_list',
+          'employeeList',
           'data',
-          'details'
+          'details',
+          'result',
+          'results'
         ]);
+        const directoryRows = this.extractResponseList(employeeDirectory, [
+          'employees',
+          'users',
+          'employee_list',
+          'employeeList',
+          'data',
+          'details',
+          'result',
+          'results'
+        ]);
+        this.employeeList = this.mergeEmployeeDirectoryRows(userRows, directoryRows);
         this.metadataLoaded = true;
         this.refreshDepartmentOptions(false);
         this.saveMetadataCache();
@@ -1048,6 +1084,10 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
           this.loadReportData();
         } else if (departmentsChanged) {
           this.loadReportData({ forceRefresh: true });
+        } else {
+          // Cached rows may have been built before assigned employee IDs could
+          // be resolved to their source departments.
+          this.rebuildSections();
         }
         this.requestViewUpdate();
       },
@@ -1944,11 +1984,15 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       .getReleaseOverviewListByEmp(this.getReleaseOverviewPayload(employeeId, departmentId, managerName))
       .pipe(
         timeout({ each: this.requestTimeoutMs }),
-        tap(releases => {
-          if (loadRunId !== this.activeLoadRunId) return;
-
+        mergeMap(releases => {
+          if (loadRunId !== this.activeLoadRunId) return of([]);
           receivedResponse = true;
           const normalizedRows = this.normalizeReleaseOverviewResponse(releases);
+          return this.enrichReleaseTransitionDates(normalizedRows);
+        }),
+        tap(normalizedRows => {
+          if (loadRunId !== this.activeLoadRunId) return;
+
           const useManagerScope = this.shouldUseManagerBasedDepartmentScope();
           departments.forEach(targetDepartment => {
             const departmentRows = scopeDepartments.length === 1
@@ -2245,8 +2289,8 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     return {
       employee_id: employeeId,
       projectid: 0,
-      fromdate: this.startDate,
-      todate: this.endDate,
+      fromdate: RELEASE_OVERVIEW_TIMELINE_START,
+      todate: RELEASE_OVERVIEW_TIMELINE_END,
       department_id: departmentId ?? '',
       manager_name: managerName || ''
     };
@@ -2358,7 +2402,8 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     const dashboardReleases = this.uniqueRows(
       this.extractRowsByKeys(report.dashboardData, this.releaseKeys, row => this.isReleaseRow(row))
     );
-    const releaseSource = report.releaseOverviewLoaded ? report.releaseOverviewRows : dashboardReleases;
+    const releaseSource = (report.releaseOverviewLoaded ? report.releaseOverviewRows : dashboardReleases)
+      .filter(release => isReleaseInDateRange(release, this.startDate, this.endDate));
     const useManagerScope = this.shouldUseManagerBasedDepartmentScope();
     const releases = this.filterRowsForDepartmentScope(
       this.uniqueRows(releaseSource),
@@ -2421,28 +2466,31 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     department: DepartmentOption,
     reportTitle: string
   ): ReportSection {
-    const reportRows = rows.map((row, index) => {
-      const status = this.getStatusLabel(row);
+    const reportRows = rows.map(row => {
+      const releaseDayStatus = getReleaseDayStatus(row);
+      const status = releaseDayStatus.status;
       return this.createReportRow([
-        index + 1,
         this.getProjectName(row),
         this.getValue(row, ['title', 'release_title', 'releaseTitle', 'name', 'subject']),
         this.getValue(row, ['version', 'release_version', 'version_name']),
-        this.getValue(row, ['assignee_from_name', 'released_by_name', 'releasedByName', 'assigned_from_name', 'assignedFromName']),
-        this.getReleasePerformance(row),
+        this.getReleaseManagerName(row, department),
+        this.getValue(row, ['assign_from_name', 'assignFromName', 'assignee_from_name', 'released_by_name', 'releasedByName', 'assigned_from_name', 'assignedFromName']),
         this.formatReleaseTableDate(this.getFirstValue(row, ['planned_date', 'plannedDate', 'target_date', 'targetDate'])),
         this.formatReleaseTableDate(this.getFirstValue(row, ['released_date', 'release_date', 'releasedDate', 'releaseDate'])),
+        this.getReleaseOverdueDate(row),
         this.getReleaseTesterName(row),
         this.getReleaseQcTestingStartDate(row) || '-',
-        this.formatReleaseTableDate(this.getFirstValue(row, ['qc_testing_end_date', 'qcTestingEndDate'])),
+        this.getReleaseQcTestingEndDate(row) || '-',
         this.formatReleaseTableDate(this.getFirstValue(row, ['qc_release_date', 'qcReleaseDate', 'closed_date', 'closedDate'])),
-        this.getCompanyName(row),
         status,
         this.getValue(row, ['release_type', 'releaseType', 'type']),
-        this.getReleaseOverdueDate(row),
-        this.getReleaseOverdueStatus(row),
-        this.getValue(row, ['remarks', 'comments', 'description'])
-      ], { statusKey: this.normalizeStatusKey(status) });
+        this.getValue(row, ['reject_reason','remarks', 'comments', 'description']),
+        this.getCompanyName(row)
+      ], {
+        statusKey: this.normalizeStatusKey(status),
+        releaseDayTone: releaseDayStatus.tone,
+        isReleaseRow: true
+      });
     });
 
     return this.createSection(
@@ -2452,24 +2500,22 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       reportTitle,
       [37, 99, 235],
       [
-        'S/NO',
         'PROJECT',
         'TITLE',
         'VERSION',
+        'MANAGER / TL',
         'WORKED BY / RELEASED BY',
-        'RELEASE PERFORMANCE',
         'PLANNED DATE',
-        'RELEASE DATE',
+        'RELEASED DATE',
+        'OVERDUE',
         'TESTED BY',
         'QC TESTING START DATE',
         'QC TESTING END DATE',
-        'QC RELEASED DATE',
-        'CLIENT',
+        'QC RELEASE DATE',
         'STATUS',
         'RELEASE TYPE',
-        'OVERDUE',
-        'OVERDUE STATUS',
-        'REMARKS'
+        'REMARKS',
+        'CLIENT'
       ],
       reportRows,
       rowsForSummary => [
@@ -2498,13 +2544,12 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
         this.getProjectName(row),
         this.getValue(row, ['code', 'task_code', 'taskCode', 'task_id', 'taskid', 'id']),
         this.getValue(row, ['task_name', 'taskName', 'task', 'task_title', 'taskTitle', 'sub_task_name', 'subTaskName', 'title', 'name', 'subject']),
-        this.getValue(row, ['assigned_to_name', 'assignedToName', 'employee_name', 'employeeName', 'owner_name', 'ownerName']),
+        this.getValue(row, ['assign_to_name', 'assignToName', 'assigned_to_name', 'assignedToName', 'employee_name', 'employeeName', 'owner_name', 'ownerName']),
         this.getPriorityLabel(row),
         this.formatDisplayDate(this.getFirstValue(row, ['start_date', 'startDate', 'assigned_date'])),
         this.formatDisplayDate(this.getFirstValue(row, ['due_date', 'dueDate', 'end_date', 'endDate'])),
-        workedHours,
-        status,
-        this.getValue(row, ['remarks', 'comments', 'description', 'task_description'])
+        this.formatWorkedHoursCell(workedHours),
+        status
       ], {
         statusKey: this.normalizeStatusKey(status),
         workedMinutes: this.parseWorkedMinutes(workedHours)
@@ -2517,7 +2562,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       'task',
       reportTitle,
       [124, 58, 237],
-      ['S.No', 'Date', 'Project', 'Task Code', 'Task / Sub Task', 'Assigned To', 'Priority', 'Start Date', 'Due Date', 'Worked Hours', 'Status', 'Remarks'],
+      ['S.No', 'Date', 'Project', 'Task Code', 'Task / Sub Task', 'Assigned To', 'Priority', 'Start Date', 'Due Date', 'Worked Hours', 'Status'],
       reportRows,
       rowsForSummary => [
         this.summary('Total Tasks', rowsForSummary.length, 'neutral'),
@@ -2539,18 +2584,22 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   ): ReportSection {
     const reportRows = rows.map((row, index) => {
       const status = this.getStatusLabel(row);
+      const workedHours = this.getValue(row, ['worked_hours', 'workedHours', 'total_worked_hours', 'hours']);
       return this.createReportRow([
         index + 1,
         this.formatDisplayDate(this.getFirstValue(row, ['created_date', 'createddate', 'issue_date', 'bug_date', 'date'])),
         this.getProjectName(row),
         this.getValue(row, ['bug_code', 'bugCode', 'issue_code', 'issueCode', 'taskcode', 'task_code', 'taskCode', 'bug_id', 'issue_id', 'id']),
         this.getValue(row, ['bug_name', 'bugName', 'issue_name', 'issueName', 'task', 'task_name', 'taskName', 'title', 'name', 'subject', 'reason_f_issue', 'reasonFIssue', 'description']),
-        this.getValue(row, ['assigned_to_name', 'assignedToName', 'assignee_to_name', 'task_assigned_to_name', 'taskAssignedToName', 'employee_name', 'employeeName', 'owner_name', 'ownerName']),
+        this.getValue(row, ['assign_to_name', 'assignToName', 'assigned_to_name', 'assignedToName', 'assignee_to_name', 'task_assigned_to_name', 'taskAssignedToName', 'employee_name', 'employeeName', 'owner_name', 'ownerName']),
         this.getValue(row, ['testing_type', 'testingType', 'task_category', 'taskCategory', 'task_type', 'taskType', 'type']),
         this.getPriorityLabel(row),
-        status,
-        this.getValue(row, ['remarks', 'remark', 'comments', 'description', 'issue_description', 'bug_description', 'reason_f_issue', 'reasonFIssue'])
-      ], { statusKey: this.normalizeStatusKey(status) });
+        this.formatWorkedHoursCell(workedHours),
+        status
+      ], {
+        statusKey: this.normalizeStatusKey(status),
+        workedMinutes: this.parseWorkedMinutes(workedHours)
+      });
     });
 
     return this.createSection(
@@ -2559,7 +2608,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       'issue',
       reportTitle,
       [220, 38, 38],
-      ['S.No', 'Date', 'Project', 'Bug / Issue Code', 'Bug / Issue', 'Assigned To', 'Testing Type', 'Priority', 'Status', 'Remarks'],
+      ['S.No', 'Date', 'Project', 'Bug / Issue Code', 'Bug / Issue', 'Assigned To', 'Testing Type', 'Priority', 'Worked Hours', 'Status'],
       reportRows,
       rowsForSummary => [
         this.summary('Total Bugs / Issues', rowsForSummary.length, 'neutral'),
@@ -2592,10 +2641,10 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
         this.getCompanyName(row),
         this.getProductName(row) || this.getProjectName(row),
         this.getDepartmentLabel(row),
-        this.getValue(row, ['assigned_from_name', 'assignedFromName', 'created_by_name', 'createdByName', 'raised_by_name']),
-        this.getValue(row, ['assigned_to_name', 'assignedToName', 'employee_name', 'employeeName', 'owner_name', 'ownerName']),
+        this.getValue(row, ['assign_from_name', 'assignFromName', 'assigned_from_name', 'assignedFromName', 'created_by_name', 'createdByName', 'raised_by_name']),
+        this.getValue(row, ['assign_to_name', 'assignToName', 'assigned_to_name', 'assignedToName', 'employee_name', 'employeeName', 'owner_name', 'ownerName']),
         category,
-        workedHours,
+        this.formatWorkedHoursCell(workedHours),
         this.formatDisplayDate(this.getFirstValue(row, ['entry_date', 'entryDate', 'updated_date', 'updateddate', 'created_date'])),
         status,
         this.getValue(row, ['remarks', 'comments', 'description', 'client_comments', 'reason_f_issue', 'reasonFIssue'])
@@ -2700,13 +2749,21 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       ...row,
       cellViews: row.cells.map((cell, columnIndex) => {
         const value = this.formatCell(cell);
-        const isChip = !!chipColumns[columnIndex];
+        const isOverdue = columns[columnIndex] === 'OVERDUE' && value !== '-';
+        const isReleaseStatus = row.meta.isReleaseRow && columns[columnIndex] === 'STATUS';
+        const isChip = !!chipColumns[columnIndex] || isOverdue;
 
         return {
           value,
           title: value,
           isChip,
-          chipClass: isChip ? this.getChipClass(value) : ''
+          chipClass: isOverdue
+            ? this.getReleaseDayChipClass(value, row.meta.releaseDayTone)
+            : isReleaseStatus
+              ? this.getReleaseStatusChipClass(value)
+              : isChip
+                ? this.getChipClass(value)
+                : ''
         };
       })
     }));
@@ -3008,6 +3065,13 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     keepUnknownDepartmentRows = false,
     useManagerScope = false
   ): any[] {
+    // Release, task and ticket rows can move between departments. When the
+    // response identifies either side, include the row for its owning,
+    // assign-from and assign-to departments before using legacy fallbacks.
+    if (rows.some(row => this.getRowDepartmentKeys(row).length > 0)) {
+      return this.filterRowsForDepartment(rows, department, keepUnknownDepartmentRows);
+    }
+
     if (this.isSqaDepartment(department)) {
       return this.filterRowsForAssignedToDepartment(rows, department);
     }
@@ -3022,6 +3086,10 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     department: DepartmentOption,
     useManagerScope = false
   ): any[] {
+    if (rows.some(row => this.getRowDepartmentKeys(row).length > 0)) {
+      return this.filterRowsForDepartment(rows, department, false);
+    }
+
     if (this.isSqaDepartment(department)) {
       return this.filterRowsForAssignedToDepartment(rows, department);
     }
@@ -3049,14 +3117,13 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     const departmentKeys = this.getDepartmentOptionKeys(department);
 
     return rows.filter(row => {
-      const owningDepartmentKeys = this.getIssueOwningDepartmentKeys(row);
-      if (owningDepartmentKeys.length) {
-        return this.doFilterKeysOverlap(owningDepartmentKeys, departmentKeys);
-      }
-
-      const assignedDepartmentKeys = this.getAssignedToDepartmentKeys(row);
-      if (assignedDepartmentKeys.length) {
-        return this.doFilterKeysOverlap(assignedDepartmentKeys, departmentKeys);
+      const relatedDepartmentKeys = this.normalizeFilterKeys([
+        ...this.getIssueOwningDepartmentKeys(row),
+        ...this.getAssignedFromDepartmentKeys(row),
+        ...this.getAssignedToDepartmentKeys(row)
+      ]);
+      if (relatedDepartmentKeys.length) {
+        return this.doFilterKeysOverlap(relatedDepartmentKeys, departmentKeys);
       }
 
       // A non-zero department request is already scoped by the backend, so
@@ -3101,6 +3168,79 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     return this.normalizeFilterKeys(values);
   }
 
+  private getAssignedFromDepartmentKeys(row: any): string[] {
+    if (!row || typeof row !== 'object') {
+      return [];
+    }
+
+    const values: any[] = [];
+    const assignedFromDepartmentKeys = [
+      'assign_from_department',
+      'assignFromDepartment',
+      'assign_from_dept',
+      'assignFromDept',
+      'assign_from_department_id',
+      'assignFromDepartmentId',
+      'assign_from_dept_id',
+      'assignFromDeptId',
+      'assigned_from_department',
+      'assignedFromDepartment',
+      'assigned_from_dept',
+      'assignedFromDept',
+      'assigned_from_department_id',
+      'assignedFromDepartmentId',
+      'assigned_from_dept_id',
+      'assignedFromDeptId',
+      'assignee_from_department',
+      'assigneeFromDepartment',
+      'assignee_from_dept',
+      'assigneeFromDept',
+      'assignee_from_department_id',
+      'assigneeFromDepartmentId',
+      'assignee_from_dept_id',
+      'assigneeFromDeptId'
+    ];
+
+    assignedFromDepartmentKeys.forEach(key => values.push(...this.collectDepartmentValues(row[key])));
+
+    const references = [
+      row?.assign_from,
+      row?.assignFrom,
+      row?.assign_from_id,
+      row?.assignFromId,
+      row?.assign_from_name,
+      row?.assignFromName,
+      row?.assigned_from,
+      row?.assignedFrom,
+      row?.assigned_from_id,
+      row?.assignedFromId,
+      row?.assigned_from_name,
+      row?.assignedFromName,
+      row?.assignee_from,
+      row?.assigneeFrom,
+      row?.assignee_from_id,
+      row?.assigneeFromId,
+      row?.assignee_from_name,
+      row?.assigneeFromName
+    ];
+
+    references
+      .flatMap(value => Array.isArray(value) ? value : [value])
+      .filter(value => value !== null && value !== undefined && `${value}`.trim() !== '')
+      .forEach(reference => {
+        if (reference && typeof reference === 'object') {
+          values.push(...this.collectEmployeeDepartmentValues(reference));
+        }
+
+        const employee = this.findEmployee(reference);
+        if (employee) {
+          values.push(...this.collectEmployeeDepartmentValues(employee));
+        }
+      });
+
+    return this.normalizeFilterKeys(values);
+  }
+
   private filterRowsForAssignedToDepartment(rows: any[], department: DepartmentOption): any[] {
     const departmentKeys = this.getDepartmentOptionKeys(department);
 
@@ -3120,6 +3260,14 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
 
     const values: any[] = [];
     const assignedDepartmentKeys = [
+      'assign_to_department',
+      'assignToDepartment',
+      'assign_to_dept',
+      'assignToDept',
+      'assign_to_department_id',
+      'assignToDepartmentId',
+      'assign_to_dept_id',
+      'assignToDeptId',
       'assigned_to_department',
       'assignedToDepartment',
       'assigned_to_dept',
@@ -3176,6 +3324,12 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     }
 
     const references = [
+      row?.assign_to,
+      row?.assignTo,
+      row?.assign_to_id,
+      row?.assignToId,
+      row?.assign_to_name,
+      row?.assignToName,
       row?.assigned_to,
       row?.assignedTo,
       row?.assigned_to_id,
@@ -3681,6 +3835,12 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       }
     });
 
+    // dashboarddetails_deptwise uses both assign_* and assigned_* field
+    // variants. Reuse the complete resolvers so all report lists are scoped
+    // to both the source and destination employee departments.
+    values.push(...this.getAssignedFromDepartmentKeys(row));
+    values.push(...this.getAssignedToDepartmentKeys(row));
+
     return this.normalizeFilterKeys(values);
   }
 
@@ -3936,20 +4096,87 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   }
 
   private findEmployee(value: any): any | null {
-    const employeeIdKeys = ['id', 'empid', 'emp_id', 'empId', 'employeeid', 'employee_id', 'employeeId', 'userid', 'user_id', 'userId'];
-    const employeeNameKeys = ['employee_name', 'employeeName', 'full_name', 'fullName', 'user_name', 'username', 'name'];
-    const sourceId = typeof value === 'object' ? this.getRawValue(value, employeeIdKeys) : value;
-    const sourceName = typeof value === 'object' ? this.getRawValue(value, employeeNameKeys) : value;
+    const referenceKeys = this.getEmployeeIdentityKeys(value);
+    if (!referenceKeys.length) {
+      return null;
+    }
 
-    return this.employeeList.find(employee => {
-      const employeeId = this.getRawValue(employee, employeeIdKeys);
-      const employeeName = this.getRawValue(employee, employeeNameKeys);
-      const idMatches = this.isPresent(sourceId) && this.isPresent(employeeId)
-        && `${sourceId}`.trim() === `${employeeId}`.trim();
-      const nameMatches = this.isPresent(sourceName) && this.isPresent(employeeName)
-        && this.normalizeSearchText(sourceName) === this.normalizeSearchText(employeeName);
-      return idMatches || nameMatches;
-    }) || null;
+    return this.employeeList.find(employee =>
+      this.doFilterKeysOverlap(this.getEmployeeIdentityKeys(employee), referenceKeys)
+    ) || null;
+  }
+
+  private mergeEmployeeDirectoryRows(userRows: any[], directoryRows: any[]): any[] {
+    const mergedRows: any[] = [];
+
+    [...(Array.isArray(userRows) ? userRows : []), ...(Array.isArray(directoryRows) ? directoryRows : [])]
+      .filter(row => row && typeof row === 'object')
+      .forEach(row => {
+        const rowKeys = this.getEmployeeIdentityKeys(row);
+        const existingIndex = mergedRows.findIndex(existing =>
+          this.doFilterKeysOverlap(this.getEmployeeIdentityKeys(existing), rowKeys)
+        );
+
+        if (existingIndex < 0 || !rowKeys.length) {
+          mergedRows.push({ ...row });
+          return;
+        }
+
+        const merged = { ...mergedRows[existingIndex] };
+        Object.entries(row).forEach(([key, value]) => {
+          if (this.isPresent(value)) {
+            merged[key] = value;
+          }
+        });
+        mergedRows[existingIndex] = merged;
+      });
+
+    return mergedRows;
+  }
+
+  private getEmployeeIdentityKeys(value: any): string[] {
+    if (!this.isPresent(value)) {
+      return [];
+    }
+
+    if (Array.isArray(value)) {
+      return this.normalizeFilterKeys(value.flatMap(item => this.getEmployeeIdentityKeys(item)));
+    }
+
+    if (typeof value !== 'object') {
+      return this.normalizeFilterKeys([value]);
+    }
+
+    const fullName = `${value?.firstname ?? value?.first_name ?? ''} ${value?.lastname ?? value?.last_name ?? ''}`.trim();
+    return this.normalizeFilterKeys([
+      value?.id,
+      value?.empid,
+      value?.emp_id,
+      value?.empId,
+      value?.employeeid,
+      value?.employee_id,
+      value?.employeeId,
+      value?.userid,
+      value?.user_id,
+      value?.userId,
+      value?.assign_from,
+      value?.assignFrom,
+      value?.assigned_from,
+      value?.assignedFrom,
+      value?.assign_to,
+      value?.assignTo,
+      value?.assigned_to,
+      value?.assignedTo,
+      value?.employee_name,
+      value?.employeeName,
+      value?.full_name,
+      value?.fullName,
+      value?.user_name,
+      value?.username,
+      value?.name,
+      value?.email,
+      fullName
+    ]);
   }
 
   private getRawValue(row: any, keys: string[]): any {
@@ -4119,26 +4346,34 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     if (!valueKey || valueKey === 'na') return null;
 
     if (columnKey === 'releasetype') {
-      if (valueKey === 'internal') return { fillColor: [219, 234, 254], textColor: [30, 64, 175], borderColor: [147, 197, 253] };
-      if (valueKey === 'external') return { fillColor: [243, 232, 255], textColor: [107, 33, 168], borderColor: [216, 180, 254] };
-      return { fillColor: [241, 245, 249], textColor: [71, 85, 105], borderColor: [203, 213, 225] };
+      if (valueKey === 'internal') return { fillColor: [255, 255, 255], textColor: [30, 64, 175], borderColor: [226, 232, 240] };
+      if (valueKey === 'external') return { fillColor: [255, 255, 255], textColor: [107, 33, 168], borderColor: [226, 232, 240] };
+      return { fillColor: [255, 255, 255], textColor: [71, 85, 105], borderColor: [226, 232, 240] };
+    }
+
+    if (columnKey === 'overdue') {
+      const text = `${value ?? ''}`;
+      if (/\bdays? overdue\b/.test(text)) return { fillColor: [255, 255, 255], textColor: [185, 28, 28], borderColor: [226, 232, 240] };
+      if (/\bdays? remaining\b/.test(text)) return { fillColor: [255, 255, 255], textColor: [146, 64, 14], borderColor: [226, 232, 240] };
+      if (/\(0\)$/.test(text)) return { fillColor: [255, 255, 255], textColor: [30, 64, 175], borderColor: [226, 232, 240] };
+      if (/\bdays? before\b/.test(text)) return { fillColor: [255, 255, 255], textColor: [21, 128, 61], borderColor: [226, 232, 240] };
     }
 
     if (columnKey !== 'status') return null;
-    if (['pass', 'passed', 'completed', 'approved', 'closed', 'production'].includes(valueKey)) {
-      return { fillColor: [220, 252, 231], textColor: [21, 128, 61], borderColor: [134, 239, 172] };
+    if (['pass', 'passed', 'completed', 'approved', 'closed', 'production', 'released'].includes(valueKey)) {
+      return { fillColor: [255, 255, 255], textColor: [21, 128, 61], borderColor: [226, 232, 240] };
     }
     if (['failed', 'rejected', 'cancelled', 'canceled'].includes(valueKey)) {
-      return { fillColor: [254, 226, 226], textColor: [185, 28, 28], borderColor: [252, 165, 165] };
+      return { fillColor: [255, 255, 255], textColor: [185, 28, 28], borderColor: [226, 232, 240] };
     }
     if (['inprogress', 'testing', 'intesting', 'tobetested', 'service'].includes(valueKey)) {
-      return { fillColor: [219, 234, 254], textColor: [30, 64, 175], borderColor: [147, 197, 253] };
+      return { fillColor: [255, 255, 255], textColor: [30, 64, 175], borderColor: [226, 232, 240] };
     }
     if (['open', 'pending', 'onhold', 'delayed', 'upcoming', 'upcomingrelease', 'reopen', 'reopened'].includes(valueKey)) {
-      return { fillColor: [254, 243, 199], textColor: [146, 64, 14], borderColor: [253, 230, 138] };
+      return { fillColor: [255, 255, 255], textColor: [146, 64, 14], borderColor: [226, 232, 240] };
     }
 
-    return { fillColor: [241, 245, 249], textColor: [71, 85, 105], borderColor: [203, 213, 225] };
+    return { fillColor: [255, 255, 255], textColor: [71, 85, 105], borderColor: [226, 232, 240] };
   }
 
   private isReleaseRow(row: any): boolean {
@@ -4430,14 +4665,19 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   }
 
   private getReleaseOverdueDate(release: any): string {
-    if (!this.isUpcomingRelease(release)) {
-      const toBeTestedDate = this.getToBeTestedTransitionDate(release);
-      return toBeTestedDate ? this.formatReleaseDateOnly(toBeTestedDate) : '-';
-    }
+    return getReleaseDayStatus(release).text;
+  }
 
-    return this.getReleaseOverdueState(release) === 'overdue'
-      ? this.formatReleaseDateOnly(`${release?.released_date ?? release?.release_date ?? ''}`.trim()) || '-'
-      : '-';
+  private getReleaseDayChipClass(value: string, tone?: ReleaseDayTone): string {
+    if (tone === 'red') return 'status-chip--danger';
+    if (tone === 'green') return 'status-chip--success';
+    if (tone === 'blue') return 'status-chip--info';
+    if (tone === 'warning' || tone === 'amber') return 'status-chip--warning';
+    if (/\bdays? overdue\b/.test(value)) return 'status-chip--danger';
+    if (/\bdays? remaining\b/.test(value)) return 'status-chip--warning';
+    if (/\(0\)$/.test(value)) return 'status-chip--info';
+    if (/\bdays? before\b/.test(value)) return 'status-chip--success';
+    return 'status-chip--neutral';
   }
 
   private getReleaseOverdueStatus(release: any): string {
@@ -4495,6 +4735,39 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     return qcTestingStartDate ? this.formatReleaseDateOnly(qcTestingStartDate) : '';
   }
 
+  private getReleaseQcTestingEndDate(release: any): string {
+    const qcTestingEndDate = this.getFirstDateValue(release, ['qc_testing_end_date', 'qcTestingEndDate']);
+    return qcTestingEndDate ? this.formatReleaseDateOnly(qcTestingEndDate) : '';
+  }
+
+  private getReleaseManagerName(release: any, department: DepartmentOption): string {
+    const managerKeys = [
+      'manager_name',
+      'managerName',
+      'department_manager_name',
+      'departmentManagerName',
+      'team_lead_name',
+      'teamLeadName',
+      'lead_name',
+      'leadName',
+      'assigned_manager_name',
+      'assignedManagerName',
+      'project_manager_name',
+      'projectManagerName',
+      'manager',
+      'managerDetails',
+      'department_manager',
+      'departmentManager',
+      'team_lead',
+      'teamLead',
+      'lead'
+    ];
+    const rowManager = this.getFirstValue(release, managerKeys);
+    const departmentManager = this.getFirstValue(department?.raw || department, managerKeys);
+
+    return this.formatCell(this.firstPresent(rowManager, departmentManager));
+  }
+
   private getReleaseTesterName(release: any): string {
     if (this.isUpcomingRelease(release)) {
       return '-';
@@ -4533,6 +4806,48 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     return 'poor';
   }
 
+  private enrichReleaseTransitionDates(releases: any[]): Observable<any[]> {
+    const rows = Array.isArray(releases) ? releases : [];
+    const enrichedRows = rows.map(release => {
+      const embeddedLogs = this.getEmbeddedReleaseStatusLogs(release);
+      return this.attachReleaseTransitionDate(release, embeddedLogs);
+    });
+
+    // Avoid one gettasklog request per release on every report refresh.
+    return of(enrichedRows);
+  }
+
+  private attachReleaseTransitionDate(release: any, logs: any): any {
+    const transitionDate = this.getReleaseTransitionDate(release, logs);
+    return transitionDate ? { ...release, release_transition_date: transitionDate } : release;
+  }
+
+  private getReleaseTransitionDate(release: any, logs: any): string | null {
+    const explicitTransitionDate = this.getFirstDateValue(release, [
+      'release_transition_date',
+      'releaseTransitionDate'
+    ]);
+    if (explicitTransitionDate) {
+      return explicitTransitionDate;
+    }
+
+    const timelineDate = this.getFirstNonUpcomingTimelineDate(logs);
+    if (timelineDate) {
+      return timelineDate;
+    }
+
+    return null;
+  }
+
+  private getEmbeddedReleaseStatusLogs(release: any): any[] {
+    const logs = release?.status_logs || release?.statusLogs || release?.activity_logs || release?.activityLogs || release?.logs;
+    return Array.isArray(logs) ? logs : [];
+  }
+
+  private getFirstNonUpcomingTimelineDate(logs: any): string | null {
+    return this.getFirstStatusTimelineDate(logs, status => !!status && status !== 'upcoming-release');
+  }
+
   private getToBeTestedTransitionDate(release: any): string | null {
     const explicitTransitionDate = this.getFirstDateValue(release, [
       'to_be_tested_date',
@@ -4562,13 +4877,20 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   }
 
   private getFirstToBeTestedTimelineDate(logs: any): string | null {
+    return this.getFirstStatusTimelineDate(logs, status => status === 'to-be-tested');
+  }
+
+  private getFirstStatusTimelineDate(
+    logs: any,
+    includesStatus: (status: string) => boolean
+  ): string | null {
     const timeline = Array.isArray(logs) ? logs : [];
-    const toBeTestedLogs = timeline
+    const statusChangeLogs = timeline
       .map((log: any) => ({
         date: this.getFirstDateValue(log, ['logdate', 'created_date', 'createddate', 'updated_date', 'updateddate']),
         status: this.normalizeReleaseStatus(log?.status)
       }))
-      .filter((log: any) => log.status === 'to-be-tested' && !!log.date)
+      .filter((log: any) => includesStatus(log.status) && !!log.date)
       .map((log: any) => ({
         date: log.date,
         time: this.getReleaseDateTime(log.date)
@@ -4576,7 +4898,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       .filter((log: any) => log.time !== null)
       .sort((first: any, second: any) => first.time - second.time);
 
-    return toBeTestedLogs[0]?.date || null;
+    return statusChangeLogs[0]?.date || null;
   }
 
   private getFirstDateValue(source: any, keys: string[]): string | null {
@@ -4622,12 +4944,10 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       return null;
     }
 
-    releaseDate.setHours(0, 0, 0, 0);
-
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    return Math.ceil((releaseDate.getTime() - today.getTime()) / 86400000);
+    const releaseDay = Date.UTC(releaseDate.getFullYear(), releaseDate.getMonth(), releaseDate.getDate());
+    const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+    return Math.round((releaseDay - todayDay) / 86400000);
   }
 
   private parseReleaseDate(value: string): Date | null {
@@ -4639,7 +4959,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       const month = Number(ymdParts[2]);
       const day = Number(ymdParts[3]);
       const parsed = new Date(year, month - 1, day);
-      return Number.isNaN(parsed.getTime()) ? null : parsed;
+      return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day ? parsed : null;
     }
 
     const dmyParts = normalized.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:[T\s].*)?$/);
@@ -4649,7 +4969,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       const month = Number(dmyParts[2]);
       const year = Number(dmyParts[3]);
       const parsed = new Date(year, month - 1, day);
-      return Number.isNaN(parsed.getTime()) ? null : parsed;
+      return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day ? parsed : null;
     }
 
     const parsed = new Date(normalized);
@@ -4707,6 +5027,14 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
 
     const [hours = '0', minutes = '0'] = text.split(':');
     return (Number(hours) || 0) * 60 + (Number(minutes) || 0);
+  }
+
+  private formatWorkedHoursCell(value: any): string {
+    if (value === null || value === undefined || `${value}`.trim() === '' || value === '-') return '-';
+    const text = `${value}`.trim();
+    const time = text.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?(?:\s+00:00:00)?$/);
+    if (!time) return text;
+    return `${time[1].padStart(2, '0')}:${time[2].padStart(2, '0')}:${(time[3] || '00').padStart(2, '0')}`;
   }
 
   private formatWorkedMinutes(totalMinutes: number): string {

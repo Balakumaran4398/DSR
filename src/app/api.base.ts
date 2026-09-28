@@ -3,13 +3,14 @@ export class URL {
     static CURRENT_VERSION(): String {
         // return "v1.0.8"
         // return "v-1.8.1"
-        return "v-1.8.5"
+        return "v1.8.6"
     }
 
     static RELEASE_DATE(): String {
         // return "Monday, 01 June 2026";
         // return "Saturday, 20 June 2026";
-        return "Tuesday, 21 July 2026";
+        // return "Tuesday, 21 July 2026";
+        return "Thursday, 24 July 2026";
     }
 
     static AUTH_URL(): String {

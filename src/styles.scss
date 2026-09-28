@@ -411,10 +411,33 @@ table,
     font-family: var(--font-base) !important;
 }
 
-::-webkit-scrollbar {
-    width: 0px;
 
+* {
+    scrollbar-color: #94a3b8 transparent !important;
+    scrollbar-width: thin;
 }
+
+::-webkit-scrollbar {
+    width: 5px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #94a3b8 !important;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #64748b !important;
+    background-clip: padding-box;
+}
+
 
 /* Disabled mat-input text */
 .mdc-text-field--disabled .mdc-text-field__input {

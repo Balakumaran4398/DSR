@@ -10,7 +10,6 @@ import { ToasterService } from 'src/app/_core/services/toaster.service';
 export type ReleaseStatus = 'Upcoming-Release' | 'On-Hold' | 'Open' | 'In-Progress' | 'To-be-Tested' | 'In-Review' | 'Rejected' | 'Pass' | 'Failed';
 export type ReleaseType = 'Internal' | 'External';
 
-export const RELEASE_VERSION_MAX_DIGITS = 6;
 export const VERSION_ERROR_STATE_MATCHER: ErrorStateMatcher = {
   isErrorState: control => !!control?.invalid && (control.dirty || control.touched)
 };
@@ -18,12 +17,11 @@ export const releaseVersionValidator: ValidatorFn = (control: AbstractControl): 
   const value = `${control.value ?? ''}`;
   if (!value) return null;
 
-  if (!/^V-?\d+(?:\.\d+)?$/.test(value)) {
+  if (!/^v-?\d{1,3}\.\d{1,3}(?:\.\d{1,3})?$/.test(value)) {
     return { versionFormat: true };
   }
 
-  const digitCount = (value.match(/\d/g) || []).length;
-  return digitCount > RELEASE_VERSION_MAX_DIGITS ? { versionMaxDigits: true } : null;
+  return null;
 };
 
 @Component({
@@ -35,7 +33,7 @@ export class ReleaseFormComponent implements OnInit {
   readonly versionErrorStateMatcher = VERSION_ERROR_STATE_MATCHER;
   isEditMode = false;
   readonly releaseTypeOptions: ReleaseType[] = ['Internal', 'External'];
-  statusList: ReleaseStatus[] = ['Upcoming-Release', 'Open', 'To-be-Tested', 'On-Hold', 'In-Progress', 'Rejected', 'Pass', 'Failed'];
+  statusList: ReleaseStatus[] = ['Upcoming-Release', 'To-be-Tested', 'On-Hold', 'In-Progress', 'Rejected', 'Pass', 'Failed'];
   filteredReleaseTypes: ReleaseType[] = [...this.releaseTypeOptions];
   filteredStatuses: ReleaseStatus[] = [...this.statusList];
   releaseTypeFilterControl = new FormControl('');
@@ -95,7 +93,6 @@ export class ReleaseFormComponent implements OnInit {
       projectid: new FormControl<number | null>(this.projectid, Validators.required),
       version: new FormControl('', [
         Validators.required,
-        Validators.maxLength(9),
         releaseVersionValidator
       ]),
       planned_date: new FormControl(
@@ -230,6 +227,7 @@ export class ReleaseFormComponent implements OnInit {
       this.toggleReasonValidator(status === 'Rejected');
       this.syncClosedDateWithStatus(status as ReleaseStatus | null);
       this.syncQcTestingDatesWithStatus(status as ReleaseStatus | null);
+      this.applyAssignedToPermission(status as ReleaseStatus | null);
     });
 
     this.releaseForm.get('release_type')?.valueChanges.subscribe(type => {
@@ -263,16 +261,6 @@ export class ReleaseFormComponent implements OnInit {
       this.loadParentReleaseMailData(version);
     });
 
-    this.releaseForm.get('version')?.valueChanges.subscribe(value => {
-      if (!value) return;
-      const normalized = `${value}`.replace(/^v/i, 'V');
-      if (normalized !== value) {
-        this.releaseForm.get('version')?.setValue(normalized, {
-          emitEvent: false
-        });
-      }
-    });
-
     // Consolidated initialization to prevent duplicate redundant API requests
     this.getProjects();
     this.getAllClients();
@@ -282,6 +270,7 @@ export class ReleaseFormComponent implements OnInit {
     this.toggleReasonValidator(this.isRejectedStatus);
     this.syncClosedDateWithStatus(this.releaseForm.get('status')?.value);
     this.syncQcTestingDatesWithStatus(this.releaseForm.get('status')?.value);
+    this.applyAssignedToPermission(this.releaseForm.get('status')?.value);
   }
 
   onFileSelected(event: Event): void {
@@ -338,6 +327,11 @@ export class ReleaseFormComponent implements OnInit {
   async onSubmit() {
     if (this.submitting) return;
 
+    if (this.isEditMode && this.hasEditData() && !this.canEditRelease(this.data)) {
+      this.toasterService.error('You are Not Allowed.');
+      return;
+    }
+
     if (this.releaseForm.valid) {
       this.submitting = true;
       const raw = this.releaseForm.getRawValue();
@@ -366,7 +360,7 @@ export class ReleaseFormComponent implements OnInit {
           next: (res: any) => {
             if (res.mail_status === 'FAILED' && this.releaseForm.get('ismail')?.value === true) {
               this.toasterService.warning(
-                `Release not updated, emails not sent\n${res.failed_recipients}`,
+                `Release updated, but email was not sent\n${res.failed_recipients}`,
                 `Failed:`
               );
               this.drawerService.notifyAction({
@@ -387,7 +381,7 @@ export class ReleaseFormComponent implements OnInit {
             }
           },
           error: (err) => {
-            this.toasterService.error(err?.error?.message);
+            this.toasterService.error(err?.error?.message || err?.message || 'Unable to update release.');
           }
         });
       } else {
@@ -422,12 +416,13 @@ export class ReleaseFormComponent implements OnInit {
             }
           },
           error: (err) => {
-            this.toasterService.error(err?.error?.message);
+            this.toasterService.error(err?.error?.message || err?.message || 'Unable to create release.');
           }
         });
       }
     } else {
       this.releaseForm.markAllAsTouched();
+      this.toasterService.error('Please complete all required fields.');
     }
   }
 
@@ -444,6 +439,35 @@ export class ReleaseFormComponent implements OnInit {
 
   private hasEditData(): boolean {
     return !!this.data && typeof this.data === 'object' && this.data?.mode !== 'create';
+  }
+
+  /** Keep the submit permission aligned with the release-list edit action. */
+  canEditRelease(release: any): boolean {
+    const roles = this.storageService.roles;
+    if (roles?.isAdmin || roles?.isManager) {
+      return true;
+    }
+
+    const loggedInEmpId = `${this.storageService.getEmpId() ?? ''}`;
+    const assignedFrom = `${release?.assign_from ?? release?.assigned_from ?? release?.assignFrom ?? release?.assignedFrom ?? release?.assigned_from_id ?? release?.assignedFromId ?? ''}`;
+    const assignedTo = `${release?.assigned_to ?? release?.assignedTo ?? release?.assigned_to_id ?? release?.assignedToId ?? ''}`;
+    const normalizedStatus = `${release?.status ?? ''}`.trim().toLowerCase().replace(/[_\s]+/g, '-');
+
+    if (!loggedInEmpId) {
+      return false;
+    }
+
+    // The assigning employee retains edit access at every release status.
+    if (assignedFrom && loggedInEmpId === assignedFrom) {
+      return true;
+    }
+
+    // For an upcoming release, only its assignee (or manager/admin above) may edit it.
+    if (normalizedStatus === 'upcoming-release') {
+      return !!assignedTo && loggedInEmpId === assignedTo;
+    }
+
+    return !!assignedTo && loggedInEmpId === assignedTo;
   }
 
   private applyInputData(): void {
@@ -465,9 +489,36 @@ export class ReleaseFormComponent implements OnInit {
       this.resetForCreateMode();
     }
 
+    this.applyFormControlState();
+    this.loadParentReleaseMailData(this.releaseForm.get('parent_version')?.value);
+  }
+
+  private applyFormControlState(): void {
+    this.releaseForm.enable({ emitEvent: false });
     this.toggleCommunicationControls(this.isCommunicationEnabled);
     this.applyReleaseDatePermissions();
-    this.loadParentReleaseMailData(this.releaseForm.get('parent_version')?.value);
+    this.applyAssignedToPermission(this.releaseForm.get('status')?.value);
+  }
+
+  private applyAssignedToPermission(status: ReleaseStatus | null | undefined): void {
+    const assignedToControl = this.releaseForm.get('assigned_to');
+    if (!assignedToControl) return;
+
+    if (this.isEditMode && !this.canEditAssignedTo(status)) {
+      assignedToControl.disable({ emitEvent: false });
+    } else {
+      assignedToControl.enable({ emitEvent: false });
+    }
+  }
+
+  canEditAssignedTo(status: ReleaseStatus | null | undefined = this.releaseForm.get('status')?.value): boolean {
+    const roles = this.storageService.roles;
+    if (roles?.isAdmin || roles?.isManager) {
+      return true;
+    }
+
+    const normalizedStatus = `${status ?? ''}`.trim().toLowerCase();
+    return normalizedStatus !== 'to-be-tested';
   }
 
   private applyReleaseDatePermissions(): void {
@@ -490,6 +541,7 @@ export class ReleaseFormComponent implements OnInit {
 
   private resetForCreateMode(): void {
     this.isEditMode = false;
+    this.releaseForm.enable({ emitEvent: false });
     this.releaseForm.reset({
       id: 0,
       title: '',
@@ -522,6 +574,7 @@ export class ReleaseFormComponent implements OnInit {
     this.syncClosedDateWithStatus(this.releaseForm.get('status')?.value);
     this.syncQcTestingDatesWithStatus(this.releaseForm.get('status')?.value);
     this.applyReleaseDatePermissions();
+    this.applyAssignedToPermission(this.releaseForm.get('status')?.value);
     this.releaseForm.markAsPristine();
     this.releaseForm.markAsUntouched();
   }
@@ -572,6 +625,7 @@ export class ReleaseFormComponent implements OnInit {
     this.syncClosedDateWithStatus(patchedStatus);
     this.syncQcTestingDatesWithStatus(patchedStatus);
     this.applyReleaseDatePermissions();
+    this.applyAssignedToPermission(patchedStatus);
     this.releaseForm.markAsPristine();
     this.releaseForm.markAsUntouched();
   }

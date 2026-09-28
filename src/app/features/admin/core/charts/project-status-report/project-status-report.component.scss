@@ -6,8 +6,9 @@
 }
 
 .status-dialog {
-  width: min(96vw, 1180px);
-  height: min(90vh, 760px);
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
   max-height: 90dvh;
   overflow: hidden;
   border-radius: 10px;
@@ -61,6 +62,8 @@
   min-height: 0;
   overflow: auto !important;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
 }
 
 :host ::ng-deep .status-dialog-table .tabulator-footer,
@@ -327,14 +330,15 @@
     height: 100%;
   }
 
-  :host ::ng-deep .status-dialog-table .tabulator,
-  :host ::ng-deep .status-inline-table .tabulator {
+  :host ::ng-deep .status-dialog-table .tabulator-table,
+  :host ::ng-deep .status-inline-table .tabulator-table {
     min-width: 995px;
   }
 }
 
-::ng-deep .cdk-overlay-pane:has(app-project-status-report) {
-  width: min(96vw, 1180px) !important;
+::ng-deep .cdk-overlay-pane:has(app-project-status-report),
+::ng-deep .release-dialog-panel {
+  width: min(96vw, 1600px) !important;
   max-width: 96vw !important;
 }
 

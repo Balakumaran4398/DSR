@@ -72,6 +72,19 @@
   letter-spacing: 0.01em;
 }
 
+.dsr-nav-logo-version-wrapper {
+  text-align: center;
+}
+
+.dsr-nav-logo-version {
+  display: block;
+  color: var(--brand-color);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
 .dsr-nav-sidebar-toggle-btn {
   font-size: 1.25rem;
   color: var(--text-sidebar-main);

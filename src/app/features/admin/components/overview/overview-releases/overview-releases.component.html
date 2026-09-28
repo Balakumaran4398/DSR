@@ -19,7 +19,7 @@
             </div>
             <div
                 class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto shrink-0">
-                <app-date-range-filter [initialStartDate]="startDate" [initialEndDate]="endDate"
+                <app-date-range-filter [initialStartDate]="startDate" [initialEndDate]="endDate" class="mb-5"
                     (rangeChange)="onRangeChange($event)"></app-date-range-filter>
 
                 <form class="example-form w-full sm:w-72">
@@ -127,7 +127,7 @@
                 </form>
             </div>
 
-            <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto">
+            <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto mb-5">
                 <div class="flex flex-col items-center justify-center gap-3 w-full sm:flex-row sm:items-center sm:w-auto"
                     role="tablist">
                     <button [disabled]="!canDownloadPdf || pdfPreviewLoading"
@@ -279,9 +279,7 @@
                                     <div class="flex justify-between mb-2 relative">
                                         <span
                                             class="text-xs font-mono text-[var(--text-active)] bg-violet-50 px-2 py-0.5 rounded font-bold">{{release.code}}</span>
-                                        <!-- <span *ngIf="release.status == 'Upcoming-Release'"
-                                            class="text-xs font-mono text-[var(--warning)] bg-violet-50 px-2 py-0.5 rounded font-bold">Released Date: {{release.released_date}}</span> -->
-                                        <div class="relative">
+                                          <div class="relative">
                                             <span class="text-[10px] px-2 py-0.5 rounded border font-semibold"
                                                 [ngClass]="release.release_type === 'External' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-gray-50 text-gray-600 border-gray-200'">
                                                 {{release.release_type}}
@@ -316,10 +314,10 @@
                                     </h4>
                                     <div class="text-sm text-slate-500 mb-3 font-medium">{{release.version}}</div>
                                     <div class="text-sm text-slate-500 mb-3 font-medium"
-                                        *ngIf="release.status == 'Upcoming-Release'">
-                                        Released Date:
+                                        *ngIf="getReleaseDisplayStatus(release) === 'Upcoming Release'">
+                                        Planned Date:
                                         <span class="release-date-pill" [ngClass]="getReleaseDateBadgeClass(release)">
-                                            {{release.released_date}}
+                                            {{release.planned_date}}
                                         </span>
                                     </div>
 

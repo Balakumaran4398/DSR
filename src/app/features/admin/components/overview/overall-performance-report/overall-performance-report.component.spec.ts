@@ -1,6 +1,7 @@
 import { ChangeDetectorRef } from '@angular/core';
 import { fakeAsync, tick } from '@angular/core/testing';
 import { Observable, of, Subject } from 'rxjs';
+import { ExcelService } from 'src/app/_core/services/excel.service';
 import { OverallPerformanceReportComponent } from './overall-performance-report.component';
 
 describe('OverallPerformanceReportComponent loading', () => {
@@ -36,10 +37,14 @@ describe('OverallPerformanceReportComponent loading', () => {
     authService = jasmine.createSpyObj('AuthService', [
       'getAllDepartments',
       'getUsersAll',
+      'getEmployeeList',
       'getDashboardDetailsByEmployeeIdDeptwise',
-      'getReleaseOverviewListByEmp'
+      'getReleaseOverviewListByEmp',
+      'getActivityLogs'
     ]);
     authService.getReleaseOverviewListByEmp.and.returnValue(of([]));
+    authService.getActivityLogs.and.returnValue(of([]));
+    authService.getEmployeeList.and.returnValue(of([]));
 
     component = new OverallPerformanceReportComponent(
       authService,
@@ -77,6 +82,160 @@ describe('OverallPerformanceReportComponent loading', () => {
 
     expect(component.sections[0].pageSize).toBe(25);
     expect(component.sections[0].pageSize).toBeGreaterThan(component.tableVisibleRowCount);
+  });
+
+  it('formats worked hours in task, issue, and ticket report rows', () => {
+    const department = createDepartment(1);
+    const record = { id: 1, worked_hours: '08:00:00 00:00:00' };
+    const sections = [
+      (component as any).buildTaskSection([record], 'task', department, 'Task Report'),
+      (component as any).buildIssueSection([record], 'issue', department, 'Issue Report'),
+      (component as any).buildTicketSection([record], 'ticket', department, 'Tickets Report')
+    ];
+
+    sections.forEach(section => {
+      const hoursIndex = section.columns.indexOf('Worked Hours');
+      expect(section.rows[0].cells[hoursIndex]).toBe('08:00:00');
+      expect((component as any).buildExcelSections([section])[0].rows[0][hoursIndex]).toBe('08:00:00');
+    });
+  });
+
+  it('uses the first Upcoming transition for before, exact, and overdue colors in table, Excel, and PDF', () => {
+    const department = createDepartment(1);
+    const excelService = new ExcelService();
+    const section = (component as any).buildReleaseSection([
+      { id: 1, status: 'Pass', released_date: '2026-09-20', release_transition_date: '2026-09-20', status_changed_date: '2026-09-22' },
+      { id: 2, status: 'Pass', releaseDate: '2026-09-19', releaseTransitionDate: '2026-09-18', status_changed_date: '2026-09-20' },
+      { id: 3, status: 'Pass', released_date: '2026-09-18', release_transition_date: '2026-09-16', status_changed_date: '2026-09-19' },
+      { id: 4, status: 'Pass', released_date: '2026-09-22', release_transition_date: '2026-09-24', status_changed_date: '2026-09-26' },
+      { id: 5, status: 'Pass', released_date: '2026-02-30', status_changed_date: '2026-09-20' }
+    ], 'release', department, 'Release Report');
+    const overdueIndex = section.columns.indexOf('OVERDUE');
+    const statusIndex = section.columns.indexOf('STATUS');
+    const expected = [
+      ['2026-09-20 (0)', 'status-chip--info', 10, [30, 64, 175]],
+      ['2026-09-18 (1)', 'status-chip--success', 11, [21, 128, 61]],
+      ['2026-09-16 (2)', 'status-chip--success', 11, [21, 128, 61]],
+      ['2026-09-24 (2)', 'status-chip--danger', 13, [185, 28, 28]],
+      ['-', '', null, null]
+    ];
+
+    expected.forEach(([text, chipClass, excelStyle, pdfColor], index) => {
+      expect(section.rows[index].cells[overdueIndex]).toBe(text);
+      expect(section.rows[index].cells[statusIndex]).toBe('Released');
+      expect(section.rows[index].cellViews[overdueIndex].chipClass).toBe(chipClass);
+      expect((component as any).buildExcelSections([section])[0].rows[index][overdueIndex]).toBe(text);
+      if (excelStyle !== null) {
+        expect((excelService as any).getOverallPerformanceCellStyleId('OVERDUE', text)).toBe(excelStyle);
+        expect((component as any).getPdfSemanticCellStyle('OVERDUE', text).textColor).toEqual(pdfColor);
+      }
+    });
+  });
+
+  it('uses embedded release logs without requesting activity logs', () => {
+    let enrichedRows: any[] = [];
+
+    (component as any).enrichReleaseTransitionDates([{
+      id: 7,
+      status: 'Pass',
+      released_date: '2026-09-20',
+      status_logs: [
+        { status: 'Pass', logdate: '2026-09-20' },
+        { status: 'Upcoming-Release', logdate: '2026-09-15' },
+        { status: 'In-Progress', logdate: '2026-09-18' }
+      ]
+    }]).subscribe((rows: any[]) => enrichedRows = rows);
+
+    expect(authService.getActivityLogs).not.toHaveBeenCalled();
+    expect(enrichedRows[0].release_transition_date).toBe('2026-09-18');
+  });
+
+  it('requests the complete release timeline and filters release sections by the selected range', () => {
+    component.startDate = '2026-09-07';
+    component.endDate = '2026-09-13';
+    const payload = (component as any).getReleaseOverviewPayload(17, 1);
+
+    expect(payload.fromdate).toBe('1900-01-01');
+    expect(payload.todate).toBe('9999-12-31');
+
+    (component as any).getApplicableReportKinds = () => ['release'];
+    (component as any).filterRowsForDepartmentScope = (rows: any[]) => rows;
+    const report = {
+      department: createReleaseDepartment(1, 'Software Team'),
+      dashboardData: {},
+      releaseOverviewLoaded: true,
+      releaseOverviewRows: [
+        { id: 1, status: 'Pass', closed_date: '2026-09-07' },
+        { id: 2, status: 'Failed', closedDate: '2026-09-13' },
+        { id: 3, status: 'Pass', planned_date: '2026-09-08', released_date: '2026-09-10', closed_date: '2026-09-14' },
+        { id: 4, status: 'In-Progress', planned_date: '2026-09-01', released_date: '2026-09-18' }
+      ]
+    };
+
+    const releaseSection = (component as any).buildDepartmentSections(report)
+      .find((section: any) => section.reportKind === 'release');
+
+    expect(releaseSection.rows.length).toBe(3);
+  });
+
+  it('shows only remaining or overdue days for upcoming releases', () => {
+    const today = new Date();
+    const dateOffset = (days: number): string => {
+      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + days);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    };
+    const section = (component as any).buildReleaseSection([
+      { id: 1, status: 'Upcoming Release', planned_date: dateOffset(3), released_date: null },
+      { id: 2, status: 'Upcoming Release', planned_date: dateOffset(-2), released_date: null }
+    ], 'release', createDepartment(1), 'Release Report');
+    const overdueIndex = section.columns.indexOf('OVERDUE');
+    const statusIndex = section.columns.indexOf('STATUS');
+
+    expect(section.rows[0].cells[overdueIndex]).toBe(`${dateOffset(3)} (3)`);
+    expect(section.rows[0].cells[statusIndex]).toBe('Upcoming Release');
+    expect(section.rows[0].cellViews[overdueIndex].chipClass).toBe('status-chip--warning');
+    expect(section.rows[1].cells[overdueIndex]).toBe(`${dateOffset(-2)} (2)`);
+    expect(section.rows[1].cellViews[overdueIndex].chipClass).toBe('status-chip--danger');
+    const excelService = new ExcelService();
+    expect((excelService as any).getOverallPerformanceCellStyleId('OVERDUE', section.rows[0].cells[overdueIndex])).toBe(12);
+    expect((excelService as any).getOverallPerformanceCellStyleId('OVERDUE', section.rows[1].cells[overdueIndex])).toBe(13);
+    expect((component as any).getPdfSemanticCellStyle('OVERDUE', section.rows[0].cells[overdueIndex]).textColor).toEqual([146, 64, 14]);
+    expect((component as any).getPdfSemanticCellStyle('OVERDUE', section.rows[1].cells[overdueIndex]).textColor).toEqual([185, 28, 28]);
+  });
+
+  it('uses the requested 15-column release schema for table and export data', () => {
+    const section = (component as any).buildReleaseSection(
+      [{ id: 1, title: 'Release A', release_performance: 'Good', manager_name: 'Manager A' }],
+      'department-1-release',
+      createDepartment(1),
+      'Release Report'
+    );
+    const exportedSection = (component as any).buildExcelSections([section])[0];
+
+    expect(section.columns).toEqual([
+      'PROJECT', 'TITLE', 'VERSION', 'MANAGER / TL', 'WORKED BY / RELEASED BY',
+      'PLANNED DATE', 'RELEASED DATE', 'OVERDUE', 'TESTED BY', 'QC START DATE',
+      'QC RELEASE DATE', 'STATUS', 'RELEASE TYPE', 'REMARKS', 'CLIENT'
+    ]);
+    expect(section.rows[0].cells).not.toContain('Good');
+    expect(section.rows[0].cells).toContain('Manager A');
+    expect(exportedSection.headers).toEqual(section.columns);
+    expect(exportedSection.rows[0].length).toBe(exportedSection.headers.length);
+  });
+
+  it('omits Category from the tickets table and export data', () => {
+    const section = (component as any).buildTicketSection(
+      [{ id: 1, ticket_name: 'Ticket A', ticket_category_name: 'Service' }],
+      'department-1-ticket',
+      createDepartment(1),
+      'Tickets Report'
+    );
+    const exportedSection = (component as any).buildExcelSections([section])[0];
+
+    expect(section.columns).not.toContain('Category');
+    expect(section.rows[0].cells).not.toContain('Service');
+    expect(exportedSection.headers).not.toContain('Category');
+    expect(exportedSection.rows[0].length).toBe(exportedSection.headers.length);
   });
 
   it('uses one grouped dashboard request for multiple departments', () => {
@@ -375,8 +534,7 @@ describe('OverallPerformanceReportComponent loading', () => {
       'Test Engineer',
       'Functional',
       'High',
-      'Open',
-      'Reproduced'
+      'Open'
     ]));
     const taskSection = component.sections.find(section => section.reportKind === 'task');
     expect(taskSection!.rows.length).toBe(0);
@@ -422,14 +580,13 @@ describe('OverallPerformanceReportComponent loading', () => {
       'Saravanan S',
       'Bug',
       'Medium',
-      'Failed',
-      'The Settled action is displayed for a refunded transaction.'
+      'Failed'
     ]));
     const taskSection = component.sections.find(section => section.reportKind === 'task');
     expect(taskSection!.rows.length).toBe(0);
   }));
 
-  it('uses assigned department only when the bug has no owning department', () => {
+  it('shows a bug for both its owning and assigned-to departments', () => {
     const firstDepartment = createDepartment(1);
     const secondDepartment = createDepartment(2);
     const bugWithOwner = { bug_id: 1, department_id: 1, assigned_to_department_id: 2 };
@@ -444,7 +601,77 @@ describe('OverallPerformanceReportComponent loading', () => {
       [bugWithOwner, bugWithoutOwner],
       secondDepartment,
       false
-    )).toEqual([bugWithoutOwner]);
+    )).toEqual([bugWithOwner, bugWithoutOwner]);
+  });
+
+  it('maps dashboard bug_list assign_from and assign_to employees to both departments', () => {
+    const firstDepartment = createDepartment(1);
+    const secondDepartment = createDepartment(2);
+    const transferredBug = { bug_id: 1, assign_from: 101, assign_to: 202 };
+    (component as any).employeeList = [
+      { id: 101, department_id: 1 },
+      { id: 202, department_id: 2 }
+    ];
+
+    expect((component as any).filterIssueRowsForDepartment(
+      [transferredBug],
+      firstDepartment,
+      false
+    )).toEqual([transferredBug]);
+    expect((component as any).filterIssueRowsForDepartment(
+      [transferredBug],
+      secondDepartment,
+      false
+    )).toEqual([transferredBug]);
+  });
+
+  it('maps release, task and ticket rows to both assign_from and assign_to departments', () => {
+    const firstDepartment = createDepartment(1);
+    const secondDepartment = createDepartment(2);
+    const transferredRow = { id: 1, assign_from: 101, assign_to: 202 };
+    (component as any).employeeList = [
+      { id: 101, department_id: 1 },
+      { id: 202, department_id: 2 }
+    ];
+
+    expect((component as any).filterRowsForDepartmentScope(
+      [transferredRow],
+      firstDepartment,
+      false,
+      true
+    )).toEqual([transferredRow]);
+    expect((component as any).filterRowsForDepartmentScope(
+      [transferredRow],
+      secondDepartment,
+      false,
+      true
+    )).toEqual([transferredRow]);
+    expect((component as any).filterCombinedReleaseRowsForDepartment(
+      [transferredRow],
+      firstDepartment,
+      true
+    )).toEqual([transferredRow]);
+    expect((component as any).filterCombinedReleaseRowsForDepartment(
+      [transferredRow],
+      secondDepartment,
+      true
+    )).toEqual([transferredRow]);
+  });
+
+  it('merges employee directory department data used by assigned_from IDs', () => {
+    const assignedFromDepartment = createDepartment(1);
+    const transferredRow = { id: 1, assigned_from: 101, assigned_to_department_id: 2 };
+    (component as any).employeeList = (component as any).mergeEmployeeDirectoryRows(
+      [{ id: 101, employee_name: 'Issue Creator' }],
+      [{ employee_id: 101, department_id: 1 }]
+    );
+
+    expect((component as any).filterRowsForDepartmentScope(
+      [transferredRow],
+      assignedFromDepartment,
+      false,
+      true
+    )).toEqual([transferredRow]);
   });
 
   it('keeps unscoped bugs returned by an individual department request', () => {

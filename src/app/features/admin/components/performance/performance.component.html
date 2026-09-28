@@ -105,6 +105,7 @@
     </form>
   </header>
 
+  <div class="performance-scroll-content">
   <section class="kpi-strip">
     <article
       *ngFor="let tile of summaryTiles; trackBy: trackBySummary"
@@ -169,7 +170,7 @@
 
           <div class="app-table-scroll"
             [class.app-table-scroll--ten-row-viewport]="weightagePageSize > tableVisibleRowCount">
-            <table class="app-data-table app-data-table--wide">
+            <table class="app-data-table">
               <thead>
                 <tr>
                   <th
@@ -399,7 +400,7 @@
 
         <div class="app-table-scroll"
           [class.app-table-scroll--ten-row-viewport]="notEligiblePageSize > tableVisibleRowCount">
-          <table class="app-data-table app-data-table--xwide">
+          <table class="app-data-table">
             <thead>
               <tr>
                 <th
@@ -554,9 +555,11 @@
               <h3><i class="ri-bar-chart-grouped-line"></i> Scores and weights</h3>
               <dl>
                 <div *ngIf="employee.release_score !== null || employee.score_weights.release !== null"><dt>Release score</dt><dd>{{ formatScore(employee.release_score) }}</dd></div>
-                <div *ngIf="employee.release_score !== null || employee.score_weights.release !== null"><dt>Release weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.release) }}</dd></div>
+                <div *ngIf="employee.release_score !== null || employee.score_weights.release !== null"><dt>Release weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'release')) }}</dd></div>
+                <div *ngIf="isSqaPerformanceRow(employee) && (employee.metrics.on_time_releases !== null || employee.metrics.total_releases !== null)"><dt>On-time release score</dt><dd>{{ formatScore(getOnTimeReleaseScore(employee)) }}</dd></div>
+                <div *ngIf="isSqaPerformanceRow(employee)"><dt>On-time release weight</dt><dd>{{ formatWeightWithPercent(20) }}</dd></div>
                 <div *ngIf="employee.dsr_score !== null || employee.score_weights.dsr !== null"><dt>DSR score</dt><dd>{{ formatScore(employee.dsr_score) }}</dd></div>
-                <div *ngIf="employee.dsr_score !== null || employee.score_weights.dsr !== null"><dt>DSR weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.dsr) }}</dd></div>
+                <div *ngIf="employee.dsr_score !== null || employee.score_weights.dsr !== null"><dt>DSR weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'dsr')) }}</dd></div>
                 <div *ngIf="employee.release_status_score !== null || employee.score_weights.release_status !== null"><dt>Release status score</dt><dd>{{ formatScore(employee.release_status_score) }}</dd></div>
                 <div *ngIf="employee.release_status_score !== null || employee.score_weights.release_status !== null"><dt>Release status weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.release_status) }}</dd></div>
                 <div *ngIf="employee.task_score !== null || employee.score_weights.task !== null"><dt>Task score</dt><dd>{{ formatScore(employee.task_score) }}</dd></div>
@@ -672,4 +675,5 @@
       </div>
     </div>
   </section>
+  </div>
 </section>

@@ -129,8 +129,10 @@ export class SelfTicketFormComponent {
       priority: [2, Validators.required],
       worked_hours: ['08:00', this.isHardware ? null : this.workedHoursValidator()],
       ticketCategoryId: [null, this.isHardware ? Validators.required : null],
-      modelName: [null, this.isHardware ? Validators.required : null],
-      modelCode: [null, this.isHardware ? Validators.required : null],
+      modelName: [],
+      modelCode: [],
+      // modelName: [null, this.isHardware ? Validators.required : null],
+      // modelCode: [null, this.isHardware ? Validators.required : null],
       count: [null, this.isHardware ? [Validators.required, Validators.min(1), Validators.pattern(/^[1-9]\d*$/)] : null]
     });
   }

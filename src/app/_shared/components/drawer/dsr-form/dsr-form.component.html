@@ -1,6 +1,6 @@
-<div class="flex justify-center font-sans bg-gray-100 min-h-screen items-center">
+<div class="flex justify-center font-sans bg-gray-100 min-h-full items-center">
 
-    <div class="w-full bg-white  overflow-hidden flex flex-col h-[99vh]">
+    <div class="w-full min-h-full bg-white flex flex-col">
 
         <!-- ================= HEADER ================= -->
         <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 shrink-0">
@@ -14,7 +14,7 @@
         </div>
 
         <!-- ================= COMPOSER ================= -->
-        <form class="p-6 bg-white border-b border-gray-200 flex flex-col gap-4 overflow-y-auto" [formGroup]="taskForm">
+        <form class="p-6 bg-white border-b border-gray-200 flex flex-col gap-4" [formGroup]="taskForm">
 
             <!-- Row 1: Date & Hours -->
             <div class="flex gap-4">
@@ -133,7 +133,7 @@
         </form>
 
         <!-- ================= FEED ================= -->
-        <div class="flex-1 overflow-y-auto bg-gray-50 p-4">
+        <div class="flex-1 bg-gray-50 p-4">
             <div *ngFor="let item of logEntries"
                 class="bg-white border border-gray-200 rounded-lg p-4 mb-3 relative border-l-[3px] shadow-sm hover:shadow-md transition-shadow group"
                 [ngClass]="{

@@ -119,7 +119,8 @@
     color: red;
 }
 
-.release-date-pill {
+.release-date-pill,
+:host ::ng-deep .tabulator .release-date-pill {
     display: inline-flex;
     align-items: center;
     margin-left: 0.25rem;
@@ -132,13 +133,15 @@
     line-height: 1rem;
 }
 
-.release-date-pill--danger {
+.release-date-pill--danger,
+:host ::ng-deep .tabulator .release-date-pill--danger {
     color: var(--danger);
     background: color-mix(in srgb, var(--danger) 14%, var(--bg-card));
     border-color: color-mix(in srgb, var(--danger) 32%, var(--border-card));
 }
 
-.release-date-pill--warning {
+.release-date-pill--warning,
+:host ::ng-deep .tabulator .release-date-pill--warning {
     color: var(--warning);
     background: color-mix(in srgb, var(--warning) 14%, var(--bg-card));
     border-color: color-mix(in srgb, var(--warning) 32%, var(--border-card));
@@ -150,10 +153,18 @@
     border-color: color-mix(in srgb, #ea580c 32%, var(--border-card));
 }
 
-.release-date-pill--info {
+.release-date-pill--info,
+:host ::ng-deep .tabulator .release-date-pill--info {
     color: var(--info);
     background: color-mix(in srgb, var(--info) 14%, var(--bg-card));
     border-color: color-mix(in srgb, var(--info) 32%, var(--border-card));
+}
+
+.release-date-pill--success,
+:host ::ng-deep .tabulator .release-date-pill--success {
+    color: #15803d;
+    background: color-mix(in srgb, #16a34a 14%, var(--bg-card));
+    border-color: color-mix(in srgb, #16a34a 32%, var(--border-card));
 }
 
 :host ::ng-deep .release-status-pill {

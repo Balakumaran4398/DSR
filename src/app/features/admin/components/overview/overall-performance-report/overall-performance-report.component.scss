@@ -28,14 +28,37 @@
   min-width: 0;
   max-height: 70dvh;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: scroll;
   padding-right: 0.25rem;
   scrollbar-gutter: stable;
+  scrollbar-color: var(--text-muted, #64748b) var(--bg-body, #f3f4f6);
+  scrollbar-width: thin;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
+.performance-report-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.performance-report-list::-webkit-scrollbar-track {
+  background: var(--bg-body, #f3f4f6);
+}
+
+.performance-report-list::-webkit-scrollbar-thumb {
+  background: var(--text-muted, #64748b);
+  border: 2px solid var(--bg-body, #f3f4f6);
+  border-radius: 999px;
+}
+
+.performance-report-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-active, #2563eb);
+}
+
 .performance-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.9fr);
   gap: 1rem;
@@ -1120,6 +1143,10 @@ tbody tr:hover td {
   --chip-color: #059669;
 }
 
+.status-chip--light-green {
+  --chip-color: #65a30d;
+}
+
 .status-chip--danger {
   --chip-color: #dc2626;
 }
@@ -1267,12 +1294,6 @@ tbody tr:hover td {
 }
 
 @media (max-width: 40rem) {
-
-  .performance-report-list {
-    max-height: none;
-    overflow: visible;
-    padding-right: 0;
-  }
 
   .performance-header,
   .department-section {

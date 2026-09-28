@@ -68,8 +68,8 @@ export class DashBoardComponent implements OnInit {
         data: { data: data, title: title },
         width: '96vw',
         height: '75vh',
-        maxWidth: '1180px',
-        panelClass: 'project-status-report-dialog-panel'
+        maxWidth: '1600px',
+        panelClass: 'overdue-dialog-panel'
       }
     );
 

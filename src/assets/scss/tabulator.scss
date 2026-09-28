@@ -332,7 +332,28 @@ body {
 }
 
 .app-data-table--xwide {
-    min-width: max(100%, 112rem);
+    width: 100%;
+    min-width: 100%;
+    table-layout: fixed;
+}
+
+.app-data-table--xwide th,
+.app-data-table--xwide td {
+    padding-right: 10px;
+    padding-left: 10px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.app-data-table--xwide .app-data-table__sort {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+}
+
+.app-data-table--xwide .app-data-table__sort span {
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .app-data-table th {

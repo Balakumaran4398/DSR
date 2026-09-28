@@ -1,5 +1,8 @@
 :host {
   display: block;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   color: var(--text-main);
   font-family: var(--font-base, 'Roboto', sans-serif);
 }
@@ -69,7 +72,11 @@
   --overall-metric-releases-soft: color-mix(in srgb, var(--overall-metric-releases) 14%, transparent);
   --overall-metric-tickets-soft: color-mix(in srgb, var(--overall-metric-tickets) 14%, transparent);
 
-  min-height: calc(100vh - 6rem);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   padding: 0;
   border-radius: 0;
   background: var(--overall-bg);
@@ -124,10 +131,40 @@
 
 .overall-header {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.overall-scroll-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-color: var(--overall-muted) var(--overall-bg);
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.overall-scroll-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overall-scroll-content::-webkit-scrollbar-track {
+  background: var(--overall-bg);
+}
+
+.overall-scroll-content::-webkit-scrollbar-thumb {
+  background: var(--overall-muted);
+  border: 2px solid var(--overall-bg);
+  border-radius: 999px;
+}
+
+.overall-scroll-content::-webkit-scrollbar-thumb:hover {
+  background: var(--overall-chart-accent);
 }
 
 .overall-title {
@@ -1157,6 +1194,109 @@
 }
 
 .overall-sparkline polyline {
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.overall-performance-table {
+  width: 100%;
+}
+
+:host ::ng-deep .overall-performance-table .overall-company-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+:host ::ng-deep .overall-performance-table .overall-company-avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+:host ::ng-deep .overall-performance-table .overall-company-name {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+:host ::ng-deep .overall-performance-table .overall-company-name strong {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+:host ::ng-deep .overall-performance-table .overall-danger-text {
+  color: #ef4444;
+}
+
+:host ::ng-deep .overall-performance-table .overall-release-text {
+  color: #7c3aed;
+}
+
+:host ::ng-deep .overall-performance-table .overall-ticket-text {
+  color: #0891b2;
+}
+
+:host ::ng-deep .overall-performance-table .overall-scenario-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.28rem 0.62rem;
+  border: 1px solid color-mix(in srgb, var(--overall-table-scenario-color) 25%, var(--overall-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--overall-table-scenario-color) 10%, var(--overall-card));
+  color: var(--overall-title);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+:host ::ng-deep .overall-performance-table .overall-progress-cell {
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+:host ::ng-deep .overall-performance-table .overall-progress-cell span {
+  width: 100%;
+  min-width: 0;
+  height: 0.32rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--overall-track);
+}
+
+:host ::ng-deep .overall-performance-table .overall-progress-cell i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--overall-table-progress-start), var(--overall-table-progress-end));
+}
+
+:host ::ng-deep .overall-performance-table .overall-sparkline {
+  width: 100%;
+  min-width: 0;
+  max-width: 6rem;
+  height: 1.9rem;
+  display: block;
+}
+
+:host ::ng-deep .overall-performance-table .overall-sparkline polyline {
   fill: none;
   stroke-width: 2.2;
   stroke-linecap: round;

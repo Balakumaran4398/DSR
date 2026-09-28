@@ -2,7 +2,6 @@ import { AfterViewInit, Component, ElementRef, Inject, Input, Optional, ViewChil
 import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { formatStatusPill } from 'src/app/_core/utils/status-pill.util';
-import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
 declare const Tabulator: any;
 declare const luxon: any;
 @Component({
@@ -33,12 +32,12 @@ export class OverdueComponent implements AfterViewInit {
       data: this.dues,
       layout: "fitColumns",
       pagination: "local",
-      paginationSize: 10,
+      paginationSize: 5,
       paginationCounter: "rows",
       movableColumns: true,
       selectable: true,
       editTriggerEvent: "dblclick",
-      paginationSizeSelector: [10, 25, 50, 100],
+      paginationSizeSelector: [5, 10, 25, 50, 100],
       placeholder: "No Data Found",
       responsiveLayout: false,
       height: "60vh",
@@ -201,7 +200,6 @@ export class OverdueComponent implements AfterViewInit {
         }
       ]
     });
-    attachTabulatorPaginationPersistence(this.table, buildTabulatorPaginationKey('overdue-table'));
 
   }
 

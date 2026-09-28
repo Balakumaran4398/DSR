@@ -7,6 +7,7 @@ import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
+import { canModifyRelease } from 'src/app/_core/utils/release-permission.util';
 import { ReleaseMailsListComponent } from 'src/app/features/admin/core/mails/release-mails-list/release-mails-list.component';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
 import Swal from 'sweetalert2';
@@ -641,31 +642,11 @@ export class ReleaseManagerComponent {
 
 
   canEditRelease(release: any): boolean {
-    const loggedInEmpId = `${this.storageService.getEmpId() ?? ''}`;
-    const assignedFrom = `${release?.assigned_from ?? release?.assignedFrom ?? release?.assigned_from_id ?? release?.assignedFromId ?? ''}`;
-    const assignedTo = `${release?.assigned_to ?? release?.assignedTo ?? release?.assigned_to_id ?? release?.assignedToId ?? ''}`;
-    const roles = this.storageService.roles;
-
-    if (roles?.isAdmin || roles?.isManager) {
-      return true;
-    }
-
-    return !!loggedInEmpId && (
-      (!!assignedFrom && loggedInEmpId === assignedFrom) ||
-      (!!assignedTo && loggedInEmpId === assignedTo)
-    );
+    return canModifyRelease(release, this.storageService.getEmpId(), this.storageService.roles);
   }
 
   canDragRelease(release: any): boolean {
-    const loggedInEmpId = `${this.storageService.getEmpId() ?? ''}`;
-    const assignedTo = `${release?.assigned_to ?? release?.assignedTo ?? release?.assigned_to_id ?? release?.assignedToId ?? ''}`;
-    const roles = this.storageService.roles;
-
-    if (roles?.isAdmin || roles?.isManager) {
-      return true;
-    }
-
-    return !!loggedInEmpId && !!assignedTo && loggedInEmpId === assignedTo;
+    return this.canEditRelease(release);
   }
   openDailogue(data: any) {
     const dialogRef = this.matDialog.open(ReleaseMailsListComponent,

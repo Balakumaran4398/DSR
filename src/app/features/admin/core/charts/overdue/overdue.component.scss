@@ -6,7 +6,7 @@
 }
 
 .overdue-dialog {
-  width: min(96vw, 1180px);
+  width: min(96vw, 1600px);
   height: min(900px, 90dvh);
   max-height: min(900px, 90dvh);
   overflow: hidden;
@@ -74,6 +74,8 @@
   min-height: 0;
   overflow: auto !important;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
 }
 
 :host ::ng-deep .overdue-dialog-table .tabulator-footer,
@@ -268,14 +270,15 @@
     height: 100%;
   }
 
-  :host ::ng-deep .overdue-dialog-table .tabulator,
-  :host ::ng-deep .overdue-inline-table .tabulator {
+  :host ::ng-deep .overdue-dialog-table .tabulator-table,
+  :host ::ng-deep .overdue-inline-table .tabulator-table {
     min-width: 1250px;
   }
 }
 
-::ng-deep .cdk-overlay-pane:has(app-overdue) {
-  width: min(96vw, 1180px) !important;
+::ng-deep .cdk-overlay-pane:has(app-overdue),
+::ng-deep .overdue-dialog-panel {
+  width: min(96vw, 1600px) !important;
   max-width: 96vw !important;
 }
 

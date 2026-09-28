@@ -3,6 +3,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { filter, finalize, min, Subscription } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
+import { ExcelService, TableWorkbookExcelSection } from 'src/app/_core/services/excel.service';
+import { PdfService, TableReportPdfSection } from 'src/app/_core/services/pdf.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { TransientViewStateService } from 'src/app/_core/services/transient-view-state.service';
@@ -23,6 +25,24 @@ interface TasksViewState {
   todate: string | null;
   page: number;
   pageSize: number;
+}
+
+interface TaskProgressDisplay {
+  done: number;
+  total: number;
+  percentage: number;
+}
+
+interface TaskExportModel {
+  projectName: string;
+  generatedBy: string;
+  exportedAt: string;
+  filenameBase: string;
+  versionContext: string;
+  searchContext: string;
+  headers: string[];
+  rows: any[][];
+  summary: Array<[string, any]>;
 }
 
 @Component({
@@ -72,10 +92,12 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
   versionSearchText = '';
   taskCategory: any[] = [];
   tableLoading = false;
+  excelExporting = false;
+  pdfExporting = false;
   deletingTaskId: number | null = null;
   updatingTaskId: number | null = null;
   movingPhaseId: number | null = null;
-  constructor(private authService: AuthService, private route: ActivatedRoute, private router: Router, private toasterService: ToasterService, private storageService: StorageService, private drawerService: DrawerService, private transientViewStateService: TransientViewStateService) {
+  constructor(private authService: AuthService, private route: ActivatedRoute, private router: Router, private toasterService: ToasterService, private storageService: StorageService, private drawerService: DrawerService, private transientViewStateService: TransientViewStateService, private excelService: ExcelService, private pdfService: PdfService) {
     this.projectid = this.route.snapshot.paramMap.get('projectid');
     this.empid = this.storageService.getEmpId();
     this.restoreViewState();
@@ -275,6 +297,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
           title: "Owner",
           field: "assigned_from_name",
           minWidth: 200,
+          formatter: (cell: any) => this.escapeHtml(this.getOwnerName(cell.getData()))
         },
         {
           title: "Assignee",
@@ -288,19 +311,11 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
             clearable: true
           },
           formatter: (cell: any) => {
-            const raw = cell.getValue();
             const rowData = cell.getRow?.().getData?.() ?? cell.getData?.() ?? {};
-            const id =
-              raw && typeof raw === 'object'
-                ? (raw.id ?? raw.value ?? raw.employee_id ?? raw.employeeid ?? null)
-                : raw;
-            const key = id === null || id === undefined ? '' : String(id);
-            const resolvedName = key ? this.employeeLookup[key] : '';
-            const fallbackName = rowData?.assigned_to_name ?? rowData?.owner_name ?? '';
-            const displayName = resolvedName || fallbackName || (this.employeeIndexReady ? 'Unknown' : 'Loading...');
+            const displayName = this.getAssigneeName(rowData, this.employeeIndexReady ? 'Unknown' : 'Loading...');
             const initials =
-              resolvedName || fallbackName
-                ? String(resolvedName || fallbackName)
+              displayName && displayName !== 'Unknown' && displayName !== 'Loading...'
+                ? String(displayName)
                   .split(' ')
                   .filter(Boolean)
                   .map((n: string) => n[0])
@@ -347,34 +362,16 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
           field: "end_date",
           minWidth: 150,
           formatter: (cell: any) => {
-            const val = cell.getValue();
-
-            if (!val) return "";
-
-            const endDate = new Date(val);
-            const today = new Date();
-            // Reset time to start of day for accurate comparison
-            today.setHours(0, 0, 0, 0);
-            endDate.setHours(0, 0, 0, 0);
-
-            const diffTime = endDate.getTime() - today.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            let text = "";
+            const text = this.getTimelineText(cell.getValue());
+            if (!text) return "";
             let colorClass = "";
-
-            if (diffDays < 0) {
-              text = `Ended ${Math.abs(diffDays)} days ago`;
+            if (text.startsWith('Ended')) {
               colorClass = "text-red-500";
-            } else if (diffDays === 0) {
-              text = "Ends today";
-              colorClass = "text-amber-600 font-bold";
-            } else if (diffDays === 1) {
-              text = "1 day left";
+            } else if (text === 'Ends today' || text === '1 day left') {
               colorClass = "text-amber-600 font-bold";
             } else {
-              text = `${diffDays} days left`;
-              colorClass = diffDays < 5 ? "text-amber-600" : "text-blue-600";
+              const daysLeft = Number.parseInt(text, 10);
+              colorClass = daysLeft < 5 ? "text-amber-600" : "text-blue-600";
             }
 
             return `
@@ -390,13 +387,8 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
           minWidth: 150,
           formatter: (cell: any) => {
             const data = cell.getData();
-            const done = Number(data.tasks_done) || 0;
-            const pending = Number(data.tasks_pending) || 0;
-            const total = done + pending;
-            const rawPct = Number(data.completion_percentage);
-            const pct = Number.isFinite(rawPct)
-              ? Math.max(0, Math.min(100, Math.round(rawPct)))
-              : total === 0 ? 0 : Math.round((done / total) * 100);
+            const progress = this.getTaskProgress(data);
+            const { done, total, percentage: pct } = progress;
 
             let progressClass = "task-progress--active";
             if (pct === 100) {
@@ -646,6 +638,211 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
     this.searchTerm = (event.target as HTMLInputElement).value.toLowerCase();
     this.applySearchFilter();
     this.saveViewState();
+  }
+
+  async exportExcel(): Promise<void> {
+    if (this.excelExporting || this.pdfExporting) return;
+
+    this.excelExporting = true;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    try {
+      const model = this.buildTaskExportModel();
+      if (!model.rows.length) {
+        this.toasterService.error('No filtered tasks available for Excel export');
+        return;
+      }
+
+      const section: TableWorkbookExcelSection = this.getExcelExportSection(model);
+      this.excelService.generateTableWorkbookExcel({
+        workbookTitle: 'Task Report',
+        author: model.generatedBy,
+        fromDate: this.fromdate || '-',
+        toDate: this.todate || '-',
+        scopeLabel: 'Project',
+        scopeName: model.projectName,
+        exportedAt: model.exportedAt,
+        filename: `${model.filenameBase}.xlsx`
+      }, [section]);
+      this.toasterService.success('Excel task report downloaded successfully');
+    } catch (error) {
+      console.error('Task Excel export failed', error);
+      this.toasterService.error('Unable to generate Excel task report');
+    } finally {
+      this.excelExporting = false;
+    }
+  }
+
+  async exportPdf(): Promise<void> {
+    if (this.excelExporting || this.pdfExporting) return;
+
+    this.pdfExporting = true;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    try {
+      const model = this.buildTaskExportModel();
+      if (!model.rows.length) {
+        this.toasterService.error('No filtered tasks available for PDF export');
+        return;
+      }
+
+      const section: TableReportPdfSection = this.getPdfExportSection(model);
+      this.pdfService.generateTableReportPdf({
+        reportTitle: 'Task Report',
+        author: model.generatedBy,
+        fromDate: this.fromdate || '-',
+        toDate: this.todate || '-',
+        scopeLabel: 'Project',
+        scopeName: model.projectName,
+        versionContext: model.versionContext,
+        searchContext: model.searchContext,
+        exportedAt: model.exportedAt,
+        filename: `${model.filenameBase}.pdf`
+      }, [section]);
+      this.toasterService.success('PDF task report downloaded successfully');
+    } catch (error) {
+      console.error('Task PDF export failed', error);
+      this.toasterService.error('Unable to generate PDF task report');
+    } finally {
+      this.pdfExporting = false;
+    }
+  }
+
+  private buildTaskExportModel(): TaskExportModel {
+    const activeRows = this.table?.getRows?.('active') || [];
+    const tasks = activeRows
+      .map((row: any) => row?.getData?.())
+      .filter((task: any) => !!task);
+    const headers = [
+      'Task Name', 'Owner', 'Assignee', 'Version', 'Status', 'Task Category',
+      'Start Date', 'End Date', 'Timeline', 'Progress', 'Priority', 'Type',
+      'Phase', 'Est. Hours', 'Description'
+    ];
+    const statusTotals = new Map<string, number>();
+    const rows = tasks.map((task: any) => {
+      const status = this.getExportValue(task?.status);
+      statusTotals.set(status, (statusTotals.get(status) || 0) + 1);
+      const progress = this.getTaskProgress(task);
+      return [
+        this.getExportValue(task?.task),
+        this.getOwnerName(task),
+        this.getAssigneeName(task),
+        this.getExportValue(task?.version),
+        status,
+        this.getExportValue(task?.task_category),
+        this.getExportValue(task?.start_date),
+        this.getExportValue(task?.end_date),
+        this.getExportValue(this.getTimelineText(task?.end_date)),
+        `${progress.percentage}% (${progress.done}/${progress.total} Completed)`,
+        this.getExportValue(task?.priority),
+        this.getExportValue(task?.task_type),
+        this.getExportValue(task?.phase_title),
+        this.getExportValue(task?.estimated_hours),
+        this.getExportValue(task?.description)
+      ];
+    });
+    const versionContext = this.version ? `${this.version}` : 'All Versions';
+    const searchContext = this.searchTerm?.trim() || 'None';
+    const summary: Array<[string, any]> = [
+      ['Version', versionContext],
+      ['Search', searchContext],
+      ...Array.from(statusTotals.entries()).map(([status, count]) => [`${status} Tasks`, count] as [string, any])
+    ];
+    const projectName = this.getProjectName();
+
+    return {
+      projectName,
+      generatedBy: this.storageService.getEmpName() || this.storageService.getUsername() || 'System User',
+      exportedAt: new Date().toLocaleString(),
+      filenameBase: `TASK_REPORT_${this.sanitizeFilenameToken(projectName)}_${this.fromdate || '-'}_to_${this.todate || '-'}`,
+      versionContext,
+      searchContext,
+      headers,
+      rows,
+      summary
+    };
+  }
+
+  private getExcelExportSection(model: TaskExportModel): TableWorkbookExcelSection {
+    return {
+      title: 'Task Report',
+      reportTitle: 'Task Report',
+      sheetName: 'Tasks',
+      scopeLabel: 'Project',
+      scopeName: model.projectName,
+      summary: model.summary,
+      headers: model.headers,
+      rows: model.rows
+    };
+  }
+
+  private getPdfExportSection(model: TaskExportModel): TableReportPdfSection {
+    return {
+      title: 'Task Report',
+      reportTitle: 'Task Report',
+      scopeLabel: 'Project',
+      scopeName: model.projectName,
+      summary: model.summary.filter(([label]) => label !== 'Version' && label !== 'Search'),
+      headers: model.headers,
+      rows: model.rows
+    };
+  }
+
+  private getProjectName(): string {
+    const project = (this.projectList || []).find(item =>
+      `${item?.id ?? item?.projectid ?? item?.project_id ?? ''}` === `${this.projectid}`
+    );
+    return `${project?.project_title || project?.project_name || project?.title || this.projectid || 'PROJECT'}`;
+  }
+
+  private getOwnerName(task: any): string {
+    const directName = task?.assigned_from_name ?? task?.owner_name;
+    if (`${directName ?? ''}`.trim()) return `${directName}`.trim();
+    const id = task?.assigned_from ?? task?.owner_id;
+    return this.employeeLookup[String(id ?? '')] || 'Unknown';
+  }
+
+  private getAssigneeName(task: any, missingValue = 'Unknown'): string {
+    const raw = task?.assigned_to;
+    const id = raw && typeof raw === 'object'
+      ? (raw.id ?? raw.value ?? raw.employee_id ?? raw.employeeid)
+      : raw;
+    const resolvedName = this.employeeLookup[String(id ?? '')];
+    const fallbackName = task?.assigned_to_name ?? task?.assignee_name ?? task?.owner_name;
+    return `${resolvedName || fallbackName || missingValue}`.trim();
+  }
+
+  private getTimelineText(value: any, todayValue = new Date()): string {
+    if (!value) return '';
+    const endDate = new Date(value);
+    if (Number.isNaN(endDate.getTime())) return '';
+    const today = new Date(todayValue);
+    today.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    const diffDays = Math.ceil((endDate.getTime() - today.getTime()) / 86400000);
+    if (diffDays < 0) return `Ended ${Math.abs(diffDays)} days ago`;
+    if (diffDays === 0) return 'Ends today';
+    if (diffDays === 1) return '1 day left';
+    return `${diffDays} days left`;
+  }
+
+  private getTaskProgress(task: any): TaskProgressDisplay {
+    const done = Number(task?.tasks_done) || 0;
+    const pending = Number(task?.tasks_pending) || 0;
+    const total = done + pending;
+    const rawPercentage = Number(task?.completion_percentage);
+    const percentage = Number.isFinite(rawPercentage)
+      ? Math.max(0, Math.min(100, Math.round(rawPercentage)))
+      : total === 0 ? 0 : Math.round((done / total) * 100);
+    return { done, total, percentage };
+  }
+
+  private getExportValue(value: any): any {
+    if (value === null || value === undefined || `${value}`.trim() === '') return '-';
+    if (typeof value === 'string') return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '-';
+    return value;
+  }
+
+  private sanitizeFilenameToken(value: any): string {
+    return `${value || 'PROJECT'}`.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'PROJECT';
   }
 
   // --- Actions ---

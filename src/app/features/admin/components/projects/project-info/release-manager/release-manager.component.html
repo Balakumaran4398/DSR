@@ -182,7 +182,7 @@
                             <!-- Col Body -->
                             <div class="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
                                 <div *ngFor="let release of getReleasesByStatus(status); trackBy: trackById"
-                                    [draggable]="canDragRelease(release)" (dragstart)="onDragStart($event, release)"
+                                    draggable="true" (dragstart)="onDragStart($event, release)"
                                     class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-0.5 group">
 
                                     <div class="flex justify-between mb-2 relative">

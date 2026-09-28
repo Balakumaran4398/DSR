@@ -4,7 +4,8 @@ import { DrawerService } from 'src/app/_core/services/drawer.service';
 
 @Component({
   selector: 'app-drawer',
-  templateUrl: './drawer.component.html'
+  templateUrl: './drawer.component.html',
+  styleUrls: ['./drawer.component.scss']
 })
 export class DrawerComponent implements OnInit {
   isOpen = false;

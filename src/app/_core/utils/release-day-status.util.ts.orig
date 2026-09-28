@@ -1,0 +1,95 @@
+export type ReleaseDayTone = 'blue' | 'green' | 'red' | 'warning' | 'none';
+
+export interface ReleaseDayStatus {
+  count: number | null;
+  text: string;
+  tone: ReleaseDayTone;
+  status: string;
+}
+
+const firstDate = (source: any, keys: string[]): Date | null => {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (value === null || value === undefined || value === '') continue;
+    const date = parseReleaseDay(value);
+    if (date) return date;
+  }
+  return null;
+};
+
+export const parseReleaseDay = (value: any): Date | null => {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const text = `${value ?? ''}`.trim();
+  const ymd = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s].*)?$/);
+  const dmy = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:[T\s].*)?$/);
+  if (ymd || dmy) {
+    const year = Number(ymd ? ymd[1] : dmy![3]);
+    const month = Number(ymd ? ymd[2] : dmy![2]);
+    const day = Number(ymd ? ymd[3] : dmy![1]);
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+  }
+  if (!text || text === '-') return null;
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const calendarDay = (date: Date): number => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+const formatCalendarDay = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export function getReleaseDayStatus(release: any, today = new Date()): ReleaseDayStatus {
+  const planned = firstDate(release, ['planned_date', 'plannedDate', 'target_date', 'targetDate', 'scheduled_date', 'scheduledDate']);
+  const released = firstDate(release, ['released_date', 'release_date', 'releasedDate', 'releaseDate']);
+  const transition = firstDate(release, [
+    'release_transition_date',
+    'releaseTransitionDate',
+    'to_be_tested_date',
+    'toBeTestedDate',
+    'to_be_tested_at',
+    'toBeTestedAt',
+    'release_tested_date',
+    'release_status_changed_date',
+    'status_changed_date'
+  ]);
+  const status = `${release?.status ?? ''}`.trim() || '-';
+  const statusKey = status.toLowerCase().replace(/[\s_]+/g, '-');
+  const isUpcoming = statusKey === 'upcoming-release';
+
+  if (!isUpcoming) {
+    if (!released || !transition) {
+      return { count: null, text: '-', tone: 'none', status };
+    }
+
+    const daysEarly = Math.round((calendarDay(released) - calendarDay(transition)) / 86400000);
+    if (daysEarly === 0) {
+      return { count: 0, text: , tone: 'blue', status };
+    }
+    const count = Math.abs(daysEarly);
+    return {
+      count,
+      text: `${formatCalendarDay(transition)} (${count} ${count === 1 ? 'day' : 'days'} ${daysEarly > 0 ? 'before' : 'late'})`,
+      tone: 'green',
+      status
+    };
+  }
+
+  const deadline = released || planned;
+  if (!deadline) return { count: null, text: '-', tone: 'none', status };
+
+  const daysRemaining = Math.round((calendarDay(deadline) - calendarDay(today)) / 86400000);
+  if (daysRemaining < 0) {
+    const count = Math.abs(daysRemaining);
+    return { count, text: `${formatCalendarDay(deadline)} (${count} ${count === 1 ? 'day' : 'days'} overdue)`, tone: 'red', status };
+  }
+  return {
+    count: daysRemaining,
+    text: `${formatCalendarDay(deadline)} (${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} remaining)`,
+    tone: 'warning',
+    status
+  };
+}

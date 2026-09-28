@@ -5,65 +5,63 @@
     class="drawer-shell fixed top-0 right-0 h-full w-full md:w-[600px] bg-white shadow-xl z-[100] transition-transform duration-300 ease-in-out flex flex-col font-sans">
     <header class="drawer-header shrink-0 bg-white border-b border-slate-100 relative z-20">
         <div class="absolute top-3 right-3 text-right">
-            <button (click)="close()" class="drawer-close-btn md:hidden text-slate-400 p-1">
+            <button type="button" (click)="close()" class="drawer-close-btn md:hidden text-slate-400 p-1"
+                aria-label="Close drawer" title="Close">
                 <i class="ri-close-line text-2xl"></i>
             </button>
-            <!-- <button (click)="close()" class="drawer-close-btn hidden md:block ml-2 text-slate-300 hover:text-slate-600 transition">mr-4 mt-9
-                <i class="ri-close-line text-2xl"></i>
-            </button> -->
-            <button (click)="close()" [ngClass]="activeType === 'notification'
-                    ? 'drawer-close-btn hidden md:block ml-2 text-slate-300 hover:text-slate-600 transition mr-4 mt-9'
-                    : 'drawer-close-btn hidden md:block ml-2 text-slate-300 hover:text-slate-600 transition'">
+            <button type="button" (click)="close()"
+                class="drawer-close-btn hidden md:block ml-2 text-slate-300 hover:text-slate-600 transition"
+                aria-label="Close drawer" title="Close">
                 <i class="ri-close-line text-2xl"></i>
             </button>
         </div>
     </header>
 
-    <div class="drawer-body flex-1 overflow-y-auto md:p-4 bg-slate-50">
+    <div class="drawer-body flex-1 min-h-0 overflow-hidden md:p-4 bg-slate-50">
         <!-- <div
             class="h-[800px] border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-400"> -->
         <ng-container [ngSwitch]="activeType">
             <ng-template [ngSwitchCase]="'member'">
-                <app-user-form [data]="data"> </app-user-form>
+                <app-user-form class="drawer-form-host" [data]="data"> </app-user-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'project'">
-                <app-project-form [data]="data"></app-project-form>
+                <app-project-form class="drawer-form-host" [data]="data"></app-project-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'task'">
-                <app-task-form [type]="formType" [data]="data"></app-task-form>
+                <app-task-form class="drawer-form-host" [type]="formType" [data]="data"></app-task-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'teammate'">
-                <app-add-teammate-form></app-add-teammate-form>
+                <app-add-teammate-form class="drawer-form-host"></app-add-teammate-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'release'">
-                <app-release-form [data]="data"></app-release-form>
+                <app-release-form class="drawer-form-host" [data]="data"></app-release-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'mom'">
                 <app-momdialog [data]="data"></app-momdialog>
             </ng-template>
             <ng-template [ngSwitchCase]="'phases'">
-                <app-phase-form [data]="data"></app-phase-form>
+                <app-phase-form class="drawer-form-host" [data]="data"></app-phase-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'sub-task'">
-                <app-subtask-form [data]="data"></app-subtask-form>
+                <app-subtask-form class="drawer-form-host" [data]="data"></app-subtask-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'dsr'">
-                <app-dsr-form [data]="data"></app-dsr-form>
+                <app-dsr-form class="drawer-form-host" [data]="data"></app-dsr-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'relieve'">
-                <app-releieve-form [data]="data"></app-releieve-form>
+                <app-releieve-form class="drawer-form-host" [data]="data"></app-releieve-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'client'">
-                <app-client-form [data]="data"></app-client-form>
+                <app-client-form class="drawer-form-host" [data]="data"></app-client-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'ticket'">
-                <app-self-ticket-form [data]="data"></app-self-ticket-form>
+                <app-self-ticket-form class="drawer-form-host" [data]="data"></app-self-ticket-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'assignticket'">
-                <app-assign-ticket-form [data]="data"></app-assign-ticket-form>
+                <app-assign-ticket-form class="drawer-form-host" [data]="data"></app-assign-ticket-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'products'">
-                <app-product-form [data]="data"></app-product-form>
+                <app-product-form class="drawer-form-host" [data]="data"></app-product-form>
             </ng-template>
             <ng-template [ngSwitchCase]="'notification'">
                 <app-notifications [data]="data"></app-notifications>

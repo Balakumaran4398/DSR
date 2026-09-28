@@ -64,6 +64,7 @@
                     <i class="ri-add-line mr-2 text-lg"></i>
                     Add {{btnText}}
                 </button>
+
             </div>
 
         </div> -->
@@ -89,16 +90,18 @@
                 class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-center 2xl:justify-self-center min-w-0">
                 <div class="flex items-center justify-center  w-full lg:w-auto my-2 lg:my-0">
                     <app-date-range-filter [initialStartDate]="initialStartDate" [initialEndDate]="initialEndDate"
-                        navigationStep="week"
-                        (rangeChange)="onRangeChange($event)"></app-date-range-filter>
+                        navigationStep="week" (rangeChange)="onRangeChange($event)"></app-date-range-filter>
                 </div>
                 <mat-form-field appearance="outline" class="w-full xl:w-64" subscriptSizing="dynamic">
                     <mat-select [value]="version" placeholder="Select version"
-                        (selectionChange)="onVersionChange($event.value)" (openedChange)="onVersionSelectOpened($event)">
+                        (selectionChange)="onVersionChange($event.value)"
+                        (openedChange)="onVersionSelectOpened($event)">
                         <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100"
                             (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
-                            <input class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
-                                placeholder="Search version..." [value]="versionSearchText" (input)="filterVersions($event)">
+                            <input
+                                class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-indigo-500"
+                                placeholder="Search version..." [value]="versionSearchText"
+                                (input)="filterVersions($event)">
                         </div>
                         <mat-option [value]="null">All Versions</mat-option>
                         <mat-option *ngFor="let v of filteredVersionList" [value]="v">{{ v }}</mat-option>
@@ -135,6 +138,29 @@
                 transition-all whitespace-nowrap" (click)="addMenber()">
                     <i class="ri-add-line mr-2 text-lg"></i>
                     Add {{btnText}}
+                </button>
+
+                <button
+                    class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1 text-sm font-medium
+                    rounded-lg border border-emerald-200 text-emerald-700 bg-emerald-50 shadow-sm
+                    hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
+                    type="button" title="Export filtered tasks to Excel" (click)="exportExcel()"
+                    [disabled]="tableLoading || excelExporting || pdfExporting">
+                    <i
+                        [class]="excelExporting ? 'ri-loader-4-line app-spin text-lg' : 'ri-file-excel-2-fill text-lg'"></i>
+                    <!-- <span class="ml-2 sm:hidden lg:inline"> {{ excelExporting ? 'Exporting...' : ' Excel' }}
+                    </span> -->
+                    <span *ngIf="excelExporting" class="ml-2 sm:hidden lg:inline"> Exporting... </span>
+                </button>
+
+                <button class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1 text-sm font-medium
+                    rounded-lg border border-rose-200 text-rose-700 bg-rose-50 shadow-sm
+                    hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
+                    type="button" title="Export filtered tasks to PDF" (click)="exportPdf()"
+                    [disabled]="tableLoading || excelExporting || pdfExporting">
+                    <i [class]="pdfExporting ? 'ri-loader-4-line app-spin text-lg' : 'ri-file-pdf-2-fill text-lg'"></i>
+                    <!-- <span class="ml-2 sm:hidden lg:inline">{{ pdfExporting ? 'Exporting...' : ' PDF' }}</span> -->
+                    <span *ngIf="pdfExporting" class="ml-2 sm:hidden lg:inline"> Exporting...</span>
                 </button>
             </div>
 
@@ -186,8 +212,10 @@
                 <button *ngFor="let phase of phaseList" (click)="moveTo(phase)"
                     [disabled]="movingPhaseId == (phase.id ?? phase.phaseid ?? phase.phase_id)"
                     class="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition flex items-center gap-2">
-                    <i [class]="movingPhaseId == (phase.id ?? phase.phaseid ?? phase.phase_id) ? 'ri-loader-4-line app-button-spinner opacity-70' : 'ri-code-line opacity-70'"></i>
-                    <span>{{ movingPhaseId == (phase.id ?? phase.phaseid ?? phase.phase_id) ? 'Moving...' : (phase.phase_title +"-"+phase.code) }}</span>
+                    <i
+                        [class]="movingPhaseId == (phase.id ?? phase.phaseid ?? phase.phase_id) ? 'ri-loader-4-line app-button-spinner opacity-70' : 'ri-code-line opacity-70'"></i>
+                    <span>{{ movingPhaseId == (phase.id ?? phase.phaseid ?? phase.phase_id) ? 'Moving...' :
+                        (phase.phase_title +"-"+phase.code) }}</span>
                 </button>
 
             </div>
