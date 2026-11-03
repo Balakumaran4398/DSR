@@ -29,16 +29,38 @@
         <div class="flex flex-col gap-3 w-full
              sm:flex-row sm:items-center sm:w-auto">
 
-            <!-- Search -->
-            <div class="relative w-full sm:w-64">
-                <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                    <i class="ri-search-line text-gray-400 text-sm"></i>
-                </span>
-                <input type="text" (input)="onSearch($event)" placeholder="Search..." class="w-full pl-10 pr-4 py-2
-                 border border-gray-300 rounded-lg text-sm
-                 focus:outline-none focus:border-2
-                 focus:border-[var(--text-active)]
-                 placeholder-gray-400 transition-colors" />
+            <div class="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:w-auto">
+                <!-- Search -->
+                <div class="relative w-full sm:w-64">
+                    <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                        <i class="ri-search-line text-gray-400 text-sm"></i>
+                    </span>
+                    <input type="text" (input)="onSearch($event)" placeholder="Search..." class="w-full pl-10 pr-4 py-2
+                     border border-gray-300 rounded-lg text-sm
+                     focus:outline-none focus:border-2
+                     focus:border-[var(--text-active)]
+                     placeholder-gray-400 transition-colors" />
+                </div>
+
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button type="button" (click)="exportExcel()"
+                    [disabled]="teamTableLoading || excelExporting || pdfExporting"
+                    [attr.aria-busy]="excelExporting"
+                    class="inline-flex flex-1 sm:flex-none items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 shadow-sm transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    title="Export filtered team members to Excel">
+                    <i [class]="excelExporting ? 'ri-loader-4-line app-spin' : 'ri-file-excel-2-fill'"></i>
+                    <span>{{ excelExporting ? 'Generating...' : 'Excel' }}</span>
+                </button>
+                <button type="button" (click)="exportPdf()"
+                    [disabled]="teamTableLoading || excelExporting || pdfExporting"
+                    [attr.aria-busy]="pdfExporting"
+                    class="inline-flex flex-1 sm:flex-none items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    title="Export filtered team members to PDF">
+                    <i [class]="pdfExporting ? 'ri-loader-4-line app-spin' : 'ri-file-pdf-2-fill'"></i>
+                    <span>{{ pdfExporting ? 'Generating...' : 'PDF' }}</span>
+                </button>
             </div>
 
             <!-- Add Member Button -->

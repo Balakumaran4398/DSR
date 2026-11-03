@@ -6,6 +6,7 @@ import { filter, finalize } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
+import { NotificationNavigationContext, NotificationNavigationService } from 'src/app/_core/services/notification-navigation.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { canModifyRelease } from 'src/app/_core/utils/release-permission.util';
 import { ReleaseMailsListComponent } from 'src/app/features/admin/core/mails/release-mails-list/release-mails-list.component';
@@ -89,7 +90,8 @@ export class ReleaseManagerComponent {
   createReleaseLoading = false;
   deletingReleaseId: number | null = null;
   updatingReleaseId: number | null = null;
-  constructor(private matDialog: MatDialog, private authService: AuthService, private drawerService: DrawerService, private storageService: StorageService, private router: Router, private route: ActivatedRoute, private toasterService: ToasterService) {
+  private notificationContext: NotificationNavigationContext | null = null;
+  constructor(private matDialog: MatDialog, private authService: AuthService, private drawerService: DrawerService, private storageService: StorageService, private router: Router, private route: ActivatedRoute, private toasterService: ToasterService, private notificationNavigationService: NotificationNavigationService = new NotificationNavigationService()) {
     this.empid = this.storageService.getEmpId();
     this.username = this.storageService.getUsername();
     // this.projectid = this.route.snapshot.paramMap.get('projectid');
@@ -98,6 +100,7 @@ export class ReleaseManagerComponent {
 
       if (newProjectId && newProjectId !== this.projectid) {
         this.projectid = newProjectId;
+        this.notificationContext = this.notificationNavigationService.resolve('release', undefined, newProjectId);
         this.loadData(); // Re-loads employees and releases for the new project
       }
     });
@@ -515,8 +518,9 @@ export class ReleaseManagerComponent {
       }))
       .subscribe({
         next: (res: any) => {
-          this.releaseList = res;
+          this.releaseList = Array.isArray(res) ? res : [];
           this.filterData();
+          this.scrollToNotificationRelease();
           if (callback) callback(res);
         },
         error: (err: any) => {
@@ -525,6 +529,42 @@ export class ReleaseManagerComponent {
           this.toasterService.error(err?.error?.message || 'Unable to load releases.');
         }
       });
+  }
+
+  isNotificationRelease(release: Release | any): boolean {
+    if (!this.notificationContext || !release) return false;
+    const targetId = this.notificationContext.targetId;
+    if (targetId) {
+      return [release?.release_id, release?.releaseId, release?.id]
+        .some(value => value !== null && value !== undefined && String(value) === targetId);
+    }
+
+    const start = this.notificationContext.startDate;
+    const end = this.notificationContext.endDate;
+    if (!start || !end) return false;
+    return [release?.released_date, release?.planned_date, release?.created_date, release?.updated_date]
+      .map(value => this.toReleaseDateKey(value))
+      .some(value => !!value && value >= start && value <= end);
+  }
+
+  private scrollToNotificationRelease(): void {
+    if (!this.notificationContext) return;
+    setTimeout(() => {
+      const element = document.querySelector('.notification-release-card') as HTMLElement | null;
+      element?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }, 100);
+  }
+
+  private toReleaseDateKey(value: unknown): string | null {
+    if (!value) return null;
+    const raw = String(value).trim();
+    const direct = raw.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+    if (direct) return direct;
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.getFullYear() + '-'
+      + String(date.getMonth() + 1).padStart(2, '0') + '-'
+      + String(date.getDate()).padStart(2, '0');
   }
 
   updateRelease(rowData: any) {

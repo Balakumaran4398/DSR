@@ -5,6 +5,12 @@ import { Router } from '@angular/router';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { Subscription } from 'rxjs';
 import { NotificationDateRange, NotificationDateRangeService } from 'src/app/_core/services/notification-date-range.service';
+import { NotificationNavigationCategory, NotificationNavigationContext, NotificationNavigationService } from 'src/app/_core/services/notification-navigation.service';
+import {
+  extractNotificationEmployeeDirectory,
+  filterNotificationRecordsForViewer,
+  isNotificationRecordInDepartments
+} from 'src/app/_core/utils/notification-department.util';
 
 @Component({
   selector: 'app-notifications',
@@ -15,7 +21,15 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   @Input() data: any;
   tickets: any[] = [];
   ticket_count: number = 0;
+  loadedTicketCount = 0;
   isTicketExpanded = false;
+  canSeeTickets = false;
+  canSeeIssueAndReleaseNotifications = false;
+  notSentTickets: any[] = [];
+  notSentTicketCount = 0;
+  loadedNotSentTicketCount = 0;
+  isNotSentTicketExpanded = false;
+  canSeeNotSentTickets = false;
   issues: number = 0;
   release: number = 0;
   total: number = 0;
@@ -28,13 +42,18 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   empId: any = 0;
   private notificationRangeSubscription?: Subscription;
   private notificationDataSubscription?: Subscription;
+  private employeeDirectorySubscription?: Subscription;
+  private employeeDirectory: any[] = [];
+  private latestNotificationData: any = null;
 
   // Expansion states
   isExpanded: boolean = false;
   isReleaseExpanded: boolean = false;
   isDsrExpanded: boolean = false;
   dsrCount = 0;
+  loadedDsrCount = 0;
   dsr: any[] = [];
+  canSeeNotSentDsr = false;
   dsrRequests: any[] = [];
   dsrRequestCount = 0;
   isDsrRequestExpanded = false;
@@ -69,6 +88,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     private router: Router,
     private drawerService: DrawerService,
     private notificationDateRangeService: NotificationDateRangeService,
+    private notificationNavigationService: NotificationNavigationService,
     private cdr: ChangeDetectorRef,
   ) { }
 
@@ -79,7 +99,17 @@ export class NotificationsComponent implements OnInit, OnDestroy {
       this.applyRangeFromService(range);
     });
     this.notificationDataSubscription = this.authService.notificationData$.subscribe(data => {
+      this.latestNotificationData = data;
       this.applyNotificationData(data);
+    });
+    this.employeeDirectorySubscription = this.authService.getEmployeeList().subscribe({
+      next: response => {
+        this.employeeDirectory = extractNotificationEmployeeDirectory(response);
+        this.applyNotificationData(this.latestNotificationData);
+      },
+      error: () => {
+        this.employeeDirectory = [];
+      }
     });
     this.authService.loadNotificationCount();
   }
@@ -87,6 +117,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.notificationRangeSubscription?.unsubscribe();
     this.notificationDataSubscription?.unsubscribe();
+    this.employeeDirectorySubscription?.unsubscribe();
   }
 
   getSelectedLabel(): string {
@@ -102,22 +133,107 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   private applyNotificationData(res: any): void {
     if (!res) return;
 
-    this.ticket_count = res.ticket_count;
-    this.issues = res.total_issue_count;
-    this.release = res.total_release_count;
-    this.tickets = Array.isArray(res?.tickets) ? res.tickets : [];
-    this.dsrCount = res.not_send_dsr_count;
-    this.dsr = Array.isArray(res?.not_send_dsr) ? res.not_send_dsr : [];
-    this.dsrRequests = Array.isArray(res?.not_send_dsr_requests) ? res.not_send_dsr_requests : [];
-    this.dsrRequestCount = this.toNumber(res?.not_send_dsr_request_count ?? this.dsrRequests.length);
-    this.total = this.toNumber(res?.ticket_count)
-      + this.toNumber(res?.total_issue_count)
-      + this.toNumber(res?.total_release_count)
-    + this.toNumber(res?.not_send_dsr_count)
-    + this.dsrRequestCount;
+    const isAdmin = this.storageService.roles.isAdmin;
+    const viewerRole = this.getNotificationViewerRole();
+    const currentUser = this.getLoggedInEmployeeRecord();
+    const currentEmployeeId = this.storageService.getEmpId();
+    const rawTickets = Array.isArray(res?.tickets) ? res.tickets : [];
+    const rawNotSentTickets = Array.isArray(res?.not_send_ticket) ? res.not_send_ticket : [];
+    const rawNotSentDsr = Array.isArray(res?.not_send_dsr) ? res.not_send_dsr : [];
+    const isManager = viewerRole === 'manager';
+    this.canSeeTickets = isAdmin || isManager || isNotificationRecordInDepartments(
+      currentUser,
+      this.employeeDirectory,
+      [1, 2, 3, 4, 6, 11],
+      ['Ridapps', 'Software Development Team', 'SQA', 'Hardware', 'Headend', 'Head end', 'Accounts']
+    );
+    this.canSeeNotSentTickets = isAdmin || isManager || isNotificationRecordInDepartments(
+      currentUser,
+      this.employeeDirectory,
+      [4, 6, 11],
+      ['Hardware', 'Headend', 'Head end', 'Account', 'Accounts']
+    );
+    this.canSeeIssueAndReleaseNotifications = isAdmin || isManager || isNotificationRecordInDepartments(
+      currentUser,
+      this.employeeDirectory,
+      [1, 2, 3, 11],
+      ['Ridapps', 'Software Development Team', 'SQA', 'Accounts']
+    );
+    this.tickets = filterNotificationRecordsForViewer(
+      rawTickets, viewerRole, currentEmployeeId, currentUser, this.employeeDirectory,
+      [1, 2, 3, 4, 6, 11],
+      ['Ridapps', 'Software Development Team', 'SQA', 'Hardware', 'Headend', 'Head end', 'Accounts']
+    );
+    this.loadedTicketCount = this.tickets.length;
+    this.ticket_count = this.canSeeTickets
+      ? (isManager ? this.loadedTicketCount : this.toNumber(res?.ticket_count ?? this.loadedTicketCount))
+      : 0;
+    this.notSentTickets = filterNotificationRecordsForViewer(
+      rawNotSentTickets, viewerRole, currentEmployeeId, currentUser, this.employeeDirectory,
+      [4, 6, 11], ['Hardware', 'Headend', 'Head end', 'Account', 'Accounts']
+    );
+    this.loadedNotSentTicketCount = this.notSentTickets.length;
+    this.notSentTicketCount = this.canSeeNotSentTickets
+      ? (isManager ? this.loadedNotSentTicketCount : this.toNumber(res?.not_send_ticket_count ?? this.loadedNotSentTicketCount))
+      : 0;
+    const projectCounts = Array.isArray(res.project_counts) ? res.project_counts : [];
+    this.projects = isManager
+      ? filterNotificationRecordsForViewer(
+        projectCounts, viewerRole, currentEmployeeId, currentUser, this.employeeDirectory, [], []
+      )
+      : projectCounts;
+    this.issues = this.canSeeIssueAndReleaseNotifications
+      ? (isManager ? this.projects.reduce((sum, project) => sum + this.toNumber(project?.issue_count), 0) : this.toNumber(res?.total_issue_count))
+      : 0;
+    this.release = this.canSeeIssueAndReleaseNotifications
+      ? (isManager ? this.projects.reduce((sum, project) => sum + this.toNumber(project?.release_count), 0) : this.toNumber(res?.total_release_count))
+      : 0;
+    this.canSeeNotSentDsr = this.canSeeIssueAndReleaseNotifications;
+    this.dsr = filterNotificationRecordsForViewer(
+      rawNotSentDsr, viewerRole, currentEmployeeId, currentUser, this.employeeDirectory,
+      [1, 2, 3, 11], ['Ridapps', 'Software Development Team', 'SQA', 'Accounts']
+    );
+    this.loadedDsrCount = this.dsr.length;
+    this.dsrCount = this.canSeeNotSentDsr
+      ? (isManager ? this.loadedDsrCount : this.toNumber(res?.not_send_dsr_count ?? this.loadedDsrCount))
+      : 0;
+    const rawDsrRequests = Array.isArray(res?.not_send_dsr_requests) ? res.not_send_dsr_requests : [];
+    this.dsrRequests = filterNotificationRecordsForViewer(
+      rawDsrRequests, viewerRole, currentEmployeeId, currentUser, this.employeeDirectory,
+      [1, 2, 3, 11], ['Ridapps', 'Software Development Team', 'SQA', 'Accounts']
+    );
+    this.dsrRequestCount = this.canSeeIssueAndReleaseNotifications
+      ? (isManager ? this.dsrRequests.length : this.toNumber(res?.not_send_dsr_request_count ?? this.dsrRequests.length))
+      : 0;
+    this.total = this.ticket_count
+      + this.notSentTicketCount
+      + (this.canSeeIssueAndReleaseNotifications
+        ? this.issues
+          + this.release
+          + this.dsrCount
+          + this.dsrRequestCount
+        : 0);
 
-    // Store ALL projects so releases and issues can filter independently.
-    this.projects = res.project_counts || [];
+  }
+
+  private getLoggedInEmployeeRecord(): any {
+    const user = this.storageService.getUser() || {};
+    return {
+      ...user,
+      department_name: user?.department_name
+        ?? user?.departmentName
+        ?? user?.dept_name
+        ?? user?.deptName
+        ?? this.storageService.getDept()
+        ?? user?.department
+    };
+  }
+
+  private getNotificationViewerRole(): 'admin' | 'manager' | 'employee' | 'other' {
+    if (this.storageService.roles.isAdmin) return 'admin';
+    if (this.storageService.roles.isManager) return 'manager';
+    if (this.storageService.roles.isEmployee) return 'employee';
+    return 'other';
   }
 
   // Getter for projects with issues (filters out 0 issues)
@@ -125,28 +241,19 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     return this.projects.filter((t: any) => t.issue_count && t.issue_count > 0);
   }
 
-  // toggleExpand() {
-  //   this.isExpanded = !this.isExpanded;
-  // }
-
-  // toggleReleaseExpand() {
-  //   this.isReleaseExpanded = !this.isReleaseExpanded;
-  // }
-
   toggleProjectExpand(projectId: number, event: Event) {
     event.stopPropagation();
     this.expandedProjects[projectId] = !this.expandedProjects[projectId];
   }
-
-  // toggleTicketExpand() {
-  //   this.isTicketExpanded = !this.isTicketExpanded;
-  // }
 
   toggleExpand() {
     this.isExpanded = !this.isExpanded;
     if (this.isExpanded) {
       this.isReleaseExpanded = false;
       this.isTicketExpanded = false;
+      this.isNotSentTicketExpanded = false;
+      this.isDsrExpanded = false;
+      this.isDsrRequestExpanded = false;
     }
   }
 
@@ -155,6 +262,9 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     if (this.isReleaseExpanded) {
       this.isExpanded = false;
       this.isTicketExpanded = false;
+      this.isNotSentTicketExpanded = false;
+      this.isDsrExpanded = false;
+      this.isDsrRequestExpanded = false;
     }
   }
 
@@ -163,47 +273,59 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     if (this.isTicketExpanded) {
       this.isExpanded = false;
       this.isReleaseExpanded = false;
+      this.isNotSentTicketExpanded = false;
+      this.isDsrExpanded = false;
+      this.isDsrRequestExpanded = false;
+    }
+  }
+  toggleNotSentTicketExpand() {
+    this.isNotSentTicketExpanded = !this.isNotSentTicketExpanded;
+    if (this.isNotSentTicketExpanded) {
+      this.isExpanded = false;
+      this.isReleaseExpanded = false;
+      this.isTicketExpanded = false;
+      this.isDsrExpanded = false;
+      this.isDsrRequestExpanded = false;
     }
   }
   navigate(path: string) {
-    this.storeNotificationDateRange();
-    this.router.navigate(['/main', path], {
-      queryParams: this.getNavigationDateQueryParams()
-    });
-    this.drawerService.close();
+    this.navigateAndClose(['/main', path]);
   }
 
-  // Unified method to navigate to project and set the active tab dynamically
   navigateToProject(projectId: any, tab: string = 'issues') {
     if (projectId) {
       sessionStorage.setItem("activeProjectTab", tab);
-      this.storeNotificationDateRange();
+      const category: NotificationNavigationCategory = tab === 'release' ? 'release' : 'issue';
+      const context = this.createNavigationContext(category, projectId, projectId);
       this.router.navigate(['/main/projects/project-content', projectId], {
-        queryParams: this.getNavigationDateQueryParams()
-      });
-      this.drawerService.close();
+        state: this.notificationNavigationService.navigationState(context)
+      }).finally(() => this.drawerService.close());
     }
   }
-  //   navigateToProject(projectId: any, tab: string = 'issues') {
-  //   if (projectId) {
-  //     sessionStorage.setItem("activeProjectTab", tab);
-  //     this.router.navigate(['/main/projects/project-content', projectId]).then(() => {
-  //       this.drawerService.close();
-  //       window.location.reload();
-  //     });
-  //   }
-  // }
+
+  navigateToRelease(project: any): void {
+    const projectId = project?.project_id ?? project?.projectId ?? project?.id;
+    if (!projectId) return;
+
+    const nestedRelease = Array.isArray(project?.releases) && project.releases.length === 1
+      ? project.releases[0]
+      : null;
+    const releaseId = project?.release_id ?? project?.releaseId ?? project?.latest_release_id
+      ?? project?.latestReleaseId ?? nestedRelease?.release_id ?? nestedRelease?.releaseId ?? nestedRelease?.id ?? null;
+    sessionStorage.setItem("activeProjectTab", "release");
+    const context = this.createNavigationContext("release", releaseId, projectId);
+    this.router.navigate(["/main/projects/project-content", projectId], {
+      state: this.notificationNavigationService.navigationState(context)
+    }).finally(() => this.drawerService.close());
+  }
 
   navigateToIssue(projectId: any, issueId: any) {
     if (projectId && issueId) {
-      this.storeNotificationDateRange();
+      sessionStorage.setItem('activeProjectTab', 'issues');
+      const context = this.createNavigationContext('issue', issueId, projectId);
       this.router.navigate(['/main/projects/project-content', projectId, issueId], {
-        queryParams: {
-          ...this.getNavigationDateQueryParams(),
-          tasktype: 'bug',
-        }
-      });
-      this.drawerService.close();
+        state: this.notificationNavigationService.navigationState(context)
+      }).finally(() => this.drawerService.close());
     }
   }
 
@@ -332,25 +454,24 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     return `${year}-${month}-${day}`;
   }
 
-  private getNavigationDateQueryParams(): Record<string, string | null> {
+  private getNavigationDateRange(): { startDate: string | null; endDate: string | null } {
     const startDate = this.filterStartDate ? this.formatDateLocal(this.filterStartDate) : null;
     const endDate = this.filterEndDate ? this.formatDateLocal(this.filterEndDate) : null;
 
-    return {
-      from: 'notification',
-      fromdate: startDate,
-      todate: endDate,
-      startDate,
-      endDate
-    };
+    return { startDate, endDate };
   }
 
-  private storeNotificationDateRange(): void {
-    const { startDate, endDate } = this.getNavigationDateQueryParams();
-    if (startDate && endDate) {
-      sessionStorage.setItem('notificationStartDate', startDate);
-      sessionStorage.setItem('notificationEndDate', endDate);
-    }
+  private createNavigationContext(category: NotificationNavigationCategory, targetId: any, projectId: any = null, targetDate?: string | null, targetLabel?: string | null): NotificationNavigationContext {
+    const { startDate, endDate } = this.getNavigationDateRange();
+    const context = this.notificationNavigationService.create(category, targetId, projectId, startDate, endDate, targetDate, targetLabel);
+    this.notificationNavigationService.store(context);
+    return context;
+  }
+
+  private navigateAndClose(commands: any[], context?: NotificationNavigationContext): void {
+    this.router.navigate(commands, context ? {
+      state: this.notificationNavigationService.navigationState(context)
+    } : undefined).finally(() => this.drawerService.close());
   }
 
   private toNumber(value: any): number {
@@ -360,11 +481,9 @@ export class NotificationsComponent implements OnInit, OnDestroy {
 
   navigateToTicket(ticket: any) {
     sessionStorage.setItem('activeTicketTab', 'raisedtickets')
-    this.storeNotificationDateRange();
-    this.router.navigate(['/main/ticket-info'], {
-      queryParams: this.getNavigationDateQueryParams()
-    });
-    this.drawerService.close();
+    const ticketId = ticket?.ticket_id ?? ticket?.ticketId ?? ticket?.ticketid ?? ticket?.id ?? null;
+    const context = this.createNavigationContext('ticket', ticketId);
+    this.navigateAndClose(ticketId ? ['/main/ticket-info', ticketId] : ['/main/ticket-info'], context);
   }
   toggleDsrExpand() {
     this.isDsrExpanded = !this.isDsrExpanded;
@@ -372,6 +491,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
       this.isExpanded = false;
       this.isReleaseExpanded = false;
       this.isTicketExpanded = false;
+      this.isNotSentTicketExpanded = false;
       this.isDsrRequestExpanded = false;
     }
   }
@@ -382,27 +502,44 @@ export class NotificationsComponent implements OnInit, OnDestroy {
       this.isReleaseExpanded = false;
       this.isTicketExpanded = false;
       this.isDsrExpanded = false;
+      this.isNotSentTicketExpanded = false;
     }
   }
-  navigateTodsr() {
-    this.storeNotificationDateRange();
-    this.router.navigate(['/main/notsenddsr'], {
-      queryParams: this.getNavigationDateQueryParams()
-    });
-    this.drawerService.close();
+  navigateTodsr(d?: any, event?: Event) {
+    event?.stopPropagation();
+    this.navigateToNotSentDsrRecord(d);
+  }
+
+  navigateToNotSentTicket(ticket: any, event?: Event): void {
+    event?.stopPropagation();
+    this.navigateToNotSentDsrRecord(ticket);
+  }
+
+  private navigateToNotSentDsrRecord(record: any): void {
+    const employeeId = this.resolveNotificationEmployeeId(record);
+    const employeeName = record?.employee_name ?? record?.employeeName ?? record?.name ?? null;
+    const targetDate = record?.date ?? record?.missing_date ?? record?.missingDate ?? null;
+    const context = this.createNavigationContext('not-send-dsr', employeeId, null, targetDate, employeeName);
+    this.navigateAndClose(employeeId ? ['/main/notsenddsr', employeeId] : ['/main/notsenddsr'], context);
   }
 
   navigateToDsrRequest(request: any) {
-    const date = request?.date || request?.missing_date;
-    this.storeNotificationDateRange();
+    const date = request?.date ?? request?.missing_date ?? request?.missingDate ?? null;
+    const employeeId = this.resolveNotificationEmployeeId(request);
+    const context = this.createNavigationContext('not-send-dsr', employeeId, null, date);
     this.router.navigate(['/main/notsenddsr'], {
       queryParams: {
-        ...this.getNavigationDateQueryParams(),
-        ...(date ? { fromdate: date, todate: date, startDate: date, endDate: date } : {}),
-        requestId: request?.request_id ?? request?.id ?? null
-      }
-    });
-    this.drawerService.close();
+        requestId: request?.request_id ?? request?.requestId ?? request?.id ?? null
+      },
+      state: this.notificationNavigationService.navigationState(context)
+    }).finally(() => this.drawerService.close());
+  }
+
+  private resolveNotificationEmployeeId(record: any): string | number | null {
+    return record?.employee_id ?? record?.employeeId ?? record?.employeeid
+      ?? record?.emp_id ?? record?.empId ?? record?.empid
+      ?? record?.selected_employee_id ?? record?.selectedEmployeeId
+      ?? record?.selected_emp_id ?? record?.user_employee_id ?? null;
   }
 
   getDsrRequestStatus(request: any): string {

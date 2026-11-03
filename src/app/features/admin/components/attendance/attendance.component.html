@@ -1,61 +1,136 @@
-<div class="w-full animate-fade-in mx-auto bg-gray-50 min-h-screen p-4">
 
-  <div class="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
-    <div class="flex items-center gap-3">
-      <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
-          flex items-center justify-center text-white shadow-sm shrink-0">
-        <i class="ri-calendar-check-line text-xl"></i>
-      </div>
-      <div>
-        <h1 class="text-lg sm:text-xl font-bold text-slate-900">
-          Attendance
-        </h1>
-        <p class="text-xs sm:text-sm text-slate-500">
-          Manage Employee Attendance Records
-        </p>
-      </div>
-
-    </div>
-    <button class="inline-flex items-center justify-center w-full sm:w-auto px-4 py-1 text-sm font-medium rounded-lg shadow-sm text-white
-      bg-[var(--text-active)] hover:opacity-90 hover:shadow-md active:scale-95 transition-all" (click)="addDoc()">
-      <i class="ri-add-line mr-2 text-lg"></i> Load Attendance
-    </button>
-  </div>
-
-  <!-- Filters -->
-  <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-6">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between flex-wrap">
-      <!-- Employee Search -->
-      <div class="w-full sm:w-72">
-        <mat-form-field appearance="outline" class="w-full">
-          <input type="text" matInput placeholder="Select employee" [formControl]="employeeControl"
-            [matAutocomplete]="auto">
-          <button *ngIf="employeeControl.value" mat-icon-button matSuffix type="button" (click)="clearEmployee()">
-            <mat-icon>close</mat-icon>
-          </button>
-          <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayEmployee">
-            <mat-option (onSelectionChange)="onEmployeeSelect($event, emp)" *ngFor="let emp of filteredOptions | async"
-              [value]="emp">{{ emp.employee_name }}
-            </mat-option>
-          </mat-autocomplete>
-        </mat-form-field>
-      </div>
-      <div class="flex justify-center gap-3">
-        <app-date-range-filter (rangeChange)="onRangeChange($event)">
-        </app-date-range-filter>
-        <!-- <button title="PDF Download" class="cursor-pointer transition-all duration-200 rounded" >
-          <i class="ri-file-pdf-2-fill !text-2xl"></i></button> -->
-        <button title="PDF Download" class="p-2 rounded-lg transition-all duration-200"
-          (click)="generateAttendancePdf()">
-          <i class="ri-file-pdf-2-fill text-2xl text-red-600"></i></button>
-      </div>
-    </div>
-  </div>
-
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-    <div class="overflow-auto">
-      <div #tableDiv></div>
-    </div>
-  </div>
-
+<main class="attendance-page">
+  <div>
+  <p class="eyebrow">ATTENDANCE MANAGEMENT</p>
+  <h1>Attendance report</h1>
+  <!-- <p class="subtitle">Review monthly attendance, working hours and daily records.</p> -->
 </div>
+  <section class="filter-card">
+    <div class="filter-heading">
+      <div class="period-badge" *ngIf="hasFetched && !loading">
+        <i class="ri-calendar-event-line"></i>{{ formatPeriod() }}
+      </div>
+    </div>
+
+    <div class="filter-controls" [class.filter-controls--employee]="!canSelectEmployee" [class.filter-controls--selector]="canSelectEmployee">
+      <div class="identity-context">
+        <span class="avatar"><i class="ri-user-line"></i></span>
+        <span class="identity-copy">
+          <small>{{ loginRoleLabel }} account</small>
+          <strong>{{ loginName }}</strong>
+          <!-- <em>ID {{ loginId }}</em> -->
+        </span>
+      </div>
+
+      <label class="field employee-field" *ngIf="canSelectEmployee">
+        <span>Employee</span>
+        <mat-form-field appearance="outline" class="attendance-filter-field" subscriptSizing="dynamic">
+          <mat-select [value]="selectedEmployee ? employeeOptionId(selectedEmployee) : (isManager ? loginId : '')" placeholder="Select employee" panelClass="attendance-select-panel"
+            (selectionChange)="onEmployeeChange($event.value)" (openedChange)="onEmployeeSelectOpened($event)">
+            <mat-select-trigger>{{ selectedEmployee ? employeeOptionLabel(selectedEmployee) : (isManager ? loginName + ' (Manager)' : 'Select employee') }}</mat-select-trigger>
+            <div class="attendance-select-search" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+              <!-- <i class="ri-search-line"></i> -->
+              <input type="search" aria-label="Search employees" placeholder="Search employees..."
+                [value]="employeeSearchTerm" (input)="filterEmployees($event)" autocomplete="off">
+            </div>
+            <mat-option *ngFor="let employee of filteredEmployees" [value]="employeeOptionId(employee)">
+              <span>{{ employeeOptionLabel(employee) }}</span>
+            </mat-option>
+            <mat-option *ngIf="!filteredEmployees.length" disabled>{{ employeeListMessage || 'No employees found' }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <small class="employee-list-message" *ngIf="employeeListMessage">{{ employeeListMessage }}</small>
+      </label>
+      <label class="field">
+        <span>Month</span>
+        <mat-form-field appearance="outline" class="attendance-filter-field" subscriptSizing="dynamic">
+          <mat-select [(ngModel)]="month" placeholder="Select month" panelWidth="auto" panelClass="attendance-period-select-panel"
+            (openedChange)="onMonthSelectOpened($event)">
+            <div class="attendance-select-search" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+              <!-- <i class="ri-search-line"></i> -->
+              <input type="search" aria-label="Search months" placeholder="Search months..."
+                [value]="monthSearchTerm" (input)="filterMonths($event)" autocomplete="off">
+            </div>
+            <mat-option *ngFor="let monthName of filteredMonths" [value]="monthName">{{ monthName }}</mat-option>
+            <mat-option *ngIf="!filteredMonths.length" disabled>No months found</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </label>
+
+      <label class="field year-field">
+        <span>Year</span>
+        <mat-form-field appearance="outline" class="attendance-filter-field" subscriptSizing="dynamic">
+          <mat-select [(ngModel)]="year" placeholder="Select year" panelWidth="auto" panelClass="attendance-period-select-panel"
+            (openedChange)="onYearSelectOpened($event)">
+            <div class="attendance-select-search" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+              <!-- <i class="ri-search-line"></i> -->
+              <input type="search" aria-label="Search years" placeholder="Search years..."
+                [value]="yearSearchTerm" (input)="filterYears($event)" autocomplete="off">
+            </div>
+            <mat-option *ngFor="let yearOption of filteredYears" [value]="yearOption">{{ yearOption }}</mat-option>
+            <mat-option *ngIf="!filteredYears.length" disabled>No years found</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </label>
+
+      <div class="attendance-filter-actions">
+        <button class="fetch-button" (click)="fetchAttendance()" [disabled]="loading || (canSelectEmployee && !hasEmployeeSelection)">
+          <i [class]="loading ? 'ri-loader-4-line spin' : 'ri-search-line'"></i>
+          {{ loading ? 'Loading…' : 'Fetch attendance' }}
+        </button>
+        <button *ngIf="isAdmin" type="button" class="upload-attendance-button" (click)="openAttendanceUpload()">
+          <i class="ri-upload-cloud-2-line"></i>
+          <span>Upload attendance</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <ng-container *ngIf="hasFetched && !loading && records.length">
+    <section class="summary-grid" aria-label="Monthly attendance summary">
+      <article class="summary-card total"><span class="summary-icon"><i class="ri-list-check-2"></i></span><div><small>Total records</small><strong>{{ summary.totalRecords }}</strong></div></article>
+      <article class="summary-card present"><span class="summary-icon"><i class="ri-checkbox-circle-line"></i></span><div><small>Present days</small><strong>{{ summary.present }}</strong></div></article>
+      <article class="summary-card leave"><span class="summary-icon"><i class="ri-calendar-check-line"></i></span><div><small>Leave / half day</small><strong>{{ summary.leave }}</strong></div></article>
+      <article class="summary-card holiday"><span class="summary-icon"><i class="ri-sun-line"></i></span><div><small>Week off / holiday</small><strong>{{ summary.weekOff }}</strong></div></article>
+      <article class="summary-card absent"><span class="summary-icon"><i class="ri-close-circle-line"></i></span><div><small>Absent days</small><strong>{{ summary.absent }}</strong></div></article>
+      <article class="summary-card hours"><span class="summary-icon"><i class="ri-time-line"></i></span><div><small>Extra hours</small><strong>{{ summary.extraHours }}</strong></div></article>
+    </section>
+
+    <!-- <section class="hours-strip">
+      <div><span class="hours-icon"><i class="ri-timer-line"></i></span><span><small>Total working hours</small><strong>{{ totalWorkHours }}</strong></span></div>
+      <div><span class="hours-icon extra"><i class="ri-flashlight-line"></i></span><span><small>Total extra hours</small><strong>{{ summary.extraHours }}</strong></span></div>
+    </section> -->
+
+    <section class="records-card">
+      <header class="records-header">
+        <div><p class="eyebrow">ATTENDANCE LIST</p><h2>Daily records</h2><p>{{ employeeName }} <span>·</span> {{ formatPeriod() }}</p></div>
+        <div class="export-actions">
+          <button class="export-button excel" (click)="exportExcel()"><i class="ri-file-excel-2-line"></i> Excel report</button>
+          <button class="export-button pdf" (click)="exportPdf()"><i class="ri-file-pdf-2-line"></i> PDF report</button>
+        </div>
+      </header>
+
+      <div class="table-scroll"><div #tableDiv class="attendance-tabulator"></div></div>
+      <div class="table-toolbar">
+        <span>{{ records.length }} attendance records</span>
+        <div #paginationDiv class="attendance-pagination-host"></div>
+      </div>
+    </section>
+
+    <section class="snapshot-card">
+      <div class="snapshot-heading"><p class="eyebrow">EMPLOYEE</p><h2>Employee snapshot</h2></div>
+      <div class="snapshot-grid">
+        <div *ngFor="let field of snapshotFields">
+          <small>{{ field.label }}</small>
+          <strong [title]="field.value">{{ field.value }}</strong>
+        </div>
+      </div>
+    </section>
+  </ng-container>
+
+  <section class="state-card" *ngIf="loading"><span class="loading-spinner"></span><strong>Loading attendance…</strong><p>Fetching the selected employee’s monthly records.</p></section>
+  <section class="state-card error-state" *ngIf="!loading && errorMessage"><i class="ri-error-warning-line"></i><strong>Could not load attendance</strong><p>{{ errorMessage }}</p><button (click)="fetchAttendance()">Try again</button></section>
+  <section class="state-card" *ngIf="hasFetched && !loading && !errorMessage && !records.length"><span class="empty-icon"><i class="ri-calendar-close-line"></i></span><strong>No attendance records</strong><p>No records were found for {{ formatPeriod() }}.</p></section>
+  <section class="state-card" *ngIf="!hasFetched && !canSelectEmployee"><span class="empty-icon"><i class="ri-calendar-check-line"></i></span><strong>Choose a reporting period</strong><p>Select a month and year, then fetch attendance.</p></section>
+  <section class="state-card" *ngIf="!hasFetched && canSelectEmployee"><span class="empty-icon"><i class="ri-user-search-line"></i></span><strong>Select an employee</strong><p>Choose an employee and reporting period to view attendance.</p></section>
+</main>

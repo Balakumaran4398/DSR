@@ -48,10 +48,14 @@
         <!-- Task List -->
         <div class="overflow-y-auto flex-1 p-3 space-y-3 focus:outline-none" tabindex="0"
             (keydown)="onListKeydown($event)">
+            <p *ngIf="tasksLoading" class="px-2 py-4 text-sm text-slate-500">Loading tasks for this date range…</p>
+            <p *ngIf="!tasksLoading && tasksLoadError" class="px-2 py-4 text-sm text-red-600">Could not load tasks for this date range.</p>
+            <p *ngIf="!tasksLoading && !tasksLoadError && taskList.length === 0" class="px-2 py-4 text-sm text-slate-500">No tasks found for this date range.</p>
             <div *ngFor="let task of taskList; let i = index" #taskItem tabindex="-1"
                 class="group relative bg-white border rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-md focus:outline-none scroll-m-4"
                 [class.border-active]="selectedTask?.id === task.id" [class.ring-1]="selectedTask?.id === task.id"
                 [class.ring-active]="selectedTask?.id === task.id"
+                [class.notification-issue-highlight]="notificationContextActive && selectedTask?.id === task.id"
                 [class.border-slate-200]="selectedTask?.id !== task.id" (click)="selectTask(task)">
                 <div class="flex justify-between items-start mb-2">
                     <span class="text-sm font-mono text-slate-500 font-medium">{{ task.taskcode }}</span>
@@ -114,7 +118,7 @@
 
         <!-- Scrollable Content -->
         <div class="flex-1 overflow-y-auto bg-slate-50/30">
-            <div class=" mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+            <div *ngIf="selectedTask; else noTaskSelected" class="mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
 
                 <!-- Detail Card (Header Summary) -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -410,6 +414,14 @@
                 </div>
 
             </div>
+            <ng-template #noTaskSelected>
+                <div class="flex min-h-full items-center justify-center p-8 text-center text-slate-500">
+                    <span *ngIf="tasksLoading">Loading task details…</span>
+                    <span *ngIf="!tasksLoading && tasksLoadError">Unable to load tasks for this date range.</span>
+                    <span *ngIf="!tasksLoading && !tasksLoadError && taskList.length">The open task does not match the current filters. Select a matching task from the list.</span>
+                    <span *ngIf="!tasksLoading && !tasksLoadError && !taskList.length">No tasks found for the current filters.</span>
+                </div>
+            </ng-template>
         </div>
     </main>
 </div>

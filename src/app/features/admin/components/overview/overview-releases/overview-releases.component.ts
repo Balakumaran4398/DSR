@@ -11,7 +11,7 @@ import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { ReleaseMailsListComponent } from '../../../core/mails/release-mails-list/release-mails-list.component';
 import { MatDialog } from '@angular/material/dialog';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
-import { getReleaseDayStatus, isReleaseInDateRange } from 'src/app/_core/utils/release-day-status.util';
+import { getReleaseDayStatus } from 'src/app/_core/utils/release-day-status.util';
 import Swal from 'sweetalert2';
 declare const Tabulator: any;
 declare const luxon: any;
@@ -102,10 +102,6 @@ export type ReleaseStatus = 'Upcoming-Release' | 'On-Hold' | 'Open' | 'In-Progre
 type ReleasePerformanceState = 'none' | 'excellent' | 'very-good' | 'good' | 'poor';
 type ReleaseOverviewView = 'table' | 'kanban';
 const OVERVIEW_RELEASE_CURRENT_VIEW_KEY = 'overviewReleaseCurrentView';
-// The overview API filters by request dates rather than by the full planned-to-release interval.
-// Fetch the available release timeline, then apply inclusive overlap to the selected week locally.
-const RELEASE_OVERVIEW_TIMELINE_START = '1900-01-01';
-const RELEASE_OVERVIEW_TIMELINE_END = '9999-12-31';
 @Component({
   selector: 'app-overview-releases',
   templateUrl: './overview-releases.component.html',
@@ -258,7 +254,7 @@ export class OverviewReleasesComponent {
   }
 
   filterData() {
-    let data = this.releaseList.filter(release => isReleaseInDateRange(release, this.startDate, this.endDate));
+    let data = [...this.releaseList];
     const selectedDepartment = this.getSelectedDepartmentOption();
 
     data = this.applySelectedProjectFilter(data);
@@ -501,7 +497,7 @@ export class OverviewReleasesComponent {
         },
         {
           title: "Status",
-          field: "status", width: 200,
+          field: "status", width: 200, hozAlign: "center", headerHozAlign: "center",
           editable: canEditTableCell,
           editor: "list", editorParams: { values: this.statusList },
           formatter: (cell: any) => {
@@ -832,8 +828,8 @@ export class OverviewReleasesComponent {
       employee_id: this.empid,
       selected_emp_id: this.getSelectedEmployeeIdParam(),
       projectid: this.projectid,
-      fromdate: RELEASE_OVERVIEW_TIMELINE_START,
-      todate: RELEASE_OVERVIEW_TIMELINE_END,
+      fromdate: this.startDate,
+      todate: this.endDate,
       department_id: this.getSelectedDepartmentApiId(),
       manager_name: this.getSelectedManagerNameParam()
     };
@@ -867,6 +863,7 @@ export class OverviewReleasesComponent {
 
     return {
       ...release,
+      company_name: release?.company_name || release?.client_name || release?.client || '',
       manager_name: managerName || release?.manager_name || release?.managerName || '',
       release_type: this.getReleaseTypeDisplayValue(release?.release_type)
     };

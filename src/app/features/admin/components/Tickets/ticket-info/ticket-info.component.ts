@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-ticket-info',
@@ -7,6 +8,9 @@ import { Component } from '@angular/core';
 })
 export class TicketInfoComponent {
   activeProjectTab = 'raisedtickets';
+  notificationTicketId: string | null = null;
+
+  constructor(private route: ActivatedRoute) {}
 
   tabs = [
     { id: 'raisedtickets', label: 'Active Tickets' },
@@ -16,6 +20,9 @@ export class TicketInfoComponent {
   ];
 
   ngOnInit(): void {
+    this.route.paramMap.subscribe(params => {
+      this.notificationTicketId = params.get('ticketId');
+    });
     const savedTab = sessionStorage.getItem('activeTicketTab');
     if (savedTab) {
       this.activeProjectTab = savedTab;

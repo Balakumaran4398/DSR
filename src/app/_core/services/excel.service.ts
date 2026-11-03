@@ -1,6 +1,13 @@
 import { Injectable } from '@angular/core';
 import * as XLSX from 'xlsx';
 import { getReleaseDayStatus } from '../utils/release-day-status.util';
+import {
+  AttendanceReportTone,
+  attendanceStatusTone,
+  attendanceTimeTone,
+  attendanceWorkHoursTone,
+  isMissingAttendanceValue
+} from '../utils/attendance-report.util';
 
 export interface OverallPerformanceExcelSection {
   title: string;
@@ -11,8 +18,16 @@ export interface OverallPerformanceExcelSection {
   reportKind?: 'release' | 'task' | 'issue' | 'ticket';
   sheetName?: string;
   summary?: Array<[string, any]>;
+  metadataLayout?: 'standard' | 'compact' | 'compact-two-column';
+  highlightSundayRows?: boolean;
+  statusColorMode?: 'presence';
+  statusColorTones?: Array<'week-off' | 'holiday' | 'leave' | 'regular'>;
+  richTextCells?: Array<{ rowIndex: number; columnIndex: number; lines: Array<{ label: string; value: string }> }>;
   headers: string[];
   rows: any[][];
+  columnWidths?: number[];
+  rowCellStyles?: Array<Record<number, number>>;
+  dataMerges?: Array<{ rowIndex: number; startColumn: number; endColumn: number }>;
 }
 
 export interface TableWorkbookExcelSection {
@@ -23,8 +38,16 @@ export interface TableWorkbookExcelSection {
   reportTitle?: string;
   sheetName?: string;
   summary?: Array<[string, any]>;
+  metadataLayout?: 'standard' | 'compact' | 'compact-two-column';
+  highlightSundayRows?: boolean;
+  statusColorMode?: 'presence';
+  statusColorTones?: Array<'week-off' | 'holiday' | 'leave' | 'regular'>;
+  richTextCells?: Array<{ rowIndex: number; columnIndex: number; lines: Array<{ label: string; value: string }> }>;
   headers: string[];
   rows: any[][];
+  columnWidths?: number[];
+  rowCellStyles?: Array<Record<number, number>>;
+  dataMerges?: Array<{ rowIndex: number; startColumn: number; endColumn: number }>;
 }
 
 export interface TableWorkbookExcelOptions {
@@ -46,6 +69,8 @@ interface OverallPerformanceWorksheetStyleConfig {
   freezeYSplit: number;
   freezeTopLeftCell: string;
   rowCellStyles: Array<Record<number, number>>;
+  compactTwoColumn?: boolean;
+  richTextCells?: Array<{ rowIndex: number; columnIndex: number; lines: Array<{ label: string; value: string }> }>;
 }
 
 interface ReleaseOverviewExportSection {
@@ -60,6 +85,236 @@ type ReleasePerformanceState = 'none' | 'excellent' | 'very-good' | 'good' | 'po
   providedIn: 'root'
 })
 export class ExcelService {
+  generateMonthlyAttendanceExcel(report: any): void {
+    const employee = report?.employee || {};
+    const rows = report?.records || [];
+    const summary = report?.summary || {};
+    const includeEmployeeColumn = !!report?.includeEmployeeColumn;
+    const employeeName = employee.employee_name || employee.name || 'Employee';
+    const department = employee.department_name || employee.departmentName || employee.department || '--';
+    const periodToken = `${report?.period || ''}`.replace(/\s+/g, '_');
+    const fileToken = `${employeeName}_${periodToken}`.replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '');
+    const employeeId = employee.id || employee.employee_id || employee.employeeId || employee.empid || '--';
+    const employeeCode = employee.employee_code || employee.employeeCode || employee.empcode || '--';
+    const exportRows = rows.map((row: any) => {
+      const employeeColumn = includeEmployeeColumn ? [row.employee_name || '--'] : [];
+      return row?.isHoliday
+        ? [row.date, row.day, ...employeeColumn, row.leaveName || 'Holiday', ...Array(6).fill(''), row.status]
+        : [row.date, row.day, ...employeeColumn, row.thumbTime || '--', row.shift, row.inTime, row.outTime, row.workHours, row.extraHours, row.thumbStatus, row.status];
+    });
+    const scopeLabel = includeEmployeeColumn ? 'Employees' : 'Employee';
+    const scopeName = report?.scopeName || (includeEmployeeColumn ? 'All Employees' : `${employeeName}  |  ID ${employeeId}  |  CODE ${employeeCode}`);
+    const reportTitle = report?.reportTitle || 'Attendance Report';
+    this.generateTableWorkbookExcel({
+      filename: report?.filename || `Attendance_Report_${fileToken}.xlsx`,
+      workbookTitle: reportTitle,
+      author: 'RIDSYS',
+      fromDate: report?.fromDate || '-',
+      toDate: report?.toDate || '-',
+      departmentName: department,
+      scopeLabel,
+      scopeName,
+      exportedAt: new Date().toLocaleString()
+    }, [{
+      title: reportTitle,
+      reportTitle: reportTitle.toUpperCase(),
+      sheetName: 'Attendance Report',
+      departmentName: department,
+      scopeLabel,
+      scopeName,
+      summary: [
+        ['Total Records', rows.length], ['Present Days', summary.present ?? 0],
+        ['Leave / Half Day', summary.leave ?? 0], ['Week Off / Holiday', summary.weekOff ?? 0],
+        ['Absent Days', summary.absent ?? 0], ['Total Extra Hours', summary.extraHours || '0h 0m']
+      ],
+      headers: ['Date', 'Day', ...(includeEmployeeColumn ? ['Employee'] : []), 'Thumb time', 'Shift', 'In', 'Out', 'Work Hrs', 'Extra Hrs', 'Thumb Status', 'Status'],
+      rows: exportRows,
+      columnWidths: includeEmployeeColumn ? [18, 16, 25, 42, 20, 14, 14, 16, 16, 18, 20] : [18, 16, 42, 20, 14, 14, 16, 16, 18, 20],
+      rowCellStyles: rows.map((row: any) => this.getMonthlyAttendanceCellStyles(row, includeEmployeeColumn)),
+      dataMerges: rows.reduce((merges: Array<{ rowIndex: number; startColumn: number; endColumn: number }>, row: any, rowIndex: number) => {
+        if (row?.isHoliday) merges.push({ rowIndex, startColumn: includeEmployeeColumn ? 3 : 2, endColumn: includeEmployeeColumn ? 9 : 8 });
+        return merges;
+      }, [])
+    }]);
+  }
+
+  private getMonthlyAttendanceCellStyles(row: any, includeEmployeeColumn = false): Record<number, number> {
+    const styles: Record<number, number> = {};
+    const offset = includeEmployeeColumn ? 1 : 0;
+    const setStyle = (column: number, tone: AttendanceReportTone | null): void => {
+      if (!tone) return;
+      const styleByTone: Partial<Record<AttendanceReportTone, number>> = {
+        good: 29,
+        bad: 30,
+        target: 31,
+        extra: 32,
+        warning: 33,
+        present: 34,
+        absent: 35,
+        leave: 36,
+        holiday: 30,
+        'week-off': 30,
+        'proper-thumb': 39,
+        'improper-thumb': 40
+      };
+      const style = styleByTone[tone];
+      if (style !== undefined) styles[column] = style;
+    };
+
+    setStyle(4 + offset, attendanceTimeTone('inTime', row?.inTime));
+    setStyle(5 + offset, attendanceTimeTone('outTime', row?.outTime));
+    setStyle(6 + offset, attendanceWorkHoursTone(row?.workHours));
+    if (!isMissingAttendanceValue(row?.extraHours)) setStyle(7 + offset, 'extra');
+    if (row?.isHoliday) setStyle(2 + offset, 'holiday');
+    setStyle(8 + offset, attendanceStatusTone(row?.thumbStatus));
+    setStyle(9 + offset, attendanceStatusTone(row?.status));
+    return styles;
+  }
+
+  generateDsrCalendarExcel(employeeName: string, fromDate: Date | null, toDate: Date | null, data: any[]): void {
+    if (typeof XLSX === 'undefined') {
+      throw new Error('Excel export library is not available.');
+    }
+
+    const allEmployees = employeeName === 'All Employee';
+    const headers = [
+      'DATE', 'DAY', ...(allEmployees ? ['EMPLOYEE'] : []), 'PROJECT', 'VERSION',
+      'START DATE', 'END DATE', 'TASK', 'SUB TASK', 'HOURS', 'PROGRESS',
+      'REMARKS', 'STATUS'
+    ];
+    const statusColumnIndex = headers.length - 1;
+    const detailsStartColumnIndex = allEmployees ? 3 : 2;
+    const detailsEndColumnIndex = statusColumnIndex - 1;
+    const rows: any[][] = [
+      ['EMPLOYEE DSR REPORT'],
+      ['EMPLOYEE', employeeName],
+      ['DATE RANGE', `${this.formatDsrExportDate(fromDate)} to ${this.formatDsrExportDate(toDate)}`],
+      [],
+      headers
+    ];
+    const rowKinds = ['title', 'meta', 'meta', 'spacer', 'header'];
+    const rowCellStyles: Array<Record<number, number>> = [{}, {}, {}, {}, {}];
+    const dataMerges: XLSX.Range[] = [];
+
+    for (const item of data || []) {
+      const status = `${item?.statusText || item?.status || ''}`.trim().toLowerCase().replace(/[\s_-]+/g, '');
+      const isSunday = `${item?.day || ''}`.trim().toLowerCase() === 'sunday' || item?.isSunday === true || status === 'sunday';
+      const isWeekOff = isSunday || item?.isWeekOff === true || status === 'weekoff' || status === 'weeklyoff';
+      const isHoliday = !isWeekOff && (item?.isHoliday === true || status === 'holiday');
+      const isFuture = item?.isFuture === true;
+      const employeeColumn = allEmployees ? [item?.employee_name || employeeName] : [];
+      const row = isFuture
+        ? [item?.date || '-', item?.day || '-', ...employeeColumn, ...Array(headers.length - 3 - employeeColumn.length).fill(''), '-']
+        : isHoliday || isWeekOff
+        ? [
+          item?.date || '-', isSunday ? '' : item?.day || '-', ...employeeColumn,
+          isSunday ? 'Sunday' : item?.holiday_name || item?.holidayName || (isHoliday ? 'Holiday' : 'Week Off'),
+          ...Array(detailsEndColumnIndex - detailsStartColumnIndex).fill(''),
+          isWeekOff ? 'Week Off' : item?.statusText || 'Holiday'
+        ]
+        : [
+          item?.date || '-', item?.day || '-', ...employeeColumn,
+          item?.project_title || '-', item?.version || '-', item?.start_date || '-', item?.end_date || '-',
+          item?.task || '-', item?.sub_task || '-', item?.worked_hours || '-',
+          item?.completion_percentage ?? '-', item?.comments || '-', item?.statusText || '-'
+        ];
+      const dataRowNumber = rows.length + 1;
+      rows.push(row);
+      rowKinds.push(isFuture ? 'future' : isWeekOff ? 'sunday' : isHoliday ? 'holiday' : status === 'leave' ? 'leave' : status === 'absent' ? 'absent' : 'data');
+      if (isWeekOff || isHoliday) {
+        dataMerges.push(XLSX.utils.decode_range(
+          `${XLSX.utils.encode_col(detailsStartColumnIndex)}${dataRowNumber}:${XLSX.utils.encode_col(detailsEndColumnIndex)}${dataRowNumber}`
+        ));
+        const eventStyle = isWeekOff ? 22 : 28;
+        rowCellStyles.push({ [detailsStartColumnIndex]: eventStyle, [statusColumnIndex]: eventStyle });
+      } else if (isFuture) {
+        const futureStyles: Record<number, number> = {
+          0: rows.length % 2 === 0 ? 9 : 7,
+          [statusColumnIndex]: 32
+        };
+        rowCellStyles.push(futureStyles);
+      } else {
+        const centeredStyles: Record<number, number> = {
+          0: rows.length % 2 === 0 ? 9 : 7
+        };
+        if (status === 'present') {
+          centeredStyles[statusColumnIndex] = 38;
+        } else if (status === 'absent') {
+          centeredStyles[statusColumnIndex] = 20;
+        } else if (status === 'leave') {
+          centeredStyles[statusColumnIndex] = 26;
+        } else {
+          centeredStyles[statusColumnIndex] = rows.length % 2 === 0 ? 33 : 32;
+        }
+        rowCellStyles.push(centeredStyles);
+      }
+    }
+
+    if (!data?.length) {
+      rows.push(['No report data available']);
+      rowKinds.push('empty');
+      rowCellStyles.push({});
+    }
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    const columnWidths = headers.map(header => header === 'REMARKS' ? 42 : header === 'DATE' ? 14 : 18);
+    const titleMerge = XLSX.utils.decode_range(`A1:${XLSX.utils.encode_col(headers.length - 1)}1`);
+    worksheet['!merges'] = [titleMerge, ...dataMerges];
+    worksheet['!cols'] = columnWidths.map(wch => ({ wch }));
+    worksheet['!rows'] = rows.map((row, index) => ({
+      hpt: this.getDsrCalendarExcelRowHeight(row, index, columnWidths, dataMerges)
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    workbook.Props = { Title: 'Employee DSR Report', Subject: 'Calendar ordered DSR report', Author: employeeName, Company: 'RIDSYS' };
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'DSR Calendar');
+    const baseFile = XLSX.write(workbook, { bookType: 'xlsx', type: 'array', cellStyles: true });
+    const styledFile = this.applyProfessionalOverallPerformanceStyles(baseFile, rowKinds, rowCellStyles);
+    const filename = `RIDSYS_DSR_${this.sanitizeDsrFilename(employeeName)}_${this.formatDsrExportDate(fromDate)}_to_${this.formatDsrExportDate(toDate)}.xlsx`;
+    this.downloadWorkbook(styledFile, filename);
+  }
+
+  private getDsrCalendarExcelRowHeight(
+    row: any[],
+    rowIndex: number,
+    columnWidths: number[],
+    dataMerges: XLSX.Range[]
+  ): number {
+    if (rowIndex === 0) return 36;
+    if (rowIndex === 3) return 10;
+    if (rowIndex === 4) return 28;
+    if (rowIndex < 5 || row[0] === 'No report data available') return 24;
+
+    const rowMerge = dataMerges.find(merge => merge.s.r === rowIndex);
+    let requiredLines = 1;
+    row.forEach((value, columnIndex) => {
+      if (rowMerge && columnIndex > rowMerge.s.c && columnIndex <= rowMerge.e.c) return;
+      const text = `${value ?? ''}`;
+      if (!text) return;
+      let width = columnWidths[columnIndex] || 18;
+      if (rowMerge && columnIndex === rowMerge.s.c) {
+        for (let mergedColumn = rowMerge.s.c + 1; mergedColumn <= rowMerge.e.c; mergedColumn++) {
+          width += columnWidths[mergedColumn] || 18;
+        }
+      }
+      const charsPerLine = Math.max(8, width * 0.95);
+      const lines = text.split(/\r?\n/).reduce((count, segment) =>
+        count + Math.max(1, Math.ceil(segment.length / charsPerLine)), 0);
+      requiredLines = Math.max(requiredLines, lines);
+    });
+
+    return Math.min(390, Math.max(24, Math.ceil(requiredLines * 14 + 8)));
+  }
+
+  private formatDsrExportDate(value: Date | null): string {
+    if (!value) return '-';
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  }
+
+  private sanitizeDsrFilename(value: string): string {
+    return `${value || 'Employee'}`.replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '') || 'Employee';
+  }
+
   generateOverallPerformanceExcel(
     filters: any,
     sections: OverallPerformanceExcelSection[]
@@ -353,12 +608,21 @@ export class ExcelService {
           reportTitle: section.reportTitle || section.title,
           sheetName: section.sheetName,
           summary: section.summary,
+          metadataLayout: section.metadataLayout,
+          highlightSundayRows: section.highlightSundayRows,
+          statusColorMode: section.statusColorMode,
+          statusColorTones: section.statusColorTones,
+          richTextCells: section.richTextCells,
           headers: section.headers,
-          rows: section.rows
+          rows: section.rows,
+          columnWidths: section.columnWidths,
+          rowCellStyles: section.rowCellStyles,
+          dataMerges: section.dataMerges
         },
         generatedBy,
         reportPeriod,
-        exportedAt
+        exportedAt,
+        section.metadataLayout === 'compact'
       );
 
       XLSX.utils.book_append_sheet(
@@ -383,13 +647,13 @@ export class ExcelService {
     section: OverallPerformanceExcelSection,
     generatedBy: string,
     reportPeriod: string,
-    exportedAt: string
+    exportedAt: string,
+    compactMetadata = false
   ): { worksheet: XLSX.WorkSheet; styleConfig: OverallPerformanceWorksheetStyleConfig } {
-    const reportColumnCount = Math.max(
-      section.headers.length,
-      ...section.rows.map(row => row.length),
-      6
-    );
+    const compactTwoColumn = section.metadataLayout === 'compact-two-column';
+    const reportColumnCount = compactTwoColumn
+      ? section.headers.length
+      : Math.max(section.headers.length, ...section.rows.map(row => row.length), 6);
     const reportEndColumn = XLSX.utils.encode_col(reportColumnCount - 1);
     const padReportRow = (row: any[]) => [
       ...row,
@@ -400,14 +664,36 @@ export class ExcelService {
     );
     const emptyRows = normalizedRows.length ? [] : [padReportRow(['No data available'])];
     const summaryText = this.formatOverallPerformanceSummary(section.summary);
-    const scopeLabel = section.scopeLabel || 'Department';
+    const isSoftwareDevelopmentTeam = section.departmentName === 'Software Development Team';
+    const scopeLabel = section.scopeLabel || (isSoftwareDevelopmentTeam ? 'Team' : 'Department');
     const scopeName = section.scopeName || section.departmentName || '-';
     const scopeDisplayName = section.scopeLabel
       ? scopeName
-      : `${scopeName} Department`;
-    const rows = [
+      : isSoftwareDevelopmentTeam
+        ? scopeName
+        : `${scopeName} Department`;
+    const scopeBannerName = isSoftwareDevelopmentTeam
+      ? scopeName
+      : `${scopeName} ${scopeLabel}`;
+    const twoColumnRows = [
       padReportRow([`${section.reportTitle || section.title || 'PERFORMANCE REPORT'}`.toUpperCase()]),
-      padReportRow([`DSR PRO | ${`${scopeName}`.toUpperCase()} ${scopeLabel.toUpperCase()}`]),
+      padReportRow([`DSR PRO | ${scopeBannerName.toUpperCase()}`]),
+      padReportRow([]),
+      padReportRow([scopeLabel.toUpperCase(), scopeDisplayName]),
+      padReportRow(['REPORT', section.reportTitle || '-']),
+      padReportRow(['REPORT PERIOD', reportPeriod]),
+      padReportRow(['GENERATED BY', generatedBy]),
+      padReportRow(['TOTAL RECORDS', section.rows.length]),
+      padReportRow(['EXPORTED AT', exportedAt]),
+      padReportRow(['SUMMARY', summaryText || '-']),
+      padReportRow([]),
+      padReportRow(section.headers),
+      ...normalizedRows,
+      ...emptyRows
+    ];
+    const standardRows = [
+      padReportRow([`${section.reportTitle || section.title || 'PERFORMANCE REPORT'}`.toUpperCase()]),
+      padReportRow([`DSR PRO | ${scopeBannerName.toUpperCase()}`]),
       padReportRow([]),
       padReportRow([scopeLabel.toUpperCase(), scopeDisplayName, '', '', 'REPORT', section.reportTitle || '-']),
       padReportRow(['REPORT PERIOD', reportPeriod, '', '', 'GENERATED BY', generatedBy]),
@@ -418,26 +704,54 @@ export class ExcelService {
       ...normalizedRows,
       ...emptyRows
     ];
+    const rows = compactTwoColumn
+      ? twoColumnRows
+      : compactMetadata
+      ? [
+        padReportRow([`${section.reportTitle || section.title || 'PERFORMANCE REPORT'}`.toUpperCase()]),
+        padReportRow([`DSR PRO | ${scopeBannerName.toUpperCase()}`]),
+        padReportRow([]),
+        padReportRow([scopeLabel.toUpperCase(), scopeDisplayName, '', '', 'REPORT', section.reportTitle || '-']),
+        padReportRow(['GENERATED BY', generatedBy, '', '', 'EXPORTED AT', exportedAt]),
+        padReportRow(['TOTAL RECORDS', section.rows.length, '', '', 'REPORT NAME', section.reportTitle || '-']),
+        padReportRow([]),
+        padReportRow(section.headers),
+        ...normalizedRows,
+        ...emptyRows
+      ]
+      : standardRows;
+    const headerRow = compactTwoColumn ? 11 : compactMetadata ? 7 : 8;
+    const dataStartRow = headerRow + 1;
     const worksheet = XLSX.utils.aoa_to_sheet(rows);
 
     worksheet['!merges'] = [
       XLSX.utils.decode_range(`A1:${reportEndColumn}1`),
       XLSX.utils.decode_range(`A2:${reportEndColumn}2`),
-      XLSX.utils.decode_range('B4:D4'),
-      XLSX.utils.decode_range(`F4:${reportEndColumn}4`),
-      XLSX.utils.decode_range('B5:D5'),
-      XLSX.utils.decode_range(`F5:${reportEndColumn}5`),
-      XLSX.utils.decode_range('B6:D6'),
-      XLSX.utils.decode_range(`F6:${reportEndColumn}6`),
-      XLSX.utils.decode_range('B7:D7'),
-      XLSX.utils.decode_range(`F7:${reportEndColumn}7`)
+      ...(compactTwoColumn ? [] : Array.from({ length: compactMetadata ? 3 : 4 }, (_value, index) => index + 4).flatMap(row => [
+        XLSX.utils.decode_range(`B${row}:D${row}`),
+        XLSX.utils.decode_range(`F${row}:${reportEndColumn}${row}`)
+      ])),
+      ...(section.dataMerges || []).map(merge => XLSX.utils.decode_range(
+        `${XLSX.utils.encode_col(merge.startColumn)}${merge.rowIndex + dataStartRow + 1}:${XLSX.utils.encode_col(merge.endColumn)}${merge.rowIndex + dataStartRow + 1}`
+      ))
     ];
+    (section.dataMerges || []).forEach(merge => {
+      for (let column = merge.startColumn + 1; column <= merge.endColumn; column++) {
+        delete worksheet[XLSX.utils.encode_cell({ r: merge.rowIndex + dataStartRow, c: column })];
+      }
+    });
     worksheet['!cols'] = Array.from({ length: reportColumnCount }, (_value, index) => ({
-      wch: this.getOverallPerformanceColumnWidth(section.headers[index], index)
+      wch: section.columnWidths?.[index] ?? this.getOverallPerformanceColumnWidth(section.headers[index], index)
     }));
-    worksheet['!rows'] = this.getOverallPerformanceRowHeights(rows, 10);
+    const rowHeights = this.getOverallPerformanceRowHeights(rows, dataStartRow + 1);
+    (section.richTextCells || []).forEach(cell => {
+      const visibleLines = cell.lines.reduce((total, line) => total + `${line.label}: ${line.value}`
+        .split(/\r?\n/).reduce((lineTotal, text) => lineTotal + Math.max(1, Math.ceil(text.length / 60)), 0), 0);
+      rowHeights[dataStartRow + cell.rowIndex] = { hpt: Math.max(30, visibleLines * 15) };
+    });
+    worksheet['!rows'] = rowHeights;
     worksheet['!autofilter'] = {
-      ref: `A9:${reportEndColumn}${Math.max(section.rows.length + 9, 10)}`
+      ref: `A${headerRow + 1}:${reportEndColumn}${Math.max(dataStartRow + section.rows.length, dataStartRow + 1)}`
     };
     worksheet['!margins'] = this.getOverallPerformanceWorksheetMargins();
 
@@ -445,23 +759,67 @@ export class ExcelService {
       worksheet,
       styleConfig: {
         headers: section.headers,
-        headerRow: 9,
-        dataStartRow: 10,
-        freezeYSplit: 9,
-        freezeTopLeftCell: 'A10',
-        rowCellStyles: section.rows.map(row => this.getOverallPerformanceRowCellStyles(section.headers, row))
+        headerRow: headerRow + 1,
+        dataStartRow: dataStartRow + 1,
+        freezeYSplit: headerRow + 1,
+        freezeTopLeftCell: `A${dataStartRow + 1}`,
+        compactTwoColumn,
+        rowCellStyles: section.rowCellStyles || section.rows.map((row, rowIndex) =>
+          this.getOverallPerformanceRowCellStyles(
+            section.headers, row, !!section.highlightSundayRows, section.statusColorMode, section.statusColorTones?.[rowIndex]
+          )
+        ),
+        richTextCells: section.richTextCells
       }
     };
   }
 
-  private getOverallPerformanceRowCellStyles(headers: string[], row: any[]): Record<number, number> {
+  private getOverallPerformanceRowCellStyles(
+    headers: string[],
+    row: any[],
+    highlightSundayRows = false,
+    statusColorMode?: 'presence',
+    statusColorTone?: 'week-off' | 'holiday' | 'leave' | 'regular'
+  ): Record<number, number> {
+    const dayColumnIndex = headers.findIndex(header =>
+      `${header ?? ''}`.trim().toLowerCase() === 'day'
+    );
+    const isSundayRow = highlightSundayRows &&
+      dayColumnIndex >= 0 &&
+      ['sun', 'sunday'].includes(`${row[dayColumnIndex] ?? ''}`.trim().toLowerCase());
+
     return headers.reduce((styles, header, columnIndex) => {
+      if (isSundayRow) {
+        styles[columnIndex] = this.isOverallPerformanceCenteredColumn(header, columnIndex) ? 27 : 26;
+        return styles;
+      }
+
+      if (statusColorMode === 'presence' && `${header ?? ''}`.trim().toLowerCase() === 'status') {
+        const statusStyle = this.getPresenceStatusStyleId(row[columnIndex], statusColorTone);
+        if (statusStyle !== null) styles[columnIndex] = statusStyle;
+        return styles;
+      }
+
       const styleId = this.getOverallPerformanceCellStyleId(header, row[columnIndex]);
       if (styleId !== null) {
         styles[columnIndex] = styleId;
       }
       return styles;
     }, {} as Record<number, number>);
+  }
+
+  private getPresenceStatusStyleId(
+    status: any,
+    tone?: 'week-off' | 'holiday' | 'leave' | 'regular'
+  ): number | null {
+    const key = `${status ?? ''}`.trim().toLowerCase();
+    if (!key || key === '—' || key === '-') return null;
+    if (tone === 'week-off' || tone === 'leave') return 30;
+    if (tone === 'holiday') return 31;
+    if (tone === 'regular') return 29;
+    if (key === 'present') return 29;
+    if (key === 'absent') return 30;
+    return 31;
   }
 
   private getOverallPerformanceColumnWidth(header: string | undefined, index: number): number {
@@ -486,8 +844,8 @@ export class ExcelService {
 
       if (rowNumber === 1) return { hpt: 28 };
       if (rowNumber === 2) return { hpt: 19 };
-      if (rowNumber === 3 || rowNumber === 8) return { hpt: 8 };
-      if (rowNumber === 9) return { hpt: 29 };
+      if (rowNumber === 3 || rowNumber === dataStartRow - 2) return { hpt: 8 };
+      if (rowNumber === dataStartRow - 1) return { hpt: 29 };
       if (rowNumber === 7) {
         const summaryLength = String(row[1] ?? '').length;
         return { hpt: Math.min(66, Math.max(23, Math.ceil(summaryLength / 75) * 18)) };
@@ -583,6 +941,17 @@ export class ExcelService {
         const cleanAttributes = String(attributes).replace(/\s+s="\d+"/, '');
         return `<c r="${column}${row}" s="${styleId}"${cleanAttributes}>`;
       });
+      const richTextCells = new Map((config.richTextCells || []).map(cell => [
+        `${config.dataStartRow + cell.rowIndex}:${cell.columnIndex}`, cell
+      ]));
+      sheetXml = sheetXml.replace(/<c r="([A-Z]+)(\d+)"([^>]*)>([\s\S]*?)<\/c>/g,
+        (match, column, rowText, attributes) => {
+          const columnIndex = this.excelColumnIndex(column);
+          const cell = richTextCells.get(`${Number(rowText)}:${columnIndex}`);
+          if (!cell) return match;
+          const cleanAttributes = String(attributes).replace(/\s+t="[^"]+"/, '');
+          return `<c r="${column}${rowText}"${cleanAttributes} t="inlineStr"><is>${this.richTextCellRunsXml(cell.lines)}</is></c>`;
+        });
       sheetFile.content = new TextEncoder().encode(sheetXml);
     });
 
@@ -601,6 +970,16 @@ export class ExcelService {
     return sheetXml.replace(/(<worksheet[^>]*>)/, `$1${sheetViewsXml}`);
   }
 
+  private richTextCellRunsXml(lines: Array<{ label: string; value: string }>): string {
+    const escapeXml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/\r?\n/g, '&#10;');
+    return lines.map((line, index) => {
+      const separator = index < lines.length - 1 ? '\n' : '';
+      return `<r><rPr><rFont val="Roboto"/><sz val="10.5"/><b/></rPr><t xml:space="preserve">${escapeXml(`${line.label}: `)}</t></r>`
+        + `<r><rPr><rFont val="Roboto"/><sz val="10.5"/></rPr><t xml:space="preserve">${escapeXml(`${line.value}${separator}`)}</t></r>`;
+    }).join('');
+  }
+
   private getOverallPerformanceWorksheetStyleId(
     config: OverallPerformanceWorksheetStyleConfig,
     row: number,
@@ -608,6 +987,7 @@ export class ExcelService {
   ): number {
     if (row === 1) return 1;
     if (row === 2) return 2;
+    if (config.compactTwoColumn && row >= 4 && row <= 10) return columnIndex === 0 ? 3 : 4;
     if (row >= 4 && row <= 7) return columnIndex === 0 || columnIndex === 4 ? 3 : 4;
     if (row === config.headerRow) return 5;
 
@@ -619,7 +999,7 @@ export class ExcelService {
       }
 
       const alternate = dataIndex % 2 === 1;
-      return this.isOverallPerformanceCenteredColumn(config.headers[columnIndex], columnIndex)
+      return config.compactTwoColumn || this.isOverallPerformanceCenteredColumn(config.headers[columnIndex], columnIndex)
         ? (alternate ? 9 : 7)
         : (alternate ? 8 : 6);
     }
@@ -722,6 +1102,16 @@ export class ExcelService {
         styleId = columnIndex === 0 ? (alternate ? 9 : 7) : (alternate ? 8 : 6);
       } else if (kind === 'empty') {
         styleId = 17;
+      } else if (kind === 'sunday') {
+        styleId = 22;
+      } else if (kind === 'holiday') {
+        styleId = 28;
+      } else if (kind === 'leave') {
+        styleId = 26;
+      } else if (kind === 'absent') {
+        styleId = 20;
+      } else if (kind === 'future') {
+        styleId = 6;
       }
 
       const cellStyleOverride = rowCellStyles[row - 1]?.[columnIndex];
@@ -792,10 +1182,10 @@ export class ExcelService {
     }
 
     if (columnKey === 'status') {
-      if (['pass', 'passed', 'completed', 'approved', 'closed', 'production', 'released'].includes(valueKey)) return 11;
-      if (['failed', 'rejected', 'cancelled', 'canceled'].includes(valueKey)) return 13;
-      if (['inprogress', 'testing', 'intesting', 'tobetested', 'service'].includes(valueKey)) return 10;
-      if (['open', 'pending', 'onhold', 'delayed', 'upcoming', 'upcomingrelease', 'reopen', 'reopened'].includes(valueKey)) return 12;
+      if (['pass', 'passed', 'completed', 'complete', 'approved', 'active', 'ontrack', 'invoiced', 'open', 'production', 'released'].includes(valueKey)) return 11;
+      if (['failed', 'fail', 'rejected', 'cancelled', 'canceled', 'closed', 'delayed', 'inactive'].includes(valueKey)) return 13;
+      if (['inprogress', 'inreview', 'intesting', 'testing', 'planning', 'assigned', 'working', 'service'].includes(valueKey)) return 10;
+      if (['pending', 'onhold', 'blocked', 'tobetested', 'upcoming', 'upcomingrelease', 'reopen', 'reopened'].includes(valueKey)) return 12;
       return 7;
     }
 
@@ -866,8 +1256,8 @@ export class ExcelService {
     ]);
 
     const worksheet = XLSX.utils.aoa_to_sheet([
-      padReportRow(['RELEASE OVERVIEW REPORT']),
-      padReportRow(['DSR PRO  |  RELEASE ACTIVITY REPORT']),
+      padReportRow([filters?.reportTitle || 'Project Release Report']),
+      padReportRow([`DSR PRO  |  RELEASE ACTIVITY REPORT  |  ${filters?.filteredEmployee || 'All Employees'}`]),
       padReportRow([]),
       padReportRow(['GENERATED BY', generatedBy, '', '', 'REPORTING PERIOD', `${fromDate} to ${toDate}`]),
       padReportRow(['PROJECT', project, '', '', 'RELEASE TYPE', releaseType]),
@@ -893,7 +1283,7 @@ export class ExcelService {
     worksheet['!cols'] = [
       { wch: 28 }, { wch: 34 }, { wch: 13 }, { wch: 25 }, { wch: 25 },
       { wch: 16 }, { wch: 16 }, { wch: 30 }, { wch: 22 }, { wch: 18 },
-      { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 34 }, { wch: 30 }
+      { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 34 }, { wch: 30 }, { wch: 42 }
     ];
     const dataRowHeights = reportRows.map((row: any[]) => {
       const projectLines = Math.ceil(String(row[0] || '').length / 24);
@@ -916,7 +1306,7 @@ export class ExcelService {
 
     const workbook = XLSX.utils.book_new();
     workbook.Props = {
-      Title: 'Release Overview Report',
+      Title: filters?.reportTitle || 'Project Release Report',
       Subject: `${project} ${department} release activity`,
       Author: String(generatedBy),
       Company: 'RIDSYS'
@@ -932,7 +1322,7 @@ export class ExcelService {
     });
     const styledFile = this.applyProfessionalReleaseStyles(baseFile, statusStyles, [], overdueStyles, []);
 
-    const filename = `RELEASE_REPORT${departmentFilePart}_${fromDate}_to_${toDate}.xlsx`;
+    const filename = filters?.filename || `RELEASE_REPORT${departmentFilePart}_${fromDate}_to_${toDate}.xlsx`;
     this.downloadWorkbook(styledFile, filename);
   }
 
@@ -1079,7 +1469,7 @@ export class ExcelService {
     worksheet['!cols'] = [
       { wch: 28 }, { wch: 30 }, { wch: 14 }, { wch: 25 }, { wch: 25 },
       { wch: 16 }, { wch: 16 }, { wch: 30 }, { wch: 22 }, { wch: 18 },
-      { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 34 }, { wch: 30 }
+      { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 34 }, { wch: 30 }, { wch: 42 }
     ];
     worksheet['!rows'] = rows.map((row, index) => {
       const kind = rowKinds[index];
@@ -1656,7 +2046,7 @@ export class ExcelService {
     <font><b/><sz val="10"/><color rgb="FFEA580C"/><name val="Calibri"/></font>
     <font><b/><sz val="10"/><color rgb="FF4D7C0F"/><name val="Calibri"/></font>
   </fonts>
-  <fills count="14">
+  <fills count="16">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FF059669"/><bgColor indexed="64"/></patternFill></fill>
@@ -1671,13 +2061,15 @@ export class ExcelService {
     <fill><patternFill patternType="solid"><fgColor rgb="FFF3E8FF"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFECFCCB"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFF7ED"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFCE7F3"/><bgColor indexed="64"/></patternFill></fill>
   </fills>
   <borders count="2">
     <border><left/><right/><top/><bottom/><diagonal/></border>
     <border><left style="thin"><color rgb="FFE2E8F0"/></left><right style="thin"><color rgb="FFE2E8F0"/></right><top style="thin"><color rgb="FFE2E8F0"/></top><bottom style="thin"><color rgb="FFE2E8F0"/></bottom><diagonal/></border>
   </borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="26">
+  <cellXfs count="43">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
     <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1" shrinkToFit="1"/></xf>
     <xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1" shrinkToFit="1"/></xf>
@@ -1704,6 +2096,23 @@ export class ExcelService {
     <xf numFmtId="0" fontId="12" fillId="11" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
     <xf numFmtId="0" fontId="7" fillId="12" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
     <xf numFmtId="0" fontId="15" fillId="13" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="14" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" indent="1" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="7" fillId="14" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="13" fillId="15" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="9" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="11" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="8" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="13" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="10" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="9" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="11" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="8" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="10" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="10" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="9" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="8" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
   </cellXfs>
   <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
   <dxfs count="0"/>

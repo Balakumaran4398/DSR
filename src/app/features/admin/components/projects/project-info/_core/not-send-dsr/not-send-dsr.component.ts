@@ -2,13 +2,14 @@ import { Component, ElementRef, Input, ViewChild } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
-import { filter, finalize, map, Observable, startWith, Subscription } from 'rxjs';
+import { combineLatest, filter, finalize, map, Observable, of, startWith, Subscription } from 'rxjs';
 import { AuthService, NotSendDsrDecision, NotSendDsrRequestPayload } from 'src/app/_core/services/auth.service';
-import { DrawerAction, DrawerService, DrawerTaskCreateContext } from 'src/app/_core/services/drawer.service';
+import { DrawerAction, DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
+import { NotificationNavigationService } from 'src/app/_core/services/notification-navigation.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
-import { DateRangeFilterComponent } from 'src/app/_shared/components/date-range-filter/date-range-filter.component';
 import { attachStandardTabulatorPagination } from 'src/app/_core/utils/tabulator-pagination.util';
+import { getNotificationRecordDepartmentId } from 'src/app/_core/utils/notification-department.util';
 import { NotSendDsrDialogMode, NotSendDsrDialogResult, NotSendDsrRequestDialogComponent } from './not-send-dsr-request-dialog.component';
 declare const Tabulator: any;
 declare const luxon: any;
@@ -22,8 +23,6 @@ export class NotSendDsrComponent {
   @Input() btnText = "Task"
   @Input() titleDesc = 'Manage your tasks';
   @ViewChild('tableDiv') tableDiv!: ElementRef;
-  @ViewChild(DateRangeFilterComponent)
-  dateRangeFilter!: DateRangeFilterComponent;
   type: any = "requirement";
   selectedCount = 0;
   showBar = false;
@@ -39,32 +38,61 @@ export class NotSendDsrComponent {
   selectTask: any
   empid: any = 0;
   canSelectEmployee = false;
-  myControl = new FormControl<any>('');
-  filteredOptions!: Observable<any[]>;
+  readonly allEmployeesValue = '__all_employees__';
+  myControl = new FormControl<any>(this.allEmployeesValue);
+  employeeFilterControl = new FormControl('');
+  filteredEmployeeOptions: Observable<any[]> = of([]);
   startDate: any = null;
   endDate: any = null;
   selected_emp_id: number | null = null;
+  private selectedEmployeeName: string | null = null;
   notSentDsrLoading = false;
   readonly isAdmin: boolean;
   readonly isManager: boolean;
   readonly isEmployee: boolean;
   private pendingRequestIds = new Set<string>();
   private requestedHighlightId: string | null = null;
+  private requestedEmployeeId: string | null = null;
+  private requestedEmployeeName: string | null = null;
+  private requestedDate: string | null = null;
+  private lastNotificationFetchKey: string | null = null;
+  private navigationInitialized = false;
+  private notSentDsrRequest?: Subscription;
+  private notSentDsrRequestVersion = 0;
+  private activeNotSentDsrRequestKey: string | null = null;
+  private loadedNotSentDsrRequestKey: string | null = null;
+  datesInitialized = false;
   private drawerActionSubscription?: Subscription;
+  private navigationSubscription?: Subscription;
 
-  constructor(private authService: AuthService, private route: ActivatedRoute, private router: Router, private toasterService: ToasterService, private storageService: StorageService, private drawerService: DrawerService, private dialog: MatDialog) {
+  constructor(private authService: AuthService, private route: ActivatedRoute, private router: Router, private toasterService: ToasterService, private storageService: StorageService, private drawerService: DrawerService, private dialog: MatDialog, private notificationNavigationService: NotificationNavigationService) {
     this.empid = this.storageService.getEmpId();
     const roles = this.storageService.roles;
     this.isAdmin = !!roles?.isAdmin;
     this.isManager = !!roles?.isManager;
     this.isEmployee = !!roles?.isEmployee;
     this.canSelectEmployee = !!(roles?.isAdmin || roles?.isManager);
+    this.initializeDepartmentDefaultEmployee();
     // this.getNotsendTasksOverview();
     this.initializeDatesFromQueryParams();
     this.loadData({ target: { value: this.projectid } })
     this.drawerActionSubscription = this.drawerService.drawerAction$
-      .pipe(filter(action => action.source === 'task' && !!action.payload?.not_send_dsr_request_id))
-      .subscribe(action => this.handleAppliedTaskCreated(action));
+      .pipe(filter(action =>
+        (action.source === 'task' || action.source === 'ticket' || action.source === 'dsr')
+        && !!action.payload?.not_send_dsr_request_id
+      ))
+      .subscribe(action => {
+        if (action.source === 'ticket') {
+          this.getNotsendTasksOverview(true);
+          this.authService.refreshNotificationCount();
+          return;
+        }
+        if (action.source === 'dsr') {
+          this.handleAppliedDsr(action);
+          return;
+        }
+        this.handleAppliedTaskCreated(action);
+      });
 
   }
 
@@ -98,8 +126,14 @@ export class NotSendDsrComponent {
     }
   }
 
-  getNotsendTasksOverview() {
-    if (this.destroyed) return;
+  getNotsendTasksOverview(
+    forceRefresh = false,
+    options: { showPageLoading?: boolean; onComplete?: () => void } = {}
+  ) {
+    if (this.destroyed || !this.startDate || !this.endDate) {
+      options.onComplete?.();
+      return;
+    }
     const selectedEmployeeId = this.selected_emp_id ?? '0';
     const payload = {
       employee_id: this.empid,
@@ -107,25 +141,85 @@ export class NotSendDsrComponent {
       fromdate: this.startDate,
       todate: this.endDate
     };
+    const requestKey = this.buildNotSentDsrRequestKey(payload);
 
-    this.notSentDsrLoading = true;
-    this.authService.getNotsendTasks(payload)
+    if (!forceRefresh && requestKey === this.loadedNotSentDsrRequestKey) {
+      this.highlightRequestedRow();
+      return;
+    }
+
+    if (!forceRefresh && requestKey === this.activeNotSentDsrRequestKey) {
+      return;
+    }
+
+    const requestVersion = ++this.notSentDsrRequestVersion;
+    this.notSentDsrRequest?.unsubscribe();
+    this.activeNotSentDsrRequestKey = requestKey;
+    const showPageLoading = options.showPageLoading !== false;
+    this.notSentDsrLoading = showPageLoading;
+    if (showPageLoading) {
+      // Never leave a previous employee's rows visible while the new filter is loading.
+      this.tableData = [];
+      if (this.table) this.safeReplaceData(this.table, this.tableData);
+    }
+    this.notSentDsrRequest = this.authService.getNotsendTasks(payload, forceRefresh)
       .pipe(finalize(() => {
-        this.notSentDsrLoading = false;
+        if (requestVersion === this.notSentDsrRequestVersion) {
+          this.notSentDsrLoading = false;
+          this.activeNotSentDsrRequestKey = null;
+        }
+        options.onComplete?.();
       }))
       .subscribe({
         next: (res: any) => {
-          const source = Array.isArray(res)
-            ? res
-            : (res?.data ?? res?.rows ?? (res?.date || res?.employee_name ? [res] : []));
-          this.tableData = (Array.isArray(source) ? source : []).map((row: any) => ({
+          if (requestVersion !== this.notSentDsrRequestVersion) return;
+
+          this.loadedNotSentDsrRequestKey = requestKey;
+          const normalizedRows = this.extractNotSentDsrRows(res).map((row: any) => ({
             ...row,
+            date: row?.date ?? row?.missing_date ?? row?.missingDate,
+            employee_name: row?.employee_name ?? row?.employeeName ?? row?.emp_name ?? row?.empName ?? row?.name,
             employee_id: this.resolveEmployeeId(row),
+            project_id: row?.project_id ?? row?.projectid ?? row?.projectId,
             request_id: row?.request_id ?? row?.requestId ?? null,
-            request_status: this.normalizeRequestStatus(row?.request_status ?? row?.status),
+            request_reason: row?.request_reason || row?.requestReason || row?.reason || this.findExistingRequestReason(row),
+            rejection_reason: row?.rejection_reason
+              || row?.rejectionReason
+              || row?.decision_reason
+              || row?.decisionReason
+              || row?.reject_reason
+              || row?.remarks
+              || this.findExistingRejectionReason(row),
+            request_status: this.normalizeDsrRequestStatus(row),
             requested_by: row?.requested_by ?? row?.requested_by_id ?? row?.requester_id ?? null,
             requested_by_role: this.normalizeRequesterRole(row?.requested_by_role ?? row?.requester_role)
           }));
+          const dateScopedRows = this.requestedDate
+            ? normalizedRows.filter((row: any) => this.normalizeNotificationDate(row?.date) === this.requestedDate)
+            : normalizedRows.filter((row: any) => {
+              const rowDate = this.normalizeNotificationDate(row?.date);
+              return !!rowDate && rowDate >= this.startDate && rowDate <= this.endDate;
+            });
+          if (this.selected_emp_id === null && !this.selectedEmployeeName) {
+            this.tableData = dateScopedRows;
+          } else if (this.selectedEmployeeName) {
+            const normalizedSelectedName = this.normalizeEmployeeName(this.selectedEmployeeName);
+            const nameMatches = dateScopedRows.filter((row: any) =>
+              this.normalizeEmployeeName(row?.employee_name) === normalizedSelectedName
+            );
+            const distinctIds = new Set(nameMatches.map((row: any) => this.resolveEmployeeId(row)).filter((id: any) => id !== null));
+            if (distinctIds.size > 1) {
+              this.tableData = this.selected_emp_id === null
+                ? []
+                : nameMatches.filter((row: any) => this.resolveEmployeeId(row) === this.selected_emp_id);
+            } else {
+              this.tableData = nameMatches;
+            }
+          } else {
+            this.tableData = dateScopedRows.filter((row: any) =>
+              this.resolveEmployeeId(row) === this.selected_emp_id
+            );
+          }
 
           if (this.table) {
             this.safeReplaceData(this.table, this.tableData);
@@ -133,13 +227,63 @@ export class NotSendDsrComponent {
           }
         },
         error: (err: any) => {
-          this.tableData = [];
-          if (this.table) {
-            this.safeReplaceData(this.table, this.tableData);
+          if (requestVersion !== this.notSentDsrRequestVersion) return;
+
+          this.activeNotSentDsrRequestKey = null;
+          if (this.loadedNotSentDsrRequestKey === requestKey) {
+            this.loadedNotSentDsrRequestKey = null;
+          }
+          if (showPageLoading) {
+            this.tableData = [];
+            if (this.table) {
+              this.safeReplaceData(this.table, this.tableData);
+            }
           }
           this.toasterService.error(err?.error?.message || 'Unable to load not sent DSR.');
         }
       });
+  }
+
+  private buildNotSentDsrRequestKey(payload: any): string {
+    return JSON.stringify([
+      payload?.employee_id ?? '',
+      payload?.selected_employee_id ?? '0',
+      payload?.fromdate ?? '',
+      payload?.todate ?? ''
+    ]);
+  }
+
+  private extractNotSentDsrRows(response: any): any[] {
+    if (Array.isArray(response)) return response;
+    if (!response || typeof response !== 'object') return [];
+
+    const listKeys = ['data', 'rows', 'results', 'result', 'list', 'records', 'tasks', 'not_send_dsr'];
+    for (const key of listKeys) {
+      const candidate = response[key];
+      if (Array.isArray(candidate)) return candidate;
+      if (candidate && typeof candidate === 'object') {
+        const nestedRows = this.extractNotSentDsrRows(candidate);
+        if (nestedRows.length) return nestedRows;
+      }
+    }
+
+    return response.date || response.missing_date || response.employee_name || response.employee_id
+      ? [response]
+      : [];
+  }
+
+  private initializeDepartmentDefaultEmployee(): void {
+    if (!this.isTicketDepartment()) return;
+
+    const employeeId = Number(this.empid);
+    if (!Number.isFinite(employeeId) || employeeId <= 0) return;
+
+    this.selected_emp_id = employeeId;
+    this.selectedEmployeeName = this.storageService.getEmpName() || null;
+    this.myControl.setValue({
+      employee_id: employeeId,
+      employee_name: this.selectedEmployeeName
+    }, { emitEvent: false });
   }
 
   ngAfterViewInit() {
@@ -158,16 +302,6 @@ export class NotSendDsrComponent {
 
 
 
-    setTimeout(() => {
-      if (!this.dateRangeFilter) return;
-
-      this.dateRangeFilter.startDate = new Date(this.startDate);
-      this.dateRangeFilter.endDate = new Date(this.endDate);
-
-      this.dateRangeFilter.tempStart = new Date(this.startDate);
-      this.dateRangeFilter.tempEnd = new Date(this.endDate);
-    }, 0);
-
   }
 
 
@@ -175,6 +309,8 @@ export class NotSendDsrComponent {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.drawerActionSubscription?.unsubscribe();
+    this.navigationSubscription?.unsubscribe();
+    this.notSentDsrRequest?.unsubscribe();
 
     if (this.tableCheckInterval) {
       clearInterval(this.tableCheckInterval);
@@ -315,6 +451,7 @@ export class NotSendDsrComponent {
       this.resolveTableBuilt = null;
     }, 1000);
     attachStandardTabulatorPagination(this.table);
+    this.highlightRequestedRow();
 
     this.table.on("rowSelectionChanged", (data: any[], rows: any[]) => {
       this.selectedCount = rows.length;
@@ -341,7 +478,7 @@ export class NotSendDsrComponent {
       APPLIED: { label: 'Applied', css: 'dsr-status--applied', icon: 'ri-check-double-line' }
     };
     const item = config[status] || { label: 'Unknown', css: 'dsr-status--neutral', icon: 'ri-question-line' };
-    const detail = status === 'REJECTED' ? row?.rejection_reason : row?.request_reason;
+    const detail = row?.request_reason || row?.rejection_reason;
     return `<span class="dsr-status ${item.css}" title="${this.escapeHtml(detail || item.label)}"><i class="${item.icon}"></i>${item.label}</span>`;
   }
 
@@ -360,11 +497,17 @@ export class NotSendDsrComponent {
     }
 
     if ((status === 'NOT_REQUESTED' || status === 'REJECTED') && this.canRequest(row)) {
-      return `<button type="button" class="dsr-action dsr-action--request" data-action="request" ${disabled}>${loader || '<i class="ri-mail-send-line"></i>'} Request</button>`;
+      return `<div class="dsr-actions">
+        <button type="button" class="dsr-action dsr-action--request" data-action="request" ${disabled}>${loader || '<i class="ri-mail-send-line"></i>'} Request</button>
+        ${status === 'REJECTED' ? this.reasonActionButton() : ''}
+      </div>`;
     }
 
     if (status === 'APPROVED' && this.canApply(row)) {
-      return `<button type="button" class="dsr-action dsr-action--apply" data-action="apply" ${disabled}>${loader || '<i class="ri-add-circle-line"></i>'} Apply</button>`;
+      return `<div class="dsr-actions">
+        <button type="button" class="dsr-action dsr-action--apply" data-action="apply" ${disabled}>${loader || '<i class="ri-add-circle-line"></i>'} Apply</button>
+        ${this.reasonActionButton()}
+      </div>`;
     }
 
     if (status === 'PENDING') {
@@ -374,7 +517,11 @@ export class NotSendDsrComponent {
         : 'Awaiting review';
       return `<span class="dsr-action-note"><i class="ri-time-line"></i> ${reviewLabel}</span>`;
     }
-    if (status === 'APPLIED') return '<span class="dsr-action-note"><i class="ri-check-double-line"></i> Task added</span>';
+    if (status === 'APPLIED') {
+      const addedLabel = this.isTicketDepartment() ? 'Ticket Added' : 'DSR Added';
+      return `<div class="dsr-actions"><span class="dsr-action-note"><i class="ri-check-double-line"></i> ${addedLabel}</span>${this.reasonActionButton()}</div>`;
+    }
+    if (status === 'APPROVED' || status === 'REJECTED') return this.reasonActionButton();
     return '<span class="dsr-action-note">No action</span>';
   }
 
@@ -386,7 +533,12 @@ export class NotSendDsrComponent {
     const action = button.dataset['action'];
 
     if (action === 'apply') {
-      this.openApplyTask(row);
+      if (this.isTicketDepartment()) this.openApplySelfTicket(row);
+      else this.openApplyTask(row);
+      return;
+    }
+    if (action === 'view-reasons') {
+      this.openReasonDialog(row);
       return;
     }
     if (action === 'request') this.openWorkflowDialog('request', row);
@@ -394,11 +546,13 @@ export class NotSendDsrComponent {
     if (action === 'reject') this.openWorkflowDialog('reject', row);
   }
 
-  private openWorkflowDialog(mode: NotSendDsrDialogMode, row: any): void {
+  private openWorkflowDialog(mode: Exclude<NotSendDsrDialogMode, 'view'>, row: any): void {
     if ((mode === 'request' && !this.canRequest(row)) || (mode !== 'request' && !this.canReview(row))) return;
 
     const ref = this.dialog.open(NotSendDsrRequestDialogComponent, {
       panelClass: 'dsr-request-dialog-panel',
+      width: '38rem',
+      maxWidth: 'calc(100vw - 2rem)',
       autoFocus: mode !== 'approve',
       restoreFocus: true,
       disableClose: false,
@@ -406,6 +560,7 @@ export class NotSendDsrComponent {
         mode,
         employeeName: row?.employee_name,
         date: row?.date,
+        workType: this.getDialogWorkType(),
         existingReason: row?.request_reason
       }
     });
@@ -415,6 +570,52 @@ export class NotSendDsrComponent {
       if (mode === 'request') this.submitRequest(row, result.reason || '');
       else this.submitDecision(row, mode === 'approve' ? 'APPROVED' : 'REJECTED', result.reason);
     });
+  }
+
+  private reasonActionButton(): string {
+    return '<button type="button" class="dsr-action dsr-action--reason" data-action="view-reasons" aria-label="View request reasons" title="View reasons"><i class="ri-file-list-3-line"></i> View reasons</button>';
+  }
+
+  private openReasonDialog(row: any): void {
+    this.dialog.open(NotSendDsrRequestDialogComponent, {
+      panelClass: 'dsr-request-dialog-panel',
+      width: '38rem',
+      maxWidth: 'calc(100vw - 2rem)',
+      autoFocus: false,
+      restoreFocus: true,
+      data: {
+        mode: 'view',
+        employeeName: row?.employee_name,
+        date: row?.date,
+        workType: this.getDialogWorkType(),
+        requestReason: row?.request_reason ?? '',
+        rejectionReason: row?.rejection_reason ?? ''
+      }
+    });
+  }
+
+  private findExistingRequestReason(row: any): string {
+    const requestId = this.resolveRequestId(row);
+    const existing = this.tableData?.find((candidate: any) => requestId !== null
+      && this.resolveRequestId(candidate) === requestId)
+      ?? this.tableData?.find((candidate: any) => this.resolveEmployeeId(candidate) === this.resolveEmployeeId(row)
+        && this.normalizeNotificationDate(candidate?.date) === this.normalizeNotificationDate(row?.date));
+    return existing?.request_reason ?? '';
+  }
+
+  private findExistingRejectionReason(row: any): string {
+    const requestId = this.resolveRequestId(row);
+    const existing = this.tableData?.find((candidate: any) => requestId !== null
+      && this.resolveRequestId(candidate) === requestId)
+      ?? this.tableData?.find((candidate: any) => this.resolveEmployeeId(candidate) === this.resolveEmployeeId(row)
+        && this.normalizeNotificationDate(candidate?.date) === this.normalizeNotificationDate(row?.date));
+    return existing?.rejection_reason
+      || existing?.rejectionReason
+      || existing?.decision_reason
+      || existing?.decisionReason
+      || existing?.reject_reason
+      || existing?.remarks
+      || '';
   }
 
   private submitRequest(row: any, reason: string): void {
@@ -427,14 +628,24 @@ export class NotSendDsrComponent {
     const payload: NotSendDsrRequestPayload = {
       employee_id: employeeId,
       date: row.date,
-      reason: reason.trim()
+      reason: reason.trim(),
+      work_type: this.isTicketDepartment() ? 'TICKET' : 'DSR'
     };
     this.setRowBusy(row, true);
     this.authService.createNotSendDsrRequest(payload)
-      .pipe(finalize(() => this.setRowBusy(row, false)))
       .subscribe({
-        next: (res: any) => this.handleWorkflowSuccess(res?.message || 'Request sent for approval.'),
-        error: (err: any) => this.toasterService.error(err?.error?.message || 'Unable to send the request.')
+        next: (res: any) => this.handleWorkflowSuccess(
+          res?.message || 'Request sent for approval.',
+          {
+            ...row,
+            request_reason: reason.trim()
+          },
+          'PENDING'
+        ),
+        error: (err: any) => {
+          this.setRowBusy(row, false);
+          this.toasterService.error(err?.error?.message || 'Unable to send the request.');
+        }
       });
   }
 
@@ -451,10 +662,21 @@ export class NotSendDsrComponent {
       status: decision,
       ...(rejectionReason ? { reason: rejectionReason } : {})
     })
-      .pipe(finalize(() => this.setRowBusy(row, false)))
       .subscribe({
-        next: (res: any) => this.handleWorkflowSuccess(res?.message || `Request ${decision.toLowerCase()}.`),
-        error: (err: any) => this.toasterService.error(err?.error?.message || `Unable to mark the request as ${decision.toLowerCase()}.`)
+        next: (res: any) => {
+          this.handleWorkflowSuccess(
+            res?.message || `Request ${decision.toLowerCase()}.`,
+            {
+              ...row,
+              ...(decision === 'REJECTED' && rejectionReason ? { rejection_reason: rejectionReason } : {})
+            },
+            decision
+          );
+        },
+        error: (err: any) => {
+          this.setRowBusy(row, false);
+          this.toasterService.error(err?.error?.message || `Unable to mark the request as ${decision.toLowerCase()}.`);
+        }
       });
   }
 
@@ -465,26 +687,66 @@ export class NotSendDsrComponent {
       this.toasterService.error('The approved request is missing its employee or request ID.');
       return;
     }
-    const context: DrawerTaskCreateContext = {
-      mode: 'create',
-      employee_id: employeeId,
-      employee_name: row?.employee_name,
-      start_date: row?.date,
-      end_date: row?.date,
-      locked_fields: ['start_date', 'end_date'],
-      not_send_dsr_request_id: row?.request_id
-    };
-    this.drawerService.open('task', context, 'requirement');
+    this.drawerService.open('dsr', {
+      entryMode: 'dsr-entries',
+      employeeId,
+      employeeName: row?.employee_name,
+      project_id: row?.project_id ?? row?.projectid ?? row?.projectId,
+      fixedDsrDate: row?.date,
+      notSendDsrRequestId: row?.request_id
+    });
   }
 
-  private handleWorkflowSuccess(message: string): void {
-    this.toasterService.success(message);
-    this.getNotsendTasksOverview();
+  private handleAppliedDsr(action: DrawerAction): void {
+    const requestId = this.resolveRequestId(action.payload);
+    const row = this.tableData.find(candidate => this.resolveRequestId(candidate) === requestId);
+    if (row) this.updateWorkflowRowStatus(row, 'APPLIED');
+    this.getNotsendTasksOverview(true, { showPageLoading: false });
     this.authService.refreshNotificationCount();
   }
 
+  private handleWorkflowSuccess(message: string, row?: any, status?: NotSendDsrDecision | 'PENDING'): void {
+    this.toasterService.success(message);
+    if (row && status) this.updateWorkflowRowStatus(row, status);
+    this.getNotsendTasksOverview(true, {
+      showPageLoading: false,
+      onComplete: row ? () => this.setRowBusy(row, false) : undefined
+    });
+    this.authService.refreshNotificationCount();
+  }
+
+  private updateWorkflowRowStatus(row: any, status: NotSendDsrDecision | 'PENDING' | 'APPLIED'): void {
+    const requestId = this.resolveRequestId(row);
+    const employeeId = this.resolveEmployeeId(row);
+    const date = this.normalizeNotificationDate(row?.date);
+    let updated = false;
+
+    this.tableData = this.tableData.map(candidate => {
+      const matchesRequest = requestId !== null && this.resolveRequestId(candidate) === requestId;
+      const matchesEmployeeDate = employeeId !== null
+        && this.resolveEmployeeId(candidate) === employeeId
+        && date !== null
+        && this.normalizeNotificationDate(candidate?.date) === date;
+      if (!matchesRequest && !matchesEmployeeDate) return candidate;
+
+      updated = true;
+      return {
+        ...candidate,
+        request_id: row?.request_id ?? candidate?.request_id,
+        request_status: status,
+        request_reason: row?.request_reason ?? candidate?.request_reason,
+        rejection_reason: row?.rejection_reason ?? candidate?.rejection_reason
+      };
+    });
+
+    if (updated && this.table) {
+      this.safeReplaceData(this.table, this.tableData);
+      this.highlightRequestedRow();
+    }
+  }
+
   private handleAppliedTaskCreated(action: DrawerAction): void {
-    this.getNotsendTasksOverview();
+    this.getNotsendTasksOverview(true);
 
     const payload = action.payload ?? {};
     const projectId = payload?.project_id ?? payload?.projectid;
@@ -497,7 +759,7 @@ export class NotSendDsrComponent {
     }
 
     if (taskId) {
-      this.navigateToGeneratedTask(projectId, taskId, approvedDate, payload?.not_send_dsr_request_id);
+      this.finishCreatedDsrTask(payload, projectId, taskId, approvedDate);
       return;
     }
 
@@ -515,16 +777,44 @@ export class NotSendDsrComponent {
         const matchedTaskId = this.resolveCreatedTaskId(matchedTask);
         if (!matchedTaskId) {
           this.toasterService.warning('The task was created, but it could not be highlighted automatically.');
-          this.navigateToGeneratedTask(projectId, null, approvedDate, payload?.not_send_dsr_request_id);
+          this.finishCreatedDsrTask(payload, projectId, null, approvedDate);
           return;
         }
-        this.navigateToGeneratedTask(projectId, matchedTaskId, approvedDate, payload?.not_send_dsr_request_id);
+        this.finishCreatedDsrTask(payload, projectId, matchedTaskId, approvedDate);
       },
       error: () => {
         this.toasterService.warning('The task was created, but it could not be highlighted automatically.');
-        this.navigateToGeneratedTask(projectId, null, approvedDate, payload?.not_send_dsr_request_id);
+        this.finishCreatedDsrTask(payload, projectId, null, approvedDate);
       }
     });
+  }
+
+  private finishCreatedDsrTask(payload: any, projectId: any, taskId: string | number | null, approvedDate: string): void {
+    const returnContext = payload?.return_to_dsr_context;
+    if (returnContext) {
+      const selectedTaskId = taskId ?? payload?.task_id ?? payload?.taskid ?? null;
+      if (!selectedTaskId) {
+        this.toasterService.warning('The task was created, but its ID could not be resolved. Reopen the DSR form and select the task.');
+        this.navigateToGeneratedTask(projectId, null, approvedDate, payload?.not_send_dsr_request_id);
+        return;
+      }
+
+      this.drawerService.open('dsr', {
+        ...returnContext,
+        dsrDraft: null,
+        id: selectedTaskId,
+        taskid: selectedTaskId,
+        task_id: selectedTaskId,
+        selectedEntryId: selectedTaskId,
+        generatedTaskId: selectedTaskId,
+        project_id: projectId,
+        fixedDsrDate: approvedDate,
+        task: payload?.task ?? `Task #${selectedTaskId}`
+      });
+      return;
+    }
+
+    this.navigateToGeneratedTask(projectId, taskId, approvedDate, payload?.not_send_dsr_request_id);
   }
 
   private resolveCreatedTaskId(payload: any): string | number | null {
@@ -628,6 +918,107 @@ export class NotSendDsrComponent {
         && this.hasExpectedRequesterRole(row));
   }
 
+  private isTicketDepartment(): boolean {
+    const user = this.storageService?.getUser?.() || {};
+    const rawDepartmentId = user?.department_id
+      ?? user?.departmentId
+      ?? user?.dept_id
+      ?? user?.deptId
+      ?? user?.department?.department_id
+      ?? user?.department?.departmentId
+      ?? user?.department?.dept_id
+      ?? user?.department?.id
+      ?? (typeof user?.department === 'number' || /^\d+$/.test(String(user?.department ?? '')) ? user.department : null);
+    if (rawDepartmentId !== null && rawDepartmentId !== undefined && `${rawDepartmentId}`.trim() !== '') {
+      const departmentId = Number(rawDepartmentId);
+      if (Number.isFinite(departmentId)) return departmentId === 4 || departmentId === 6;
+    }
+
+    const departmentName = String(
+      this.storageService?.getDept?.()
+        ?? user?.department_name
+        ?? user?.departmentName
+        ?? user?.department?.department_name
+        ?? user?.department?.departmentName
+        ?? user?.department?.name
+        ?? user?.dept_name
+        ?? user?.deptName
+        ?? (typeof user?.department === 'string' ? user.department : '')
+        ?? ''
+    ).toLowerCase().replace(/[^a-z]/g, '').replace(/^(department|dept)/, '').replace(/(department|dept)$/, '');
+    return ['hardware', 'headend'].includes(departmentName);
+  }
+
+  private getDialogWorkType(): 'DSR' | 'Ticket' | undefined {
+    const user = this.storageService?.getUser?.() || {};
+    const rawDepartmentId = user?.department_id
+      ?? user?.departmentId
+      ?? user?.dept_id
+      ?? user?.deptId
+      ?? user?.department?.department_id
+      ?? user?.department?.departmentId
+      ?? user?.department?.dept_id
+      ?? user?.department?.id
+      ?? (typeof user?.department === 'number' || /^\d+$/.test(String(user?.department ?? '')) ? user.department : null);
+    if (rawDepartmentId !== null && rawDepartmentId !== undefined && `${rawDepartmentId}`.trim() !== '') {
+      const departmentId = Number(rawDepartmentId);
+      if ([1, 2, 3, 11].includes(departmentId)) return 'DSR';
+      if ([4, 6].includes(departmentId)) return 'Ticket';
+      return undefined;
+    }
+
+    const departmentName = String(
+      this.storageService?.getDept?.()
+        ?? user?.department_name
+        ?? user?.departmentName
+        ?? user?.department?.department_name
+        ?? user?.department?.departmentName
+        ?? user?.department?.name
+        ?? user?.dept_name
+        ?? user?.deptName
+        ?? (typeof user?.department === 'string' ? user.department : '')
+        ?? ''
+    ).toLowerCase().replace(/[^a-z]/g, '').replace(/^(department|dept)/, '').replace(/(department|dept)$/, '');
+    if (['ridappssoftwaredevelopmentteam', 'sqa', 'accounts', 'account'].includes(departmentName)) return 'DSR';
+    if (['hardware', 'headend'].includes(departmentName)) return 'Ticket';
+    return undefined;
+  }
+
+  private normalizeDsrRequestStatus(row: any): string {
+    const requestStatus = row?.request_status
+      ?? row?.requestStatus
+      ?? row?.request_status_name
+      ?? row?.requestStatusName;
+    if (requestStatus !== null && requestStatus !== undefined && `${requestStatus}`.trim() !== '') {
+      const normalizedStatus = this.normalizeRequestStatus(requestStatus);
+      if (normalizedStatus !== 'UNKNOWN' || !this.isTicketDepartment()) {
+        return normalizedStatus;
+      }
+    }
+
+    // Ticket-department rows may use `status` for DSR submission state,
+    // rather than for the request workflow. Treat them as requestable until
+    // the dedicated workflow status is supplied by the API.
+    if (this.isTicketDepartment()) return 'NOT_REQUESTED';
+    return this.normalizeRequestStatus(row?.status);
+  }
+
+  private openApplySelfTicket(row: any): void {
+    if (!this.canApply(row)) return;
+    const requestId = this.resolveRequestId(row);
+    if (!requestId) {
+      this.toasterService.error('The approved request is missing its request ID.');
+      return;
+    }
+    this.drawerService.open('ticket', {
+      mode: 'create',
+      source: 'not-send-dsr',
+      notSentDsrDate: row?.date ?? null,
+      assigned_date: row?.date ?? null,
+      not_send_dsr_request_id: requestId
+    });
+  }
+
   private canReview(row: any): boolean {
     if (this.normalizeRequestStatus(row?.request_status) !== 'PENDING'
       || !this.resolveRequestId(row)
@@ -656,15 +1047,18 @@ export class NotSendDsrComponent {
     const rawValue = row?.employee_id
       ?? row?.employeeid
       ?? row?.employeeId
+      ?? row?.employeeID
       ?? row?.emp_id
-      ?? row?.empid;
+      ?? row?.empid
+      ?? row?.empId
+      ?? row?.empID;
 
     if (rawValue !== null && rawValue !== undefined && `${rawValue}`.trim() !== '') {
       const value = Number(rawValue);
       return Number.isFinite(value) && value > 0 ? value : null;
     }
 
-    return this.resolveEmployeeIdByUniqueName(row?.employee_name);
+    return this.resolveEmployeeIdByUniqueName(row?.employee_name ?? row?.employeeName ?? row?.emp_name ?? row?.empName ?? row?.name);
   }
 
   private resolveEmployeeIdByUniqueName(employeeName: unknown): number | null {
@@ -728,7 +1122,12 @@ export class NotSendDsrComponent {
 
   private setRowBusy(row: any, busy: boolean): void {
     const key = this.rowActionKey(row);
-    busy ? this.pendingRequestIds.add(key) : this.pendingRequestIds.delete(key);
+    if (busy) {
+      this.pendingRequestIds.add(key);
+      this.notSentDsrLoading = false;
+    } else {
+      this.pendingRequestIds.delete(key);
+    }
     try { this.table?.redraw?.(true); } catch { /* no-op */ }
   }
 
@@ -886,6 +1285,7 @@ export class NotSendDsrComponent {
 
   projectList: any[] = [];
   employeeList: any[] = [];
+  private employeeSelectList: any[] = [];
   private ownerLookup: Record<string, string> = {};
   private ownerEditorValues: Array<{ label: string; value: any }> = [];
   private ownerIndexReady = false;
@@ -928,7 +1328,6 @@ export class NotSendDsrComponent {
     //   this.rebuildOwnerIndex();
     //   this.refreshOwnerColumn();
 
-    //   this.filteredOptions = of([...this.employeeList]);
     //   return;
     // }
 
@@ -936,21 +1335,17 @@ export class NotSendDsrComponent {
       next: (res: any) => {
         const list = Array.isArray(res) ? res : (res?.data ?? res?.employees ?? []);
         this.employeeList = Array.isArray(list) ? list : [];
+        this.employeeSelectList = this.getEmployeeOptionsForCurrentManager(this.employeeList);
         this.enrichRowsWithEmployeeIds();
         this.ownerIndexReady = true;
         this.rebuildOwnerIndex();
         this.refreshOwnerColumn();
 
-        this.filteredOptions = this.myControl.valueChanges.pipe(
-          startWith(''),
-          map((value: any) => {
-            const name = typeof value === 'string' ? value : value?.employee_name || '';
-            return name ? this._filter(name) : [...this.employeeList];
-          })
-        );
+        this.initializeEmployeeFilter();
       },
       error: (err: any) => {
         this.employeeList = [];
+        this.employeeSelectList = [];
         this.ownerIndexReady = true;
         this.rebuildOwnerIndex();
         this.refreshOwnerColumn();
@@ -958,17 +1353,20 @@ export class NotSendDsrComponent {
       }
     });
   }
-  private ignoreFirstEmit = true;
-
   onRangeChange(event: { startDate: Date; endDate: Date }) {
-    if (this.ignoreFirstEmit) {
-      this.ignoreFirstEmit = false;
-      return;
-    }
-    console.log(event.startDate, event.endDate);
-    this.startDate = this.formatDateToYMD(event.startDate);
-    this.endDate = this.formatDateToYMD(event.endDate);
-    this.getNotsendTasksOverview();
+    if (!this.datesInitialized) return;
+
+    const startDate = this.formatDateToYMD(event.startDate);
+    const endDate = this.formatDateToYMD(event.endDate);
+    if (startDate === this.startDate && endDate === this.endDate) return;
+
+    this.startDate = startDate;
+    this.endDate = endDate;
+    this.requestedDate = null;
+    this.requestedEmployeeId = null;
+    this.requestedEmployeeName = null;
+    this.requestedHighlightId = null;
+    this.getNotsendTasksOverview(true);
   }
 
 
@@ -979,26 +1377,78 @@ export class NotSendDsrComponent {
       d.getDate()
     ).padStart(2, '0')}`;
   }
-  private _filter(value: string): any[] {
-    const filterValue = value.toLowerCase();
-    return this.employeeList.filter((emp: any) =>
-      emp.employee_name.toLowerCase().includes(filterValue)
+  private initializeEmployeeFilter(): void {
+    this.filteredEmployeeOptions = this.employeeFilterControl.valueChanges.pipe(
+      startWith(this.employeeFilterControl.value || ''),
+      map((value: any) => this.filterEmployeeOptions(value))
     );
   }
 
-  displayFn(employee: any): string {
-    return employee && employee.employee_name
-      ? employee.employee_name
-      : '';
+  private filterEmployeeOptions(value: any): any[] {
+    const filterValue = `${typeof value === 'string' ? value : ''}`.trim().toLowerCase();
+    const employees = Array.isArray(this.employeeSelectList) ? this.employeeSelectList : [];
+
+    return filterValue
+      ? employees.filter((employee: any) =>
+        `${employee?.employee_name ?? employee?.employeeName ?? employee?.name ?? ''}`.toLowerCase().includes(filterValue) ||
+        `${employee?.email ?? ''}`.toLowerCase().includes(filterValue)
+      )
+      : [...employees];
   }
+
+  onEmployeeSelectOpened(isOpen: boolean): void {
+    if (isOpen) this.employeeFilterControl.setValue('', { emitEvent: true });
+  }
+
+  get selectedEmployeeLabel(): string {
+    if (this.selected_emp_id === null || this.selected_emp_id === undefined) return 'All Employees';
+    if (this.selectedEmployeeName) return this.selectedEmployeeName;
+    const selected = this.employeeSelectList.find((employee: any) => this.getEmployeeId(employee) === this.selected_emp_id);
+    return selected?.employee_name ?? selected?.employeeName ?? selected?.name ?? 'Selected Employee';
+  }
+
+  get hasEmployeeSelection(): boolean {
+    return this.selected_emp_id !== null && this.selected_emp_id !== undefined;
+  }
+
+  compareEmployeeById = (first: any, second: any): boolean => {
+    if (first === this.allEmployeesValue || second === this.allEmployeesValue) return first === second;
+    const firstId = this.getEmployeeId(first);
+    const secondId = this.getEmployeeId(second);
+    if (firstId === null || secondId === null) return first === second;
+    if (firstId !== secondId) return false;
+
+    const firstName = this.normalizeEmployeeName(first?.employee_name ?? first?.employeeName ?? first?.name);
+    const secondName = this.normalizeEmployeeName(second?.employee_name ?? second?.employeeName ?? second?.name);
+    return !firstName || !secondName || firstName === secondName;
+  };
+
   clearSelection(): void {
-    this.myControl.setValue('');
+    this.myControl.setValue(this.allEmployeesValue);
     this.selected_emp_id = null;
-    this.getNotsendTasksOverview();
+    this.selectedEmployeeName = null;
+    this.employeeFilterControl.setValue('', { emitEvent: true });
+    this.getNotsendTasksOverview(true);
   }
   onEmployeeSelect(employee: any) {
-    this.selected_emp_id = this.getEmployeeId(employee);
-    this.getNotsendTasksOverview();
+    if (!employee || employee === this.allEmployeesValue) {
+      this.selected_emp_id = null;
+      this.selectedEmployeeName = null;
+      this.myControl.setValue(this.allEmployeesValue, { emitEvent: false });
+    } else {
+      this.selected_emp_id = this.getEmployeeId(employee);
+      this.selectedEmployeeName = `${employee?.employee_name ?? employee?.employeeName ?? employee?.name ?? ''}`.trim() || null;
+      this.myControl.setValue(employee, { emitEvent: false });
+    }
+    this.getNotsendTasksOverview(true);
+  }
+
+  private getEmployeeOptionsForCurrentManager(employees: any[]): any[] {
+    if (!this.isManager) return employees;
+    const departmentId = getNotificationRecordDepartmentId(this.storageService.getUser(), employees)
+      ?? Number(this.storageService.getDept());
+    if (departmentId !== 8 && departmentId !== 11) return employees;
+    return employees.filter(employee => getNotificationRecordDepartmentId(employee, employees) === departmentId);
   }
 
   private getEmployeeId(employee: any): number | null {
@@ -1006,8 +1456,13 @@ export class NotSendDsrComponent {
     const raw = employee.employee_id
       ?? employee.employeeid
       ?? employee.employeeId
+      ?? employee.employeeID
+      ?? employee.empId
+      ?? employee.empID
       ?? employee.emp_id
       ?? employee.empid
+      ?? employee.user_id
+      ?? employee.userId
       ?? employee.id;
     const value = Number(raw);
     return Number.isFinite(value) && value > 0 ? value : null;
@@ -1134,43 +1589,161 @@ export class NotSendDsrComponent {
     }, tableRef);
   }
   private initializeDatesFromQueryParams(): void {
-    this.route.queryParams.subscribe(params => {
-      this.requestedHighlightId = params['requestId'] ? `${params['requestId']}` : null;
-      const startDate = params['startDate'] || params['fromdate'];
-      const endDate = params['endDate'] || params['todate'];
+    this.navigationSubscription = combineLatest([
+      this.route.paramMap,
+      this.route.queryParamMap,
+      this.notificationNavigationService.context$
+    ]).subscribe(([routeParams, queryParams]) => {
+      const context = this.notificationNavigationService.consumePendingNavigationContext(
+        'not-send-dsr'
+      );
+      if (this.navigationInitialized && !context) return;
 
+      // Request IDs are placed in the URL for compatibility, but are only
+      // meaningful together with the one-time notification navigation context.
+      this.requestedHighlightId = context ? queryParams.get('requestId') : null;
+      this.navigationInitialized = true;
+      this.requestedEmployeeId = context?.targetId || null;
+      this.requestedEmployeeName = context?.targetLabel || null;
+      this.requestedDate = this.normalizeNotificationDate(context?.targetDate);
+
+      const targetEmployeeId = context?.targetId || null;
+      if (context) {
+        this.currentView = 'table';
+        this.selected_emp_id = null;
+        this.selectedEmployeeName = null;
+        this.myControl.setValue(this.allEmployeesValue);
+        this.ensureNotificationTable();
+      }
+
+      const targetDate = this.normalizeNotificationDate(context?.targetDate);
+      const isNotificationTarget = !!context && !!(targetEmployeeId || this.requestedHighlightId || targetDate);
+      const queryStartDate = queryParams.get('startDate') || queryParams.get('fromdate');
+      const queryEndDate = queryParams.get('endDate') || queryParams.get('todate');
+      const isLegacyNotificationUrl = !context && !!queryParams.get('requestId');
+      const explicitQueryStartDate = isLegacyNotificationUrl ? null : queryStartDate;
+      const explicitQueryEndDate = isLegacyNotificationUrl ? null : queryEndDate;
+      const startDate = targetDate
+        || (isNotificationTarget ? context?.startDate : explicitQueryStartDate || context?.startDate)
+        || explicitQueryStartDate;
+      const endDate = targetDate
+        || (isNotificationTarget ? context?.endDate : explicitQueryEndDate || context?.endDate)
+        || explicitQueryEndDate;
       if (startDate && endDate) {
         this.startDate = startDate;
         this.endDate = endDate;
       } else {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        this.startDate = this.formatDateToYMD(yesterday);
-        this.endDate = this.formatDateToYMD(yesterday);
+        const week = this.getCurrentWeekRange();
+        this.startDate = week.startDate;
+        this.endDate = week.endDate;
       }
 
-      console.log({
-        startDate: this.startDate,
-        endDate: this.endDate
-      });
-
-      this.getNotsendTasksOverview();
+      this.datesInitialized = true;
+      const notificationFetchKey = isNotificationTarget
+        ? `${context.createdAt}|${this.requestedHighlightId ?? ''}|${targetEmployeeId ?? ''}|${targetDate ?? ''}`
+        : null;
+      const forceNotificationRefresh = !!notificationFetchKey
+        && notificationFetchKey !== this.lastNotificationFetchKey;
+      if (notificationFetchKey) this.lastNotificationFetchKey = notificationFetchKey;
+      this.getNotsendTasksOverview(forceNotificationRefresh || !isNotificationTarget);
     });
   }
 
-  private highlightRequestedRow(): void {
-    if (!this.requestedHighlightId || !this.table) return;
-    const requestId = this.requestedHighlightId;
+  private getCurrentWeekRange(): { startDate: string; endDate: string } {
+    const today = new Date();
+    const daysFromMonday = today.getDay() === 0 ? -6 : 1 - today.getDay();
+    const start = new Date(today);
+    start.setDate(today.getDate() + daysFromMonday);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(0, 0, 0, 0);
+    return {
+      startDate: this.formatDateToYMD(start),
+      endDate: this.formatDateToYMD(end)
+    };
+  }
+
+  private ensureNotificationTable(): void {
     setTimeout(() => {
-      try {
-        const row = this.table?.getRows?.().find((candidate: any) => `${candidate?.getData?.()?.request_id ?? ''}` === requestId);
-        if (!row) return;
-        row.getElement?.().classList.add('dsr-request-highlight');
-        row.scrollTo?.('center', false);
-      } catch {
-        // Notification highlighting is best-effort when Tabulator is rebuilding.
+      if (this.destroyed || this.table || !this.tableDiv?.nativeElement?.isConnected) return;
+      if (typeof Tabulator === 'undefined' || typeof luxon === 'undefined') return;
+      this.initializeTable(this.tableDiv.nativeElement);
+      this.highlightRequestedRow();
+    }, 0);
+  }
+
+  private highlightRequestedRow(): void {
+    const hasEmployeeTarget = !!(this.requestedEmployeeId || this.requestedEmployeeName);
+    if ((!this.requestedHighlightId && (!hasEmployeeTarget || !this.requestedDate)) || !this.table) return;
+    const tableRef = this.table;
+    this.enqueueTableOp(() => {
+      const rows = tableRef?.getRows?.() || [];
+      rows.forEach((candidate: any) => candidate?.getElement?.().classList.remove('dsr-request-highlight'));
+
+      const targetEmployee = `${this.requestedEmployeeId ?? ''}`.trim();
+      const normalizedTargetName = this.normalizeEmployeeName(this.requestedEmployeeName);
+      const datedRows = rows.filter((candidate: any) => {
+        const data = candidate?.getData?.();
+        const dateMatches = this.normalizeNotificationDate(data?.date ?? data?.missing_date ?? data?.missingDate)
+          === this.normalizeNotificationDate(this.requestedDate);
+        return this.requestedHighlightId
+          ? `${data?.request_id ?? ''}` === this.requestedHighlightId
+          : dateMatches;
+      });
+
+      let row: any;
+      if (this.requestedHighlightId) {
+        row = datedRows[0];
+      } else if (normalizedTargetName) {
+        const nameMatches = datedRows.filter((candidate: any) => {
+          const data = candidate?.getData?.();
+          return this.normalizeEmployeeName(
+            data?.employee_name ?? data?.employeeName ?? data?.emp_name ?? data?.empName ?? data?.name
+          ) === normalizedTargetName;
+        });
+
+        if (nameMatches.length === 1) {
+          row = nameMatches[0];
+        } else if (nameMatches.length > 1 && targetEmployee) {
+          const idMatches = nameMatches.filter((candidate: any) =>
+            `${this.resolveEmployeeId(candidate?.getData?.()) ?? ''}` === targetEmployee
+          );
+          if (idMatches.length === 1) row = idMatches[0];
+        } else if (nameMatches.length === 0 && targetEmployee) {
+          const idMatches = datedRows.filter((candidate: any) =>
+            `${this.resolveEmployeeId(candidate?.getData?.()) ?? ''}` === targetEmployee
+          );
+          if (idMatches.length === 1) row = idMatches[0];
+        }
+      } else if (targetEmployee) {
+        const idMatches = datedRows.filter((candidate: any) =>
+          `${this.resolveEmployeeId(candidate?.getData?.()) ?? ''}` === targetEmployee
+        );
+        if (idMatches.length === 1) row = idMatches[0];
       }
-    }, 50);
+      if (!row) return;
+
+      const revealRow = typeof tableRef?.setPageToRow === 'function'
+        ? Promise.resolve(tableRef.setPageToRow(row)).catch(() => undefined)
+        : Promise.resolve();
+      return revealRow.finally(() => {
+        const element = row.getElement?.();
+        row.select?.();
+        element?.classList.add('dsr-request-highlight');
+        row.scrollTo?.('center', false);
+        element?.scrollIntoView?.({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      });
+    }, tableRef);
+  }
+
+  private normalizeNotificationDate(value: unknown): string | null {
+    if (!value) return null;
+    const raw = String(value).trim();
+    const direct = raw.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+    if (direct) return direct;
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return null;
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
 }

@@ -379,8 +379,13 @@ export class OverviewTaskComponent implements AfterViewInit, OnDestroy {
                 this.openTaskPreview(rowData);
                 return;
               }
-              this.persistNavigationDateRange(rowData);
-              this.router.navigate([`/main/projects/project-content/${rowData.projectid}/${rowData.id}`]);
+              this.router.navigate(['/main/tasks', rowData.projectid, rowData.id], {
+                queryParams: {
+                  tasktype: rowData.task_type || this.type || 'requirement',
+                  fromdate: this.startDate || null,
+                  todate: this.endDate || null
+                }
+              });
             }
           }
         },

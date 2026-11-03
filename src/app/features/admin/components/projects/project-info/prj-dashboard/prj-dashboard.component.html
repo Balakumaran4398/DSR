@@ -35,9 +35,9 @@
 
                 <mat-form-field appearance="outline" class="text-sm custom-date-range w-full" subscriptSizing="dynamic">
                     <mat-date-range-input [rangePicker]="picker">
-                        <input matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate"
+                        <input appDatePickerOnly matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate"
                             class="dashboard-date-input font-medium" />
-                        <input matEndDate placeholder="End Date" [(ngModel)]="filterEndDate"
+                        <input appDatePickerOnly matEndDate placeholder="End Date" [(ngModel)]="filterEndDate"
                             class="dashboard-date-input font-medium" />
                     </mat-date-range-input>
                     <mat-datepicker-toggle matIconSuffix [for]="picker" class="dashboard-date-toggle transition-colors">

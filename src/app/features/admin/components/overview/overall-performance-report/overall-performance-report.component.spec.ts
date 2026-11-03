@@ -61,6 +61,27 @@ describe('OverallPerformanceReportComponent loading', () => {
 
   afterEach(() => component.ngOnDestroy());
 
+  it('shortens the Software Development Team department label across report displays and exports', () => {
+    const section = {
+      departmentName: '',
+      title: 'SOFTWARE-DEVELOPMENT TEAM DEPARTMENT - Task Report',
+      reportKind: 'task',
+      reportTitle: 'Task Report',
+      summary: [],
+      columns: [],
+      filteredRows: []
+    } as any;
+
+    expect(component.getDisplayDepartmentName('Software Development Team Department'))
+      .toBe('Software Development Team');
+    expect(component.getDepartmentEyebrow('SOFTWARE-DEVELOPMENT TEAM DEPARTMENT'))
+      .toBe('Software Development Team');
+    expect(component.getDepartmentName(section)).toBe('Software Development Team');
+    expect((component as any).buildExcelSections([section])[0].departmentName)
+      .toBe('Software Development Team');
+    expect(component.getDepartmentEyebrow('Sales')).toBe('Sales Department');
+  });
+
   it('uses the shared ten-row viewport threshold for report page sizes', () => {
     const section = (component as any).createSection(
       'department-1-task',
@@ -99,6 +120,37 @@ describe('OverallPerformanceReportComponent loading', () => {
       expect((component as any).buildExcelSections([section])[0].rows[0][hoursIndex]).toBe('08:00:00');
     });
   });
+  it('shows source and destination assignment departments in ticket tables and Excel exports', () => {
+    (component as any).departmentList = [
+      { id: 10, department_name: 'Sales' },
+      { id: 20, department_name: 'Engineering' }
+    ];
+
+    const section = (component as any).buildTicketSection([
+      {
+        id: 1,
+        assigned_from_name: 'Asha',
+        assigned_from_department_id: 10,
+        assigned_to_name: 'Bala',
+        assigned_to_department: { department_id: 20 }
+      },
+      { id: 2, assigned_from_name: 'Chitra', assigned_to_name: 'Deepak' }
+    ], 'department-1-ticket', createDepartment(1), 'Tickets Report');
+    const excelSection = (component as any).buildExcelSections([section])[0];
+    const fromDepartmentIndex = section.columns.indexOf('Assigned From Department');
+    const toDepartmentIndex = section.columns.indexOf('Assigned To Department');
+
+    expect(fromDepartmentIndex).toBe(section.columns.indexOf('Assigned From') + 1);
+    expect(toDepartmentIndex).toBe(section.columns.indexOf('Assigned To') + 1);
+    expect(section.rows[0].cells[fromDepartmentIndex]).toBe('Sales');
+    expect(section.rows[0].cells[toDepartmentIndex]).toBe('Engineering');
+    expect(section.rows[1].cells[fromDepartmentIndex]).toBe('-');
+    expect(section.rows[1].cells[toDepartmentIndex]).toBe('-');
+    expect(excelSection.headers).toEqual(section.columns);
+    expect(excelSection.rows[0][fromDepartmentIndex]).toBe('Sales');
+    expect(excelSection.rows[0][toDepartmentIndex]).toBe('Engineering');
+  });
+
 
   it('uses the first Upcoming transition for before, exact, and overdue colors in table, Excel, and PDF', () => {
     const department = createDepartment(1);

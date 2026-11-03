@@ -1,11 +1,14 @@
-import { AfterViewInit, Component, ElementRef, HostListener, Input, ViewChild } from '@angular/core';
-import { Subject, Subscription, takeUntil } from 'rxjs';
+import { AfterViewInit, Component, ElementRef, HostListener, Input, OnChanges, SimpleChanges, ViewChild } from '@angular/core';
+import { Subject, Subscription, takeLast, takeUntil } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { PdfService } from 'src/app/_core/services/pdf.service';
+import { ExcelService, TableWorkbookExcelSection } from 'src/app/_core/services/excel.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
+import { NotificationNavigationService } from 'src/app/_core/services/notification-navigation.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
+import { DateRangeChange } from 'src/app/_shared/components/date-range-filter/date-range-filter.component';
 import { ActivatedRoute } from '@angular/router';
 import Swal from 'sweetalert2';
 declare const Tabulator: any;
@@ -14,10 +17,11 @@ declare const Tabulator: any;
   templateUrl: './tickets.component.html',
   styleUrls: ['./tickets.component.scss']
 })
-export class TicketsComponent implements AfterViewInit {
+export class TicketsComponent implements AfterViewInit, OnChanges {
 
   @ViewChild('tableDiv') tableDiv!: ElementRef;
   @Input() isRaisedTickets = false;
+  @Input() notificationTicketId: string | null = null;
 
   private table: any;
   private destroy$ = new Subject<void>();
@@ -25,8 +29,11 @@ export class TicketsComponent implements AfterViewInit {
   private ticketRequestVersion = 0;
   private activeTicketRangeKey = '';
   private hasRenderedTickets = false;
+  private notificationTicketOpened = false;
+  private notificationTicketTimer?: ReturnType<typeof setTimeout>;
   private tableCompactMode = false;
   private resizeTimer?: ReturnType<typeof setTimeout>;
+  canSelectDepartment = false;
   private tableRenderTimer?: ReturnType<typeof setTimeout>;
   canSelectEmployee = false;
   searchTerm: any = '';
@@ -55,11 +62,13 @@ export class TicketsComponent implements AfterViewInit {
   initialEndDate: string | null = null;
   startDate: string = '';
   endDate: string = '';
+  private ticketRangePreset: string | null = null;
   statusList: any[] = [];
   statusEditorValues: Array<{ label: string; value: string }> = [];
 
   hasViewedPdf = false;
   ticketPdfExporting = false;
+  ticketExcelExporting = false;
 
   isHardware: boolean = false;
   categories: any[] = [
@@ -88,11 +97,14 @@ export class TicketsComponent implements AfterViewInit {
     private toasterService: ToasterService,
     private storageService: StorageService,
     private pdfService: PdfService,
-    private router: ActivatedRoute
+    private excelService: ExcelService,
+    private router: ActivatedRoute,
+    private notificationNavigationService: NotificationNavigationService = new NotificationNavigationService()
   ) {
     const roles = this.storageService.roles;
     this.isHardware = this.storageService.getDept() === 'Hardware';
     this.canSelectEmployee = !(roles?.isEmployee);
+    this.canSelectDepartment = !!roles?.isAdmin;
   }
 
   ngOnInit() {
@@ -100,7 +112,10 @@ export class TicketsComponent implements AfterViewInit {
     this.userId = this.storageService.getUserId();
     this.empId = this.storageService.getEmpId();
 
-    const notificationRange = this.getNotificationDateRangeFromParams(this.router.snapshot.queryParams);
+    const notificationContext = this.notificationNavigationService.resolve('ticket', this.notificationTicketId);
+    const notificationRange = notificationContext?.startDate && notificationContext?.endDate
+      ? { startDate: notificationContext.startDate, endDate: notificationContext.endDate }
+      : this.getNotificationDateRangeFromParams(this.router.snapshot.queryParams);
     if (notificationRange) {
       this.applyNotificationDateRange(notificationRange.startDate, notificationRange.endDate);
     } else {
@@ -109,8 +124,9 @@ export class TicketsComponent implements AfterViewInit {
 
     this.listenForDrawerActions();
     this.getStatus();
-    this.getEmployees();
-    if (!this.isRaisedTickets) {
+    if (this.isRaisedTickets) {
+      this.getEmployees();
+    } else {
       this.getDepartments();
     }
 
@@ -128,6 +144,23 @@ export class TicketsComponent implements AfterViewInit {
 
   ngAfterViewInit(): void {
     this.renderTicketsToTable();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    const ticketChange = changes['notificationTicketId'];
+    if (!ticketChange || ticketChange.firstChange) return;
+
+    this.notificationTicketOpened = false;
+    const context = this.notificationNavigationService.resolve('ticket', this.notificationTicketId);
+    if (context?.startDate && context?.endDate) {
+      this.applyNotificationDateRange(context.startDate, context.endDate);
+    }
+
+    if (this.empId && this.userId) {
+      this.getAllTickets();
+    } else {
+      this.scheduleNotificationTicketOpen();
+    }
   }
 
   private setDefaultDateRange(): void {
@@ -153,6 +186,9 @@ export class TicketsComponent implements AfterViewInit {
     }
     if (this.tableRenderTimer) {
       clearTimeout(this.tableRenderTimer);
+    }
+    if (this.notificationTicketTimer) {
+      clearTimeout(this.notificationTicketTimer);
     }
     if (this.table) {
       this.table.destroy();
@@ -213,6 +249,7 @@ export class TicketsComponent implements AfterViewInit {
   }
 
   private applyNotificationDateRange(startDate: string, endDate: string): void {
+    this.ticketRangePreset = null;
     this.startDate = startDate;
     this.endDate = endDate;
     this.initialStartDate = startDate;
@@ -251,6 +288,7 @@ export class TicketsComponent implements AfterViewInit {
     this.applyFilters(false);
     this.renderTicketsToTable();
     this.hasRenderedTickets = true;
+    this.scheduleNotificationTicketOpen();
   }
 
   private normalizeTicketRows(response: any): any[] {
@@ -328,14 +366,48 @@ export class TicketsComponent implements AfterViewInit {
       company_name: this.firstPresentDisplay(ticket?.company_name, ticket?.companyName, ticket?.client_name, ticket?.clientName, ticket?.client, ticket?.customer_name, ticket?.customerName, ticket?.customer, ticket?.organization) || '-',
       product_name: this.firstPresentDisplay(ticket?.product_name, ticket?.productName, ticket?.product, ticket?.project_name, ticket?.projectName, ticket?.project_title, ticket?.projectTitle, ticket?.overall_ticket_project) || '-',
       type: this.firstPresentDisplay(ticket?.type, ticket?.ticket_type, ticket?.ticketType, ticket?.product_type, ticket?.productType) || '-',
-      assigned_from_name: this.firstPresentDisplay(ticket?.assigned_from_name, ticket?.assignedFromName, ticket?.assigned_by_name, ticket?.assignedByName, ticket?.created_by_name, ticket?.createdByName, ticket?.raised_by_name, ticket?.raisedByName) || '-',
-      assigned_to_name: this.firstPresentDisplay(ticket?.assigned_to_name, ticket?.assignedToName, ticket?.employee_name, ticket?.employeeName, ticket?.emp_name, ticket?.empName, ticket?.owner_name, ticket?.ownerName, ticket?.assignee_name, ticket?.assigneeName) || '-',
+      assigned_from_name: this.getAssignmentDisplayName(
+        [ticket?.assigned_from_name, ticket?.assignedFromName, ticket?.assign_from_name, ticket?.assignFromName, ticket?.assignee_from_name, ticket?.assigneeFromName, ticket?.assigned_by_name, ticket?.assignedByName, ticket?.created_by_name, ticket?.createdByName, ticket?.raised_by_name, ticket?.raisedByName],
+        this.firstPresent(ticket?.assigned_from, ticket?.assignedFrom, ticket?.assigned_from_id, ticket?.assignedFromId, ticket?.assign_from, ticket?.assignFrom, ticket?.assignee_from_id, ticket?.assigneeFromId)
+      ),
+      assigned_to_name: this.getAssignmentDisplayName(
+        [ticket?.assigned_to_name, ticket?.assignedToName, ticket?.assign_to_name, ticket?.assignToName, ticket?.employee_name, ticket?.employeeName, ticket?.emp_name, ticket?.empName, ticket?.owner_name, ticket?.ownerName, ticket?.assignee_name, ticket?.assigneeName],
+        this.firstPresent(ticket?.assigned_to, ticket?.assignedTo, ticket?.assigned_to_id, ticket?.assignedToId, ticket?.assign_to, ticket?.assignTo, ticket?.empId, ticket?.emp_id)
+      ),
       department_name: this.firstPresentDisplay(ticket?.department_name, ticket?.departmentName, ticket?.dept_name, ticket?.deptName, ticket?.department, ticket?.dept, ticket?.overall_ticket_department) || '-',
       created_date: this.firstPresent(ticket?.created_date, ticket?.createdDate, ticket?.createddate, ticket?.assigned_date, ticket?.assignedDate, ticket?.ticket_date, ticket?.ticketDate, ticket?.date),
       description: this.firstPresentDisplay(ticket?.description, ticket?.ticket_details, ticket?.ticketDetails, ticket?.details, ticket?.work_details, ticket?.workDetails, ticket?.work_report, ticket?.workReport, ticket?.remarks, ticket?.comments) || '-',
       status: this.getStatusName(rawStatus),
       version: this.firstPresentDisplay(ticket?.version, ticket?.product_version, ticket?.productVersion) || '-'
     };
+  }
+
+  private getAssignmentDisplayName(nameCandidates: any[], employeeId: any): string {
+    const explicitName = this.firstPresentDisplay(...nameCandidates);
+    if (explicitName && `${explicitName}`.trim() !== '-') {
+      return `${explicitName}`;
+    }
+
+    return this.findEmployeeName(employeeId) || '-';
+  }
+
+  private findEmployeeName(employeeId: any): string | null {
+    if (employeeId === null || employeeId === undefined || `${employeeId}`.trim() === '') {
+      return null;
+    }
+
+    const employee = [...this.apiEmployees, ...this.employees].find((candidate: any) => {
+      const candidateIds = [
+        candidate?.filter_id, candidate?.id, candidate?.employee_id,
+        candidate?.employeeid, candidate?.emp_id, candidate?.empId,
+        candidate?.user_id, candidate?.userId
+      ].filter(value => value !== null && value !== undefined && `${value}`.trim() !== '');
+      return candidateIds.some(id => this.isSameId(employeeId, id));
+    });
+
+    return employee
+      ? this.firstPresentDisplay(employee?.employee_name, employee?.employeeName, employee?.name, `${employee?.firstname ?? ''} ${employee?.lastname ?? ''}`.trim())
+      : null;
   }
 
   private extractTicketRows(response: any, depth = 0): any[] {
@@ -470,7 +542,9 @@ export class TicketsComponent implements AfterViewInit {
   }
 
 
-  onRangeChange(event: { startDate: Date; endDate: Date }): void {
+  onRangeChange(event: DateRangeChange): void {
+    this.ticketRangePreset = event.preset || null;
+
     const nextStartDate = this.formatDateToYMD(event.startDate);
     const nextEndDate = this.formatDateToYMD(event.endDate);
     const nextRangeKey = this.buildTicketRangeKey(nextStartDate, nextEndDate);
@@ -481,8 +555,6 @@ export class TicketsComponent implements AfterViewInit {
 
     this.startDate = nextStartDate;
     this.endDate = nextEndDate;
-    this.initialStartDate = this.startDate;
-    this.initialEndDate = this.endDate;
 
     this.getAllTickets();
   }
@@ -559,9 +631,44 @@ export class TicketsComponent implements AfterViewInit {
         requestAnimationFrame(() => {
           if (this.table) {
             this.table.redraw(true);
+            this.scheduleNotificationTicketOpen();
           }
         });
       });
+  }
+
+  private scheduleNotificationTicketOpen(attempt = 0): void {
+    if (!this.notificationTicketId || this.notificationTicketOpened) return;
+    if (this.notificationTicketTimer) clearTimeout(this.notificationTicketTimer);
+
+    this.notificationTicketTimer = setTimeout(() => {
+      const ticket = this.tickets.find(item => this.matchesNotificationTicket(item));
+      if (!ticket) {
+        if (attempt < 8 && (this.ticketRequest || !this.hasRenderedTickets)) {
+          this.scheduleNotificationTicketOpen(attempt + 1);
+        }
+        return;
+      }
+
+      const row = this.table?.getRows?.().find((candidate: any) => this.matchesNotificationTicket(candidate?.getData?.()));
+      const revealRow = row && typeof this.table?.setPageToRow === 'function'
+        ? Promise.resolve(this.table.setPageToRow(row)).catch(() => undefined)
+        : Promise.resolve();
+
+      revealRow.finally(() => {
+        row?.select?.();
+        row?.getElement?.().classList.add('notification-ticket-highlight');
+        row?.scrollTo?.('center', false);
+        this.notificationTicketOpened = true;
+      });
+    }, 75);
+  }
+
+  private matchesNotificationTicket(ticket: any): boolean {
+    if (!ticket || !this.notificationTicketId) return false;
+    const target = String(this.notificationTicketId).trim();
+    return [ticket?.ticket_id, ticket?.ticketId, ticket?.ticketid, ticket?.id, ticket?.code]
+      .some(value => value !== null && value !== undefined && String(value).trim() === target);
   }
 
   private buildTicketRangeKey(startDate: string, endDate: string): string {
@@ -790,30 +897,7 @@ export class TicketsComponent implements AfterViewInit {
           responsive: 1,
           hozAlign: "left",
           editor: "list",
-          editorParams: (cell: any) => {
-            const rowData = cell.getRow().getData();
-            const loggedInEmpId = this.storageService.getEmpId();
-            const isAdmin = this.storageService.roles?.isAdmin;
-            const assignedFrom = this.getAssignedFromId(rowData);
-            const assignedTo = this.getAssignedToId(rowData);
-
-            const isAssignedFromUser = this.isSameId(loggedInEmpId, assignedFrom);
-            const sameAssigneeAndAssigner = this.isSameId(assignedFrom, assignedTo);
-
-            // Full list: admin, the assigner, or when assigned_from === assigned_to
-            const canSeeClosed = isAdmin || isAssignedFromUser || sameAssigneeAndAssigner;
-
-            const values = canSeeClosed
-              ? this.statusEditorValues
-              : this.statusEditorValues.filter((v: any) => !this.isClosedTicketStatus(v.label));
-
-            return {
-              values,
-              autocomplete: true,
-              listOnEmpty: true,
-              clearable: true
-            };
-          },
+          editorParams: (cell: any) => this.getStatusEditorParams(cell),
           tooltip: (_e: any, cell: any) => this.getStatusBadgeMeta(cell.getValue()).text,
           formatter: (cell: any) => {
             const s = this.getStatusBadgeMeta(cell.getValue());
@@ -922,7 +1006,7 @@ export class TicketsComponent implements AfterViewInit {
         return;
       }
 
-      this.updateTicketStatus(rowData);
+      this.updateTicketStatus(rowData, cell);
     });
   }
 
@@ -1162,8 +1246,16 @@ export class TicketsComponent implements AfterViewInit {
   }
 
   onDepartmentFilterChange(value: any): void {
+    if (!this.canSelectDepartment) return;
+
     this.selectedDepartmentId = value || '';
+    this.selectedEmployeeId = '';
+    this.employeeSearchTerm = '';
+    this.apiEmployees = [];
+    this.ticketEmployees = this.getScopedTicketEmployeeOptions();
+    this.refreshEmployeeOptions();
     this.applyFilters();
+    this.getEmployees(this.getSelectedDepartmentApiId());
   }
 
   clearEmployeeFilter(): void {
@@ -1203,39 +1295,27 @@ export class TicketsComponent implements AfterViewInit {
   }
 
   private applyFilters(updateTable = true): void {
-    const searchValue = `${this.searchTerm ?? ''}`.trim().toLowerCase();
-
-    this.tickets = this.allTickets.filter((ticket: any) => {
-      const matchesSearch = !searchValue || [
-        ticket?.ticket_name,
-        ticket?.code,
-        ticket?.description,
-        ticket?.assigned_from_name,
-        ticket?.assigned_to_name,
-        ticket?.company_name,
-        ticket?.product_name,
-        ticket?.department_name
-      ].some((value: any) => `${value ?? ''}`.toLowerCase().includes(searchValue));
-
-      const matchesStatus = this.selectedStatus === '' || this.statusesMatch(ticket?.status, this.selectedStatus);
-      const matchesEmployee = this.ticketMatchesEmployee(ticket);
-      const matchesDepartment = this.isRaisedTickets || this.ticketMatchesDepartment(ticket);
-
-      return matchesSearch && matchesStatus && matchesEmployee && matchesDepartment;
-    });
+    this.tickets = this.filterTicketRows(this.allTickets);
 
     if (updateTable && this.table) {
       this.syncTableData();
     }
   }
 
-  private getEmployees(): void {
-    this.authService.getEmployeeList()
+  private getEmployees(departmentId: any = ''): void {
+    const request = !this.isRaisedTickets && departmentId !== null && departmentId !== undefined && `${departmentId}`.trim() !== ''
+      ? this.authService.getEmployeeListByDepartment(departmentId)
+      : this.authService.getEmployeeList();
+    request
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res: any) => {
           const list = Array.isArray(res) ? res : (res?.data ?? res?.employees ?? []);
           this.apiEmployees = this.normalizeEmployeeOptions(list);
+          this.allTickets = this.allTickets.map((ticket: any) => this.normalizeTicketRow(ticket));
+          if (!this.isRaisedTickets && !this.canSelectEmployee) {
+            this.ensureLoggedInEmployeeOption();
+          }
           this.refreshEmployeeOptions();
         },
         error: () => {
@@ -1253,6 +1333,9 @@ export class TicketsComponent implements AfterViewInit {
           const list = Array.isArray(res) ? res : (res?.data ?? res?.departments ?? []);
           this.apiDepartments = this.normalizeDepartmentOptions(list);
           this.refreshDepartmentOptions();
+          this.selectDefaultDepartment();
+          this.ticketEmployees = this.getScopedTicketEmployeeOptions();
+          this.getEmployees(this.getSelectedDepartmentApiId());
         },
         error: () => {
           this.apiDepartments = [];
@@ -1262,10 +1345,15 @@ export class TicketsComponent implements AfterViewInit {
   }
 
   private rebuildTicketFilterOptions(): void {
-    this.ticketEmployees = this.getTicketEmployeeOptions(this.allTickets);
     this.ticketDepartments = this.getTicketDepartmentOptions(this.allTickets);
-    this.refreshEmployeeOptions();
     this.refreshDepartmentOptions();
+    if (!this.isRaisedTickets) {
+      this.selectDefaultDepartment();
+    }
+    this.ticketEmployees = this.isRaisedTickets
+      ? this.getTicketEmployeeOptions(this.allTickets)
+      : this.getScopedTicketEmployeeOptions();
+    this.refreshEmployeeOptions();
   }
 
   private refreshEmployeeOptions(): void {
@@ -1273,25 +1361,198 @@ export class TicketsComponent implements AfterViewInit {
       [...this.apiEmployees, ...this.ticketEmployees],
       (item: any) => item.filter_id || item.employee_name
     );
+
+    if (!this.isRaisedTickets && !this.canSelectEmployee) {
+      this.selectLoggedInEmployee();
+    }
+
     this.applyEmployeeSearch();
 
     if (this.selectedEmployeeId && !this.employees.some((emp: any) => this.isSameId(emp.filter_id, this.selectedEmployeeId))) {
       this.selectedEmployeeId = '';
+    }
+
+    if (!this.isRaisedTickets) {
       this.applyFilters();
     }
   }
 
   private refreshDepartmentOptions(): void {
-    this.departments = this.mergeOptions(
+    const mergedDepartments = this.mergeOptions(
       [...this.apiDepartments, ...this.ticketDepartments],
       (item: any) => item.filter_id || item.department_name
     );
+    this.departments = !this.isRaisedTickets && !this.canSelectDepartment ? this.getLoggedInDepartments(mergedDepartments) : mergedDepartments;
     this.applyDepartmentSearch();
 
     if (this.selectedDepartmentId && !this.departments.some((dept: any) => this.isSameId(dept.filter_id, this.selectedDepartmentId))) {
       this.selectedDepartmentId = '';
       this.applyFilters();
     }
+  }
+
+  private selectDefaultDepartment(): void {
+    if (this.isRaisedTickets || this.canSelectDepartment || this.selectedDepartmentId || !this.departments.length) {
+      return;
+    }
+
+    const storedValues = this.getLoggedInDepartmentValues();
+    const selected = this.departments.find((department: any) =>
+      this.normalizeFilterKeys([
+        department?.filter_id,
+        department?.id,
+        department?.department_id,
+        department?.departmentId,
+        department?.dept_id,
+        department?.deptid,
+        department?.department_name,
+        department?.departmentName,
+        department?.name
+      ]).some(key => storedValues.includes(key))
+    ) || (this.canSelectDepartment ? null : this.departments[0]);
+
+    this.selectedDepartmentId = selected?.filter_id || '';
+  }
+
+  private getLoggedInDepartments(departments: any[]): any[] {
+    const storedValues = this.getLoggedInDepartmentValues();
+    const matches = departments.filter((department: any) =>
+      this.normalizeFilterKeys([
+        department?.filter_id,
+        department?.id,
+        department?.department_id,
+        department?.departmentId,
+        department?.dept_id,
+        department?.deptid,
+        department?.department_name,
+        department?.departmentName,
+        department?.name
+      ]).some(key => storedValues.includes(key))
+    );
+
+    if (matches.length) {
+      return matches.slice(0, 1);
+    }
+
+    const user = this.storageService.getUser() || {};
+    const id = this.firstPresent(
+      user?.department_id,
+      user?.departmentId,
+      user?.departmentid,
+      user?.dept_id,
+      user?.deptId,
+      user?.deptid
+    );
+    const name = this.firstPresent(
+      this.storageService.getDept(),
+      user?.department_name,
+      user?.departmentName,
+      user?.department,
+      user?.dept_name,
+      user?.deptName
+    );
+    const filterId = this.firstPresent(id, name);
+
+    return filterId && name
+      ? [{ filter_id: String(filterId), id, department_name: String(name) }]
+      : [];
+  }
+
+  private getLoggedInDepartmentValues(): string[] {
+    const user = this.storageService.getUser() || {};
+
+    return this.normalizeFilterKeys([
+      user?.department_id,
+      user?.departmentId,
+      user?.departmentid,
+      user?.dept_id,
+      user?.deptId,
+      user?.deptid,
+      this.storageService.getDept(),
+      user?.department_name,
+      user?.departmentName,
+      user?.department,
+      user?.dept_name,
+      user?.deptName
+    ]);
+  }
+
+  private ensureLoggedInEmployeeOption(): void {
+    const user = this.storageService.getUser() || {};
+    const employeeId = this.firstPresent(
+      this.empId,
+      user?.employee_id,
+      user?.employeeId,
+      user?.employeeid,
+      user?.emp_id
+    );
+    const employeeName = this.firstPresent(
+      this.storageService.getEmpName(),
+      user?.employee_name,
+      user?.employeeName,
+      user?.name,
+      `${user?.firstname ?? ''} ${user?.lastname ?? ''}`.trim()
+    );
+
+    if (!employeeId || !employeeName) {
+      return;
+    }
+
+    const employeeKeys = this.normalizeFilterKeys([employeeId, employeeName]);
+    const exists = this.apiEmployees.some((employee: any) =>
+      this.normalizeFilterKeys([
+        employee?.filter_id,
+        employee?.id,
+        employee?.employee_id,
+        employee?.emp_id,
+        employee?.employee_name
+      ]).some(key => employeeKeys.includes(key))
+    );
+
+    if (!exists) {
+      this.apiEmployees.push({
+        filter_id: String(employeeId),
+        id: employeeId,
+        employee_id: employeeId,
+        employee_name: String(employeeName)
+      });
+    }
+  }
+
+  private selectLoggedInEmployee(): void {
+    const user = this.storageService.getUser() || {};
+    const storedValues = this.normalizeFilterKeys([
+      this.empId,
+      user?.employee_id,
+      user?.employeeId,
+      user?.employeeid,
+      user?.emp_id,
+      this.storageService.getEmpName(),
+      user?.employee_name,
+      user?.employeeName,
+      user?.name
+    ]);
+    const selected = this.employees.find((employee: any) =>
+      this.normalizeFilterKeys([
+        employee?.filter_id,
+        employee?.id,
+        employee?.employee_id,
+        employee?.employeeid,
+        employee?.emp_id,
+        employee?.employee_name,
+        employee?.name
+      ]).some(key => storedValues.includes(key))
+    );
+
+    this.selectedEmployeeId = selected?.filter_id || this.empId || '';
+  }
+
+  private getScopedTicketEmployeeOptions(): any[] {
+    const scopedTickets = !this.selectedDepartmentId
+      ? this.allTickets
+      : this.allTickets.filter((ticket: any) => this.ticketMatchesDepartment(ticket));
+
+    return this.getTicketEmployeeOptions(scopedTickets);
   }
 
   private applyEmployeeSearch(): void {
@@ -1458,7 +1719,34 @@ export class TicketsComponent implements AfterViewInit {
       ticket?.deptName
     ]);
 
-    return selectedKeys.some((key) => ticketKeys.includes(key));
+    if (selectedKeys.some((key) => ticketKeys.includes(key))) {
+      return true;
+    }
+
+    // Some overall-ticket API rows omit department fields. For managers, use
+    // membership of either assignment in the already department-scoped employee
+    // list so those department tickets are not discarded.
+    if (this.storageService.roles?.isManager) {
+      const assignedEmployeeIds = [
+        ticket?.assigned_to, ticket?.assignedTo, ticket?.assigned_to_id,
+        ticket?.assignedToId, ticket?.empId, ticket?.emp_id,
+        ticket?.assigned_from, ticket?.assignedFrom, ticket?.assigned_from_id,
+        ticket?.assignedFromId, ticket?.assign_from, ticket?.assignFrom
+      ].filter(value => value !== null && value !== undefined && `${value}`.trim() !== '');
+
+      return this.apiEmployees.some((employee: any) => {
+        const employeeIds = [
+          employee?.filter_id, employee?.id, employee?.employee_id,
+          employee?.employeeid, employee?.emp_id, employee?.empId,
+          employee?.user_id, employee?.userId
+        ].filter(value => value !== null && value !== undefined && `${value}`.trim() !== '');
+        return assignedEmployeeIds.some(ticketId =>
+          employeeIds.some(employeeId => this.isSameId(ticketId, employeeId))
+        );
+      });
+    }
+
+    return false;
   }
 
   private normalizeFilterKeys(values: any[]): string[] {
@@ -1489,60 +1777,113 @@ export class TicketsComponent implements AfterViewInit {
       return;
     }
 
-    if (this.ticketPdfExporting) {
+    if (this.ticketPdfExporting || this.ticketExcelExporting) {
       return;
     }
 
     this.ticketPdfExporting = true;
+    const exportRange = this.resolveTicketExportRange();
+    const filters = this.getTicketExportFilters('pdf', exportRange);
 
-    const filters = this.getTicketPdfFilters();
+    this.loadFilteredTicketExportRows(
+      exportRange,
+      (source: any[]) => {
+        if (!source.length) {
+          this.ticketPdfExporting = false;
+          this.toasterService.error('No ticket data found for PDF');
+          return;
+        }
 
-    if (!this.isRaisedTickets && this.selectedDepartmentId) {
-      const deptId = this.getSelectedDepartmentApiId();
+        try {
+          this.pdfService.generateTicketsPDF(
+            filters,
+            exportRange.startDate,
+            exportRange.endDate,
+            source,
+            'download'
+          );
+          this.toasterService.success('PDF downloaded successfully');
+        } catch (error) {
+          console.error('Ticket PDF generation error:', error);
+          this.toasterService.error('Failed to generate PDF');
+        } finally {
+          this.ticketPdfExporting = false;
+        }
+      },
+      (error: any) => {
+        console.error('Ticket export list error:', error);
+        this.ticketPdfExporting = false;
+        this.toasterService.error('Failed to load ticket report data');
+      }
+    );
+  }
 
-      this.authService.getTicketReportByDept(deptId, this.startDate, this.endDate)
-        .pipe(takeUntil(this.destroy$))
-        .subscribe({
-          next: (res: any) => {
-            const reportData = this.extractTicketReportRows(res);
-            const source = reportData.length ? reportData : this.tickets;
-
-            if (!source.length) {
-              this.finishTicketPdfExport();
-              this.toasterService.error('No ticket report data found');
-              return;
-            }
-
-            this.downloadTicketWorkReportPdf(filters, source);
-          },
-          error: (error: any) => {
-            console.error('Ticket department report error:', error);
-            this.finishTicketPdfExport();
-            this.toasterService.error('Failed to load department ticket report');
-          }
-        });
+  generateTicketsExcel(): void {
+    if (!this.hasValidTicketReportDateRange()) {
+      this.toasterService.error('Please select a date range first');
       return;
     }
 
-    this.authService.getAllTickets(this.empId, this.userId, this.startDate, this.endDate)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (res: any) => {
-          const source = this.getFilteredTicketRowsForPdf(res);
+    if (this.ticketExcelExporting || this.ticketPdfExporting) {
+      return;
+    }
 
-          if (!source.length) {
-            this.finishTicketPdfExport();
-            this.toasterService.error('No ticket data found for PDF');
-            return;
-          }
+    this.ticketExcelExporting = true;
+    const exportRange = {
+      startDate: this.startDate,
+      endDate: this.endDate,
+      monthlySummary: false,
+      monthLabel: ''
+    };
+    const filters = this.getTicketExportFilters('xlsx', exportRange);
 
-          this.downloadOverallTicketsPdf(filters, source);
-        },
-        error: (error: any) => {
-          console.error('Ticket report list error:', error);
-          this.finishTicketPdfExport();
-          this.toasterService.error('Failed to load ticket report data');
+    this.loadFilteredTicketExportRows(
+      exportRange,
+      (source: any[]) => {
+        if (!source.length) {
+          this.ticketExcelExporting = false;
+          this.toasterService.error('No ticket data found for Excel');
+          return;
         }
+
+        try {
+          const section = this.buildTicketExcelSection(filters, source, exportRange);
+          this.excelService.generateTableWorkbookExcel({
+            workbookTitle: filters.reportTitle,
+            author: filters.generatedBy,
+            fromDate: exportRange.startDate,
+            toDate: exportRange.endDate,
+            departmentName: filters.department,
+            scopeLabel: 'Department',
+            scopeName: filters.department,
+            filename: filters.filename
+          }, [section]);
+          this.toasterService.success('Excel downloaded successfully');
+        } catch (error) {
+          console.error('Ticket Excel generation error:', error);
+          this.toasterService.error('Failed to generate Excel');
+        } finally {
+          this.ticketExcelExporting = false;
+        }
+      },
+      (error: any) => {
+        console.error('Ticket export list error:', error);
+        this.ticketExcelExporting = false;
+        this.toasterService.error('Failed to load ticket report data');
+      }
+    );
+  }
+
+  private loadFilteredTicketExportRows(
+    exportRange: { startDate: string; endDate: string },
+    onSuccess: (rows: any[]) => void,
+    onError: (error: any) => void
+  ): void {
+    this.authService.getAllTickets(this.empId, this.userId, exportRange.startDate, exportRange.endDate)
+      .pipe(takeUntil(this.destroy$), takeLast(1))
+      .subscribe({
+        next: (res: any) => onSuccess(this.getFilteredTicketRowsForExport(res)),
+        error: onError
       });
   }
 
@@ -1550,18 +1891,81 @@ export class TicketsComponent implements AfterViewInit {
     return !!this.startDate && !!this.endDate && new Date(this.startDate) <= new Date(this.endDate);
   }
 
-  private getTicketPdfFilters(): any {
-    const selectedDepartment = this.getSelectedDepartmentOption();
-    const selectedEmployee = this.getSelectedEmployeeOption();
+  private resolveTicketExportRange(): {
+    startDate: string;
+    endDate: string;
+    monthlySummary: boolean;
+    monthLabel: string;
+  } {
+    const start = this.parseTicketDate(this.startDate);
+    const end = this.parseTicketDate(this.endDate);
+    const isMonthPreset = this.ticketRangePreset === 'This Month' || this.ticketRangePreset === 'Last Month';
+    const isCompleteMonth = !!start && !!end &&
+      start.getFullYear() === end.getFullYear() &&
+      start.getMonth() === end.getMonth() &&
+      start.getDate() === 1 &&
+      end.getDate() === new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
+
+    if (!start || !end || (!isMonthPreset && !isCompleteMonth)) {
+      return {
+        startDate: this.startDate,
+        endDate: this.endDate,
+        monthlySummary: false,
+        monthLabel: ''
+      };
+    }
+
+    const monthStart = new Date(start.getFullYear(), start.getMonth(), 1);
+    const monthEnd = new Date(start.getFullYear(), start.getMonth() + 1, 0);
 
     return {
-      generatedBy: this.storageService.getEmpName() || this.storageService.getUsername(),
-      department: selectedDepartment?.department_name || 'All Departments',
-      selectedEmployee: selectedEmployee?.employee_name || '',
-      reportTitle: selectedDepartment?.department_name
-        ? `${selectedDepartment.department_name} Work Report`
-        : 'Ticket Work Report'
+      startDate: this.formatDateToYMD(monthStart),
+      endDate: this.formatDateToYMD(monthEnd),
+      monthlySummary: true,
+      monthLabel: monthStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     };
+  }
+
+  private parseTicketDate(value: string): Date | null {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
+    if (!match) {
+      return null;
+    }
+
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return date.getFullYear() === Number(match[1]) &&
+      date.getMonth() === Number(match[2]) - 1 &&
+      date.getDate() === Number(match[3])
+      ? date
+      : null;
+  }
+
+  private getTicketExportFilters(
+    extension: 'pdf' | 'xlsx',
+    exportRange: { startDate: string; endDate: string; monthlySummary: boolean; monthLabel: string }
+  ): any {
+    const selectedDepartment = this.getSelectedDepartmentOption();
+    const selectedEmployee = this.getSelectedEmployeeOption();
+    const department = selectedDepartment?.department_name || 'All Departments';
+    const reportTitle = `${department} Tickets`;
+    const filenameBase = `${this.sanitizeTicketExportPart(department)}_TICKETS_${exportRange.startDate}_to_${exportRange.endDate}`;
+
+    return {
+      generatedBy: this.storageService.getEmpName() || this.storageService.getUsername() || 'System User',
+      department,
+      selectedEmployee: selectedEmployee?.employee_name || 'All Employees',
+      reportTitle,
+      filename: `${filenameBase}.${extension}`,
+      monthlySummary: exportRange.monthlySummary,
+      monthLabel: exportRange.monthLabel
+    };
+  }
+
+  private sanitizeTicketExportPart(value: any): string {
+    return `${value || 'ALL_DEPARTMENTS'}`
+      .replace(/[^a-z0-9]+/gi, '_')
+      .replace(/^_+|_+$/g, '')
+      .toUpperCase() || 'ALL_DEPARTMENTS';
   }
 
   private getSelectedDepartmentApiId(): any {
@@ -1585,21 +1989,16 @@ export class TicketsComponent implements AfterViewInit {
     return this.employees.find((employee: any) => this.isSameId(employee?.filter_id, this.selectedEmployeeId)) || null;
   }
 
-  private getFilteredTicketRowsForPdf(response: any): any[] {
-    const source = Array.isArray(response) ? response : (response?.data ?? response?.tickets ?? response?.result ?? []);
-    const processedData = (Array.isArray(source) ? source : []).map((ticket: any) => ({
-      ...ticket,
-      version: ticket?.version && String(ticket.version).trim() !== '' ? ticket.version : '-'
-    }));
-
-    const tickets = this.isRaisedTickets
-      ? processedData.filter((ticket: any) => ticket?.status !== 4)
-      : processedData;
-
-    return this.filterTicketRowsForPdf(tickets);
+  private getFilteredTicketRowsForExport(response: any): any[] {
+    const tickets = this.normalizeTicketRows(response);
+    return this.filterTicketRowsForExport(tickets);
   }
 
-  private filterTicketRowsForPdf(tickets: any[]): any[] {
+  private filterTicketRowsForExport(tickets: any[]): any[] {
+    return this.filterTicketRows(tickets);
+  }
+
+  private filterTicketRows(tickets: any[]): any[] {
     const searchValue = `${this.searchTerm ?? ''}`.trim().toLowerCase();
 
     return (Array.isArray(tickets) ? tickets : []).filter((ticket: any) => {
@@ -1616,162 +2015,204 @@ export class TicketsComponent implements AfterViewInit {
 
       const matchesStatus = this.selectedStatus === '' || this.statusesMatch(ticket?.status, this.selectedStatus);
       const matchesEmployee = this.ticketMatchesEmployee(ticket);
-      const matchesDepartment = this.isRaisedTickets || !this.selectedDepartmentId || this.ticketMatchesDepartment(ticket);
+      const matchesDepartment = this.isRaisedTickets || this.ticketMatchesDepartment(ticket);
 
       return matchesSearch && matchesStatus && matchesEmployee && matchesDepartment;
     });
   }
 
-  private extractTicketReportRows(response: any, depth = 0): any[] {
-    if (Array.isArray(response)) {
-      return response;
-    }
-
-    if (!response || typeof response !== 'object' || depth > 3) {
-      return [];
-    }
-
-    const preferredKeys = [
-      'data',
-      'result',
-      'results',
-      'ticketReport',
-      'ticket_report',
-      'tickets',
-      'report',
-      'rows',
-      'list',
-      'content',
-      'payload'
+  private buildTicketExcelSection(
+    filters: any,
+    tickets: any[],
+    exportRange: { startDate: string; endDate: string }
+  ): TableWorkbookExcelSection {
+    const headers = [
+      'S.No', 'Date', 'Day', 'Code', 'Ticket', 'Client', 'Product', 'Department',
+      'Assigned From', 'Assigned To', 'Remarks', 'Worked Hrs', 'Entry Date', 'Status'
     ];
 
-    for (const key of preferredKeys) {
-      const rows = this.extractTicketReportRows(response[key], depth + 1);
-      if (rows.length) {
-        return rows;
-      }
-    }
+    const rows = this.buildTicketExcelCalendarRows(tickets, exportRange.startDate, exportRange.endDate);
 
-    const dateGroupedRows = this.extractDateGroupedTicketReportRows(response);
-    if (dateGroupedRows.length) {
-      return dateGroupedRows;
-    }
-
-    const nestedRows: any[] = [];
-    for (const value of Object.values(response)) {
-      const rows = this.extractTicketReportRows(value, depth + 1);
-      if (rows.length) {
-        nestedRows.push(...rows);
-      }
-    }
-
-    if (nestedRows.length) {
-      return nestedRows;
-    }
-
-    const objectRows = Object.entries(response)
-      .filter(([, value]: [string, any]) => value && typeof value === 'object' && !Array.isArray(value))
-      .map(([key, value]: [string, any]) => ({ date: value?.date || value?.work_date || key, ...value }));
-
-    return objectRows.length ? objectRows : [];
+    return {
+      title: filters.reportTitle,
+      reportTitle: filters.reportTitle,
+      departmentName: filters.department,
+      scopeLabel: 'Department',
+      scopeName: filters.department,
+      sheetName: 'Tickets',
+      highlightSundayRows: true,
+      summary: [
+        ['Employee', filters.selectedEmployee],
+        ['Total Tickets', tickets.length]
+      ],
+      headers,
+      rows
+    };
   }
 
-  private extractDateGroupedTicketReportRows(response: any): any[] {
-    const rows: any[] = [];
+  private buildTicketExcelCalendarRows(tickets: any[], startDate: string, endDate: string): any[][] {
+    const groupedRows: Record<string, any[]> = {};
 
-    for (const [dateKey, value] of Object.entries(response)) {
-      if (!this.isTicketReportDateKey(dateKey)) {
+    for (const ticket of tickets) {
+      const dateKey = this.getTicketExportDateKey(this.getTicketExportDateValue(ticket));
+      if (!dateKey) {
         continue;
       }
 
-      if (Array.isArray(value)) {
-        rows.push(...value.map((item: any) => this.withTicketReportDate(item, dateKey)));
+      if (!groupedRows[dateKey]) {
+        groupedRows[dateKey] = [];
+      }
+      groupedRows[dateKey].push(ticket);
+    }
+
+    const dateKeys = this.getTicketExportCalendarDateKeys(startDate, endDate, Object.keys(groupedRows));
+    const rows: any[][] = [];
+
+    for (const dateKey of dateKeys) {
+      const ticketsForDate = groupedRows[dateKey] || [];
+
+      if (!ticketsForDate.length) {
+        rows.push([
+          rows.length + 1,
+          this.formatTicketExportDate(dateKey),
+          this.getTicketExportDay(dateKey),
+          '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'
+        ]);
         continue;
       }
 
-      if (value && typeof value === 'object') {
-        for (const [employeeName, item] of Object.entries(value)) {
-          const row = this.withTicketReportDate(item, dateKey);
-          rows.push({
-            employee_name: row?.employee_name || employeeName,
-            ...row
-          });
-        }
+      for (const ticket of ticketsForDate) {
+        const dateValue = this.getTicketExportDateValue(ticket);
+        rows.push([
+          rows.length + 1,
+          this.formatTicketExportDate(dateKey),
+          this.getTicketExportDay(dateKey),
+          ticket?.code || '-',
+          ticket?.ticket_name || '-',
+          ticket?.company_name || '-',
+          ticket?.product_name || '-',
+          ticket?.department_name || '-',
+          ticket?.assigned_from_name || '-',
+          ticket?.assigned_to_name || '-',
+          this.getTicketExportRemarks(ticket),
+          this.firstPresent(ticket?.worked_hours, ticket?.workedHours, '-'),
+          this.formatTicketExportDateTime(this.firstPresent(ticket?.created_date, ticket?.createdDate, dateValue)),
+          this.firstPresent(ticket?.status, '-')
+        ]);
       }
     }
 
     return rows;
   }
 
-  private withTicketReportDate(item: any, dateKey: string): any {
-    if (item && typeof item === 'object') {
-      return {
-        ...item,
-        date: item?.date || item?.work_date || item?.ticket_date || item?.created_date || dateKey
-      };
+  private getTicketExportCalendarDateKeys(startDate: string, endDate: string, dataDateKeys: string[]): string[] {
+    const start = this.parseTicketExportDate(startDate);
+    const end = this.parseTicketExportDate(endDate);
+
+    if (start && end && start.getTime() <= end.getTime()) {
+      const keys: string[] = [];
+      const cursor = new Date(start);
+
+      while (cursor.getTime() <= end.getTime() && keys.length < 1500) {
+        keys.push(this.formatDateToYMD(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      if (keys.length) {
+        return keys;
+      }
     }
 
-    return {
-      date: dateKey,
-      ticket_not_found: item
-    };
+    return [...new Set(dataDateKeys.filter(Boolean))]
+      .sort((first: string, second: string) => first.localeCompare(second));
   }
 
-  private isTicketReportDateKey(value: string): boolean {
-    return /^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(value);
+  private getTicketExportDateValue(ticket: any): any {
+    return this.firstPresent(
+      ticket?.date,
+      ticket?.work_date,
+      ticket?.workDate,
+      ticket?.ticket_date,
+      ticket?.ticketDate,
+      ticket?.created_date,
+      ticket?.createdDate,
+      ticket?.assigned_date,
+      ticket?.assignedDate,
+      ticket?.updated_date,
+      ticket?.updatedDate,
+      ticket?.entry_date,
+      ticket?.entryDate
+    );
   }
 
-  private downloadTicketWorkReportPdf(filters: any, data: any[]): void {
-    try {
-      this.pdfService.generateTicketWorkReportPDF(
-        filters,
-        this.startDate,
-        this.endDate,
-        data,
-        'download'
-      );
+  private getTicketExportDateKey(value: any): string {
+    const date = this.parseTicketExportDate(value);
+    return date ? this.formatDateToYMD(date) : '';
+  }
 
-      this.completeTicketPdfDownload();
-
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      this.finishTicketPdfExport();
-      this.toasterService.error('Failed to generate PDF');
+  private parseTicketExportDate(value: any): Date | null {
+    if (value === null || value === undefined || `${value}`.trim() === '') {
+      return null;
     }
-  }
 
-  private downloadOverallTicketsPdf(filters: any, data: any[]): void {
-    try {
-      this.pdfService.generateTicketsPDF(
-        filters,
-        this.startDate,
-        this.endDate,
-        data,
-        'download'
-      );
-
-      this.completeTicketPdfDownload();
-
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      this.finishTicketPdfExport();
-      this.toasterService.error('Failed to generate PDF');
+    const text = `${value}`.trim();
+    const ymdMatch = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/.exec(text);
+    if (ymdMatch) {
+      return new Date(Number(ymdMatch[1]), Number(ymdMatch[2]) - 1, Number(ymdMatch[3]));
     }
+
+    const dmyMatch = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/.exec(text);
+    if (dmyMatch) {
+      return new Date(Number(dmyMatch[3]), Number(dmyMatch[2]) - 1, Number(dmyMatch[1]));
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? null
+      : new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
 
-  private completeTicketPdfDownload(): void {
-    setTimeout(() => {
-      this.finishTicketPdfExport();
-      this.toasterService.success('PDF downloaded successfully');
-    }, 3000);
+  private getTicketExportRemarks(ticket: any): string {
+    const remarks = [
+      ['Description', ticket?.description],
+      ['Solution', ticket?.solution],
+      ['Reason For Issue', ticket?.reason_f_issue || ticket?.reasonFIssue || ticket?.reason_for_issue]
+    ]
+      .filter(([, value]) => value !== null && value !== undefined && `${value}`.trim() !== '')
+      .map(([label, value]) => `${label} : ${this.stripHtml(value)}`);
+
+    return remarks.length ? remarks.join('\n') : '-';
   }
 
-  private finishTicketPdfExport(): void {
-    this.ticketPdfExporting = false;
+  private formatTicketExportDate(value: any): string {
+    const date = this.parseTicketExportDate(value);
+    if (!date) {
+      return '-';
+    }
+
+    return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
+  }
+
+  private formatTicketExportDateTime(value: any): string {
+    const date = new Date(value);
+    if (!value || Number.isNaN(date.getTime())) {
+      return '-';
+    }
+
+    return `${this.formatTicketExportDate(value)} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+  }
+
+  private getTicketExportDay(value: any): string {
+    const date = this.parseTicketExportDate(value);
+    return !date
+      ? '-'
+      : date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
   }
 
   openTicketDetailsDialog(rowData: any): void {
-    console.log("Dialog mapped data:", rowData);
+    // Resolve role-scoped employee names again when opening a row so the detail
+    // dialog also shows Assigned By when the API supplied only an employee ID.
+    rowData = this.normalizeTicketRow(rowData);
 
     const priorityMap: any = {
       1: { text: "High", color: "#dc2626", bg: "#fee2e2" },
@@ -2654,12 +3095,7 @@ export class TicketsComponent implements AfterViewInit {
   private refreshStatusColumn(): void {
     if (!this.table) return;
     const definitionPatch = {
-      editorParams: {
-        values: this.statusEditorValues,
-        autocomplete: true,
-        listOnEmpty: true,
-        clearable: true
-      }
+      editorParams: (cell: any) => this.getStatusEditorParams(cell)
     };
     try {
       this.table.updateColumnDefinition('status', definitionPatch);
@@ -2668,7 +3104,30 @@ export class TicketsComponent implements AfterViewInit {
       col?.updateDefinition?.(definitionPatch);
     }
   }
-  private updateTicketStatus(ticket: any): void {
+  private getStatusEditorParams(cell: any): any {
+    const rowData = cell.getRow().getData();
+    const loggedInEmpId = this.storageService.getEmpId();
+    const isAdmin = this.storageService.roles?.isAdmin;
+    const assignedFrom = this.getAssignedFromId(rowData);
+    const assignedTo = this.getAssignedToId(rowData);
+
+    // Full list: admin, the assigner, or when assigned_from === assigned_to.
+    const canSeeClosed = isAdmin
+      || this.isSameId(loggedInEmpId, assignedFrom)
+      || this.isSameId(assignedFrom, assignedTo);
+    const values = canSeeClosed
+      ? this.statusEditorValues
+      : this.statusEditorValues.filter((value: any) => !this.isClosedTicketStatus(value.label));
+
+    return {
+      values,
+      autocomplete: true,
+      listOnEmpty: true,
+      clearable: true
+    };
+  }
+
+  private updateTicketStatus(ticket: any, cell: any): void {
     const assignedTo = this.firstPresent(
       ticket?.assigned_to,
       ticket?.assignedTo,
@@ -2676,6 +3135,11 @@ export class TicketsComponent implements AfterViewInit {
       ticket?.assignedToId
     );
     const payload = { ...ticket, username: this.storageService.getUsername() };
+
+    const assignedDate = this.firstPresent(ticket?.assigned_date, ticket?.assignedDate);
+    if (assignedDate !== null) {
+      payload.assigned_date = this.formatTicketAssignedDate(assignedDate);
+    }
 
     // `empId` can contain the logged-in admin's ID. For an update, always keep
     // the ticket's existing/selected assignee and never default it to the admin.
@@ -2693,8 +3157,27 @@ export class TicketsComponent implements AfterViewInit {
         this.getAllTickets();
       },
       error: (err: any) => {
+        cell.restoreOldValue();
         this.toasterService.error(err?.error?.message || 'Unable to update ticket');
       }
     });
+  }
+
+  private formatTicketAssignedDate(value: any): any {
+    // Date-only values are already in the format expected by the API. Keep
+    // them as-is to avoid interpreting them as UTC and shifting their day.
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+      return value.trim();
+    }
+
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }

@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { combineLatest } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
+import { NotificationNavigationService } from 'src/app/_core/services/notification-navigation.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 interface Employee {
   id: number;
@@ -56,31 +57,57 @@ export class TaskDetailsComponent implements OnInit {
   todate: any = null;
   taskType: any;
   private hasRouteContext = false;
+  private cleanTaskNavigationActive = false;
+  private taskRequestSequence = 0;
+  notificationContextActive = false;
+  tasksLoading = false;
+  tasksLoadError = false;
 
-  constructor(private fb: FormBuilder, private router: Router, private authService: AuthService, private toasterService: ToasterService, private storageService: StorageService, private route: ActivatedRoute) {
+  constructor(private fb: FormBuilder, private router: Router, private authService: AuthService, private toasterService: ToasterService, private storageService: StorageService, private route: ActivatedRoute, private notificationNavigationService: NotificationNavigationService) {
     this.empid = this.storageService.getEmpId();
   }
 
   getTasksByProjectIdNdEmployeeId(phaseId: any = 0) {
     this.phaseid = Number(phaseId) || 0;
-   
-    this.authService.getTasksByProjectIdNdEmployeeId(this.projectid, this.empid, this.phaseid, this.taskType, this.fromdate, this.todate).subscribe((res: any) => {
-      const list = Array.isArray(res) ? res : (res?.data ?? res?.tasks ?? []);
-      this.taskList = Array.isArray(list) ? list : [];
-      if (!this.taskList.length) {
-        this.selectedTask = null as any;
-        // this.toasterService.error('No tasks found');
-        return;
-      }
-      const activeTaskId = this.taskid ?? this.route.snapshot.paramMap.get('taskid');
-      const index = activeTaskId ? this.taskList.findIndex((t: any) => t?.id == activeTaskId) : -1;
+    const requestSequence = ++this.taskRequestSequence;
+    this.tasksLoading = true;
+    this.tasksLoadError = false;
+    this.taskList = [];
+    this.selectedTask = null;
 
-      if (index !== -1) {
-        this.selectTask(this.taskList[index], index, false);
-      } else {
-        this.selectTask(this.taskList[0], 0);
+    this.authService.getTasksByProjectIdNdEmployeeId(this.projectid, this.empid, this.phaseid, this.taskType, this.fromdate, this.todate).subscribe({
+      next: (res: any) => {
+        if (requestSequence !== this.taskRequestSequence) {
+          return;
+        }
+
+        const list = Array.isArray(res) ? res : (res?.data ?? res?.tasks ?? []);
+        this.taskList = Array.isArray(list) ? list : [];
+        this.tasksLoading = false;
+
+        const activeTaskId = `${this.taskid ?? this.route.snapshot.paramMap.get('taskid') ?? ''}`;
+        const activeTaskIndex = activeTaskId
+          ? this.taskList.findIndex((task: any) => `${task?.id ?? task?.taskid ?? task?.task_id ?? ''}` === activeTaskId)
+          : -1;
+
+        if (activeTaskIndex >= 0) {
+          this.selectTask(this.taskList[activeTaskIndex], activeTaskIndex, false);
+        } else if (!activeTaskId && this.taskList.length) {
+          this.selectTask(this.taskList[0], 0);
+        } else {
+          this.selectedTask = null;
+        }
+      },
+      error: () => {
+        if (requestSequence !== this.taskRequestSequence) {
+          return;
+        }
+        this.taskList = [];
+        this.selectedTask = null;
+        this.tasksLoading = false;
+        this.tasksLoadError = true;
       }
-    })
+    });
   }
 
   // --- State (No Signals) ---
@@ -236,6 +263,9 @@ export class TaskDetailsComponent implements OnInit {
 
     this.selectedTask = task;
     this.storageService.saveTaskItem(task);
+    if (this.notificationContextActive && index !== undefined) {
+      setTimeout(() => this.scrollToIndex(index), 0);
+    }
     this.isEditing = false;
 
     // Update Form
@@ -418,20 +448,44 @@ export class TaskDetailsComponent implements OnInit {
 
     this.fromdate = nextFromDate;
     this.todate = nextToDate;
+
     this.syncRouteWithSelection(this.projectid, this.taskid ?? this.selectedTask?.id, true);
+    this.getTasksByProjectIdNdEmployeeId(this.phaseid);
   }
 
   private bindRouteContext(): void {
     combineLatest([this.route.paramMap, this.route.queryParamMap]).subscribe(([params, queryParams]) => {
       const nextProjectId = params.get('projectid');
       const nextTaskId = params.get('taskid');
-      const nextTaskType = queryParams.get('tasktype') || sessionStorage.getItem('tasktype') || this.taskType || 'requirement';
-      const nextFromDate = queryParams.get('fromdate') || sessionStorage.getItem('fromdate');
-      const nextToDate = queryParams.get('todate') || sessionStorage.getItem('todate');
+      const notificationContext = this.notificationNavigationService.resolve('issue', nextTaskId, nextProjectId);
+      this.notificationContextActive = !!notificationContext;
+      const navigationState = this.router.getCurrentNavigation()?.extras.state as any;
+      const taskNavigationContext = navigationState?.taskNavigationContext;
+      if (!this.hasRouteContext && taskNavigationContext?.cleanUrl === true) {
+        this.cleanTaskNavigationActive = true;
+      }
+
+      const nextTaskType = queryParams.get('tasktype')
+        || (notificationContext ? 'bug' : taskNavigationContext?.tasktype)
+        || (this.cleanTaskNavigationActive ? this.taskType : sessionStorage.getItem('tasktype'))
+        || this.taskType
+        || 'requirement';
+      const defaultRange = this.getDefaultDateRange();
+      const nextFromDate = queryParams.get('fromdate')
+        || notificationContext?.startDate
+        || taskNavigationContext?.fromdate
+        || (this.cleanTaskNavigationActive ? this.fromdate : sessionStorage.getItem('fromdate'))
+        || defaultRange.fromdate;
+      const nextToDate = queryParams.get('todate')
+        || notificationContext?.endDate
+        || taskNavigationContext?.todate
+        || (this.cleanTaskNavigationActive ? this.todate : sessionStorage.getItem('todate'))
+        || defaultRange.todate;
 
       const shouldReloadTasks =
         !this.hasRouteContext ||
         `${this.projectid ?? ''}` !== `${nextProjectId ?? ''}` ||
+        `${this.taskid ?? ''}` !== `${nextTaskId ?? ''}` ||
         `${this.taskType ?? ''}` !== `${nextTaskType ?? ''}` ||
         `${this.fromdate ?? ''}` !== `${nextFromDate ?? ''}` ||
         `${this.todate ?? ''}` !== `${nextToDate ?? ''}`;
@@ -495,10 +549,26 @@ export class TaskDetailsComponent implements OnInit {
       return;
     }
 
-    this.router.navigate(['/main/projects/project-content', projectId, taskId], {
+    this.router.navigate(['/main/tasks', projectId, taskId], {
       queryParams: this.buildNavigationQueryParams(),
       replaceUrl
     });
+  }
+
+  private getDefaultDateRange(): { fromdate: string; todate: string } {
+    const today = new Date();
+    const daysFromMonday = today.getDay() === 0 ? -6 : 1 - today.getDay();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + daysFromMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const saturday = new Date(monday);
+    saturday.setDate(monday.getDate() + 5);
+
+    return {
+      fromdate: this.formatDateToYMD(monday),
+      todate: this.formatDateToYMD(saturday)
+    };
   }
 
   private buildNavigationQueryParams(): Record<string, string | null> {

@@ -1,0 +1,249 @@
+<main class="holiday-page">
+  <header class="holiday-page-header">
+    <div class="page-title-group">
+      <span class="page-title-icon"><i class="ri-calendar-event-line"></i></span>
+      <div>
+        <!-- <p class="page-eyebrow">PEOPLE &amp; CULTURE</p> -->
+        <h1>Holiday calendar</h1>
+        <!-- <p class="page-subtitle">Plan public holidays and weekly days off for your team.</p> -->
+      </div>
+    </div>
+    <div class="page-header-actions">
+      <div class="holiday-filter-control year-select-wrap">
+        <label class="holiday-filter-label" for="holidayCalendarYear">Year</label>
+        <mat-form-field appearance="outline" class="calendar-select" subscriptSizing="dynamic">
+          <mat-select id="holidayCalendarYear" [(ngModel)]="year" (ngModelChange)="changeYear($event)" aria-label="Holiday calendar year">
+            <mat-option *ngFor="let yearOption of yearOptions" [value]="yearOption">{{ yearOption }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+      <!-- <button type="button" class="back-button" routerLink="/main/attendance">
+        <i class="ri-arrow-left-line"></i><span>Back to attendance</span>
+      </button> -->
+    </div>
+  </header>
+
+  <section class="holiday-stats" aria-label="Holiday totals">
+    <article class="stat-card stat-card--national">
+      <span class="stat-icon"><i class="ri-flag-2-line"></i></span>
+      <div><span>National holidays</span><strong>{{ nationalCount }}</strong>
+        <!-- <small>Public and statutory closures</small> -->
+      </div>
+    </article>
+    <article class="stat-card stat-card--religious">
+      <span class="stat-icon"><i class="ri-sparkling-2-line"></i></span>
+      <div><span>Religious holidays</span><strong>{{ religiousCount }}</strong>
+        <!-- <small>Faith and regional observances</small> -->
+      </div>
+    </article>
+    <article class="stat-card stat-card--company">
+      <span class="stat-icon"><i class="ri-building-4-line"></i></span>
+      <div><span>Company holidays</span><strong>{{ companyCount }}</strong>
+        <!-- <small>Internal closures and culture days</small> -->
+      </div>
+    </article>
+    <article class="stat-card stat-card--total">
+      <span class="stat-icon"><i class="ri-list-check-2"></i></span>
+      <div><span>Total holidays</span><strong>{{ yearHolidays.length }}</strong>
+        <!-- <small>Calendar entries for {{ year }}</small> -->
+      </div>
+    </article>
+  </section>
+
+  <section class="policy-card" *ngIf="canManage">
+    <div class="section-heading">
+      <div>
+        <!-- <p class="section-eyebrow">POLICY SETUP</p> -->
+        <h2>Weekly off configuration</h2></div>
+      <span class="read-only-tag" *ngIf="!canManage"><i class="ri-eye-line"></i> View only</span>
+    </div>
+
+    <div class="policy-block">
+      <h3>Weekly off days</h3>
+      <div class="weekday-grid">
+        <button type="button" class="weekday-option" *ngFor="let day of weekdays"
+          [class.is-selected]="weeklyOffDays.includes(day)"
+          [disabled]="!canManage || isLoadingWeekendSettings || isSavingWeekendSettings" (click)="toggleWeeklyOff(day)">
+          <span class="option-name">{{ day }}</span>
+          <span class="option-hint">{{ weeklyOffDays.includes(day) ? 'Weekly off' : 'Working day' }}</span>
+          <i class="ri-check-line option-check" *ngIf="weeklyOffDays.includes(day)"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="policy-divider"></div>
+
+    <div class="policy-block">
+      <h3>Saturday configuration</h3>
+      <div class="saturday-grid">
+        <button type="button" class="saturday-option" [class.is-selected]="saturdayRule === 'none'"
+          [disabled]="!canManage || isLoadingWeekendSettings || isSavingWeekendSettings" (click)="setSaturdayRule('none')">
+          <span class="option-icon"><i class="ri-forbid-2-line"></i></span><span><b>No Saturday off</b><small>All Saturdays are working</small></span>
+        </button>
+        <button type="button" class="saturday-option" [class.is-selected]="saturdayRule === 'all'"
+          [disabled]="!canManage || isLoadingWeekendSettings || isSavingWeekendSettings" (click)="setSaturdayRule('all')">
+          <span class="option-icon"><i class="ri-check-line"></i></span><span><b>All Saturdays</b><small>Every Saturday is off</small></span>
+        </button>
+        <button type="button" class="saturday-option" [class.is-selected]="saturdayRule === 'second-fourth'"
+          [disabled]="!canManage || isLoadingWeekendSettings || isSavingWeekendSettings" (click)="setSaturdayRule('second-fourth')">
+          <span class="option-icon"><i class="ri-calendar-2-line"></i></span><span><b>2nd &amp; 4th Saturday</b><small>Common policy for teams</small></span>
+        </button>
+        <button type="button" class="saturday-option" [class.is-selected]="saturdayRule === 'first-third-fifth'"
+          [disabled]="!canManage || isLoadingWeekendSettings || isSavingWeekendSettings" (click)="setSaturdayRule('first-third-fifth')">
+          <span class="option-icon"><i class="ri-list-ordered"></i></span><span><b>1st, 3rd &amp; 5th Saturday</b><small>Alternate weekend pattern</small></span>
+        </button>
+      </div>
+    </div>
+
+    <p class="policy-state" *ngIf="isLoadingWeekendSettings"><i class="ri-loader-4-line spin"></i>Loading weekly off settings…</p>
+    <p class="policy-error" *ngIf="weekendSettingsError"><i class="ri-error-warning-line"></i><span>{{ weekendSettingsError }}</span><button type="button" class="text-action" (click)="loadWeekendSettings()">Retry</button></p>
+    <p class="policy-state" *ngIf="isSavingWeekendSettings"><i class="ri-loader-4-line spin"></i>Saving weekly off settings…</p>
+    <p class="selected-policy" *ngIf="!isLoadingWeekendSettings"><i class="ri-information-line"></i><span>Selected weekly offs:</span><strong>{{ selectedWeeklyOffSummary }}</strong></p>
+    <!-- <details class="policy-response" *ngIf="weekendSettingsResponse">
+      <summary><i class="ri-code-s-slash-line"></i> View getweekoffsettings response</summary>
+      <pre>{{ weekendSettingsResponse | json }}</pre>
+    </details> -->
+  </section>
+
+  <section class="holiday-list-card">
+    <header class="list-heading">
+      <div>
+        <!-- <p class="section-eyebrow">MANAGE</p> -->
+        <h2>Holiday list</h2>
+        <!-- <p>Browse and manage your {{ year }} calendar.</p> -->
+      </div>
+      <button *ngIf="canManage" type="button" class="primary-button" (click)="openAddHoliday()">
+        <i class="ri-add-line"></i><span>Add holiday</span>
+      </button>
+    </header>
+
+    <div class="holiday-filters">
+      <div class="holiday-filter-control search-filter-control">
+        <label class="holiday-filter-label" for="holidaySearch">Search holidays</label>
+        <mat-form-field appearance="outline" class="calendar-select holiday-search-field" subscriptSizing="dynamic">
+          <!-- <i matPrefix class="ri-search-line holiday-search-icon" aria-hidden="true"></i> -->
+          <input id="holidaySearch" matInput [(ngModel)]="searchTerm" placeholder="Name, description or type" aria-label="Search holidays">
+          <button *ngIf="searchTerm" matSuffix mat-icon-button type="button" class="holiday-search-clear" aria-label="Clear search" (click)="searchTerm = ''">
+            <i class="ri-close-line" aria-hidden="true"></i>
+          </button>
+        </mat-form-field>
+      </div>
+      <div class="holiday-filter-control type-filter-select">
+        <label class="holiday-filter-label" for="holidayTypeFilter">Filter by type</label>
+        <mat-form-field appearance="outline" class="calendar-select" subscriptSizing="dynamic">
+          <mat-select id="holidayTypeFilter" [(ngModel)]="typeFilter" aria-label="Filter holidays by type">
+            <mat-option [value]="'All'">All types</mat-option>
+            <mat-option *ngFor="let type of types" [value]="type">{{ type }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+      <span class="result-count">{{ filteredHolidayCount }} holiday{{ filteredHolidayCount === 1 ? '' : 's' }}</span>
+    </div>
+
+    <div class="calendar-state" *ngIf="isLoadingHolidays"><i class="ri-loader-4-line spin"></i><span>Loading holidays…</span></div>
+    <div class="calendar-state calendar-state--error" *ngIf="!isLoadingHolidays && holidayError">
+      <i class="ri-error-warning-line"></i><span>{{ holidayError }}</span>
+      <button type="button" class="text-action" (click)="loadHolidays()">Retry</button>
+    </div>
+    <ng-container *ngIf="!isLoadingHolidays && !holidayError">
+      <div class="grouped-holiday-list" *ngIf="filteredGroups.length; else emptyCalendar">
+        <div class="holiday-column-headings" *ngIf="canManage" aria-hidden="true">
+          <span>Date</span><span>Holiday</span><span>Type</span><span>Action</span>
+        </div>
+        <section class="month-group" *ngFor="let group of filteredGroups">
+          <header class="month-heading"><h3>{{ monthLabel(group.key) }}</h3><span>{{ group.entries.length }} {{ group.entries.length === 1 ? 'item' : 'items' }}</span></header>
+          <article class="holiday-row" [class.holiday-row--actions]="canManage" *ngFor="let holiday of group.entries; trackBy: trackByHoliday">
+            <div class="holiday-date"><strong>{{ holidayDateLabel(holiday.date) }}</strong><span>{{ holidayDay(holiday.date) }}</span></div>
+            <div class="holiday-details"><strong>{{ holiday.name }}</strong><span>{{ holiday.description || 'Holiday' }}</span></div>
+            <span class="holiday-type" [ngClass]="'holiday-type--' + holiday.type.toLowerCase()">{{ holiday.type }}</span>
+            <div class="holiday-actions" *ngIf="canManage">
+              <button type="button" class="edit-button" (click)="openEditHoliday(holiday)" [attr.aria-label]="'Edit ' + holiday.name" title="Edit holiday"><i class="ri-edit-line"></i><span>Edit</span></button>
+              <button type="button" class="delete-button" (click)="openDeleteHoliday(holiday)" [attr.aria-label]="'Delete ' + holiday.name" title="Delete holiday"><i class="ri-delete-bin-line"></i><span>Delete</span></button>
+            </div>
+          </article>
+        </section>
+      </div>
+      <ng-template #emptyCalendar>
+        <div class="empty-calendar"><span class="empty-calendar-icon"><i class="ri-calendar-todo-line"></i></span><h3>{{ searchTerm || typeFilter !== 'All' ? 'No matching holidays' : 'No holidays added yet' }}</h3><p>{{ searchTerm || typeFilter !== 'All' ? 'Try changing your search or type filter.' : 'Add holidays to build the calendar for ' + year + '.' }}</p><button *ngIf="canManage && !searchTerm && typeFilter === 'All'" type="button" class="primary-button" (click)="openAddHoliday()"><i class="ri-add-line"></i>Add the first holiday</button></div>
+      </ng-template>
+    </ng-container>
+  </section>
+</main>
+
+<div class="holiday-drawer-backdrop" *ngIf="isEditorOpen" (click)="closeEditor()" role="presentation">
+  <aside class="holiday-drawer" role="dialog" aria-modal="true" aria-labelledby="holiday-drawer-title"
+    tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="closeEditor()">
+    <header class="drawer-header">
+      <div class="drawer-title-copy">
+        <p class="page-eyebrow">{{ editorMode === 'create' ? 'CREATE HOLIDAY' : editorMode === 'edit' ? 'EDIT HOLIDAY' : 'DELETE HOLIDAY' }}</p>
+        <h2 id="holiday-drawer-title">{{ editorMode === 'create' ? 'Add holiday' : editorMode === 'edit' ? 'Edit holiday' : 'Confirm delete' }}</h2>
+        <p>{{ editorMode === 'delete' ? 'Review the holiday details before deleting this entry.' : editorMode === 'edit' ? 'Update the holiday details below.' : 'Fill in the holiday details below.' }}</p>
+      </div>
+      <button type="button" class="drawer-close" aria-label="Close holiday form" (click)="closeEditor()"><i class="ri-close-line"></i></button>
+    </header>
+
+    <div class="drawer-content">
+      <section class="drawer-form-card">
+        <div class="drawer-section-title">
+          <span class="drawer-section-icon"><i class="ri-confetti-line"></i></span>
+          <div><p class="section-eyebrow">{{ editorMode === 'delete' ? 'CONFIRMATION' : 'HOLIDAY DETAILS' }}</p><h3>{{ editorMode === 'delete' ? 'Holiday to delete' : 'Basic information' }}</h3></div>
+        </div>
+        <div class="drawer-form-fields" *ngIf="editorMode !== 'delete'">
+          <div class="drawer-control drawer-field--wide">
+            <label class="drawer-field-label" for="holidayName">Holiday name <span>*</span></label>
+            <mat-form-field appearance="outline" class="calendar-select" subscriptSizing="dynamic">
+              <input id="holidayName" matInput [(ngModel)]="draft.name" name="holidayName" maxlength="80" placeholder="e.g. New Year’s Day" required>
+            </mat-form-field>
+          </div>
+
+          <div class="drawer-control">
+            <label class="drawer-field-label" for="holidayDate">Date <span>*</span></label>
+            <mat-form-field appearance="outline" class="calendar-select" subscriptSizing="dynamic">
+              <input id="holidayDate" matInput [matDatepicker]="holidayPicker" [ngModel]="draftDate"
+                (ngModelChange)="onDraftDateChange($event)" name="holidayDate" [min]="minHolidayDate"
+                [max]="maxHolidayDate" placeholder="Select date" aria-label="Choose holiday date"
+                (click)="holidayPicker.open()" readonly required>
+              <mat-datepicker-toggle matIconSuffix [for]="holidayPicker"></mat-datepicker-toggle>
+              <mat-datepicker #holidayPicker startView="month" [startAt]="draftDate || minHolidayDate"></mat-datepicker>
+            </mat-form-field>
+          </div>
+
+          <div class="drawer-control">
+            <label class="drawer-field-label" for="holidayType">Type <span>*</span></label>
+            <mat-form-field appearance="outline" class="calendar-select" subscriptSizing="dynamic">
+              <mat-select id="holidayType" [(ngModel)]="draft.type" name="holidayType" aria-label="Holiday type" required>
+                <mat-option *ngFor="let type of types" [value]="type">{{ type }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="drawer-control drawer-field--wide description-field">
+            <label class="drawer-field-label" for="holidayDescription">Description</label>
+            <mat-form-field appearance="outline" class="calendar-select" subscriptSizing="dynamic">
+              <textarea id="holidayDescription" matInput [(ngModel)]="draft.description" name="holidayDescription" maxlength="160"
+                rows="3" placeholder="Add a short note (optional)"></textarea>
+              <mat-hint align="end">{{ draft.description.length }}/160</mat-hint>
+            </mat-form-field>
+          </div>
+        </div>
+        <div class="delete-review" *ngIf="editorMode === 'delete'">
+          <div><small>Holiday</small><strong>{{ draft.name }}</strong></div>
+          <div><small>Date</small><strong>{{ draft.date }}</strong></div>
+          <div><small>Type</small><strong>{{ draft.type }}</strong></div>
+          <label class="delete-confirmation">
+            <input type="checkbox" [(ngModel)]="deleteConfirmed" name="confirmHolidayDelete">
+            <span>I confirm that I want to delete this holiday.</span>
+          </label>
+        </div>
+        <p class="editor-error" *ngIf="editorError"><i class="ri-error-warning-line"></i>{{ editorError }}</p>
+      </section>
+    </div>
+
+    <footer class="drawer-footer">
+      <button type="button" class="secondary-button" (click)="closeEditor()">Cancel</button>
+      <button *ngIf="editorMode !== 'delete'" type="button" class="secondary-button reset-button" [disabled]="isSavingHoliday" (click)="resetEditor()"><i class="ri-refresh-line"></i>Reset</button>
+      <button *ngIf="editorMode === 'delete'" type="button" class="delete-button" [disabled]="isDeletingHoliday || !deleteConfirmed" (click)="deleteHoliday()"><i [class]="isDeletingHoliday ? 'ri-loader-4-line spin' : 'ri-delete-bin-line'"></i>{{ isDeletingHoliday ? 'Deleting…' : 'Delete holiday' }}</button>
+      <button *ngIf="editorMode !== 'delete'" type="button" class="primary-button" [disabled]="isSavingHoliday" (click)="saveHoliday()"><i [class]="isSavingHoliday ? 'ri-loader-4-line spin' : 'ri-save-3-line'"></i>{{ isSavingHoliday ? (editorMode === 'edit' ? 'Updating…' : 'Creating…') : (editorMode === 'edit' ? 'Save changes' : 'Create holiday') }}</button>
+    </footer>
+  </aside>
+</div>

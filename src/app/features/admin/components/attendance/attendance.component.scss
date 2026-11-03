@@ -1,0 +1,1063 @@
+:host {
+  display: block;
+  font-family: var(--font-base, 'Roboto', sans-serif);
+  color: var(--text-main);
+}
+
+.attendance-page {
+  min-height: calc(100vh - 72px);
+  min-width: 0;
+  overflow-x: clip;
+  padding: 24px;
+  color: var(--text-main);
+  background: var(--bg-body);
+  transition: background-color .2s ease, color .2s ease;
+  font-family: var(--font-base, 'Roboto', sans-serif);
+}
+
+.attendance-page button,
+.attendance-page input,
+.attendance-page select,
+.attendance-page .mat-mdc-select,
+.attendance-page .mat-mdc-option,
+.attendance-page .tabulator,
+.attendance-page .tabulator *:not(i) {
+  font-family: var(--font-base, 'Roboto', sans-serif) !important;
+}
+
+.filter-card,
+.records-card,
+.snapshot-card,
+.hours-strip,
+.state-card {
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+}
+
+.filter-card {
+  padding: 22px 24px 20px;
+}
+
+.filter-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.eyebrow {
+  margin: 0 0 5px;
+  color: var(--text-active);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 5px;
+  color: var(--text-main);
+  font-size: 21px;
+  font-weight: 750;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.period-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--text-active) 25%, var(--border-card));
+  border-radius: 20px;
+  background: var(--bg-active);
+  color: var(--text-active);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.filter-controls {
+  display: grid;
+  align-items: end;
+  gap: 12px;
+}
+
+.filter-controls--employee {
+  grid-template-columns: minmax(150px, 1fr) repeat(2, minmax(130px, 1fr)) auto;
+}
+
+.filter-controls--selector {
+  grid-template-columns: minmax(145px, .9fr) minmax(180px, 1.3fr) repeat(2, minmax(130px, 1fr)) auto;
+}
+
+.attendance-filter-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field>span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.employee-list-message {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.attendance-filter-field {
+  width: 100%;
+}
+
+.identity-context {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid var(--form-border);
+  border-radius: 9px;
+  background: var(--form-bg);
+}
+
+.avatar {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--text-active) 20%, transparent);
+  border-radius: 50%;
+  background: var(--bg-active);
+  color: var(--text-active);
+}
+
+.identity-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.identity-context small {
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.identity-context strong {
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity-context em {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.fetch-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  min-width: 160px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--text-active);
+  color: var(--text-on-active);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 5px 12px color-mix(in srgb, var(--brand-color) 22%, transparent);
+  cursor: pointer;
+  transition: .18s ease;
+  margin-bottom: 6px;
+}
+
+.fetch-button:hover:not(:disabled) {
+  filter: brightness(.94);
+  transform: translateY(-1px);
+}
+
+.fetch-button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.upload-attendance-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--form-border);
+  border-radius: 9px;
+  background: var(--bg-card);
+  color: var(--text-active);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.upload-attendance-button:hover {
+  border-color: var(--text-active);
+  background: var(--bg-active);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-1px);
+}
+
+.upload-attendance-button:focus-visible {
+  outline: 2px solid var(--text-active);
+  outline-offset: 2px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.summary-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 74px;
+  padding: 13px;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+}
+
+.summary-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 11px;
+  font-size: 17px;
+}
+
+.summary-card small,
+.summary-card strong {
+  display: block;
+}
+
+.summary-card small {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.summary-card strong {
+  color: var(--text-main);
+  font-size: 17px;
+  font-weight: 750;
+}
+
+.present .summary-icon {
+  background: color-mix(in srgb, var(--success) 14%, var(--bg-card));
+  color: var(--success);
+}
+
+.leave .summary-icon {
+  background: color-mix(in srgb, var(--info) 14%, var(--bg-card));
+  color: var(--info);
+}
+
+.holiday .summary-icon {
+  background: color-mix(in srgb, var(--warning) 16%, var(--bg-card));
+  color: var(--warning);
+}
+
+.absent .summary-icon {
+  background: color-mix(in srgb, var(--danger) 13%, var(--bg-card));
+  color: var(--danger);
+}
+
+.hours .summary-icon {
+  background: var(--bg-elevated);
+  color: var(--text-active);
+}
+
+.total .summary-icon {
+  background: color-mix(in srgb, var(--text-active) 12%, var(--bg-card));
+  color: var(--text-active);
+}
+
+.other .summary-icon {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+}
+
+.hours-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+}
+
+.hours-strip>div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+}
+
+.hours-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--bg-active);
+  color: var(--text-active);
+}
+
+.hours-icon.extra {
+  background: color-mix(in srgb, var(--warning) 15%, var(--bg-card));
+  color: var(--warning);
+}
+
+.hours-strip small,
+.hours-strip strong {
+  display: block;
+}
+
+.hours-strip small {
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.hours-strip strong {
+  color: var(--text-main);
+  font-size: 12px;
+}
+
+.records-card {
+  overflow: hidden;
+}
+
+.records-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 19px 20px 14px;
+}
+
+.records-header h2,
+.snapshot-heading h2 {
+  margin: 0 0 4px;
+  color: var(--text-main);
+  font-size: 17px;
+  font-weight: 750;
+}
+
+.records-header>div:first-child>p:last-child {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.records-header>div:first-child>p:last-child span {
+  padding: 0 4px;
+}
+
+.export-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.export-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  background: var(--bg-card);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: .15s ease;
+}
+
+.export-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card);
+}
+
+.export-button.excel {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 38%, var(--border-card));
+}
+
+.export-button.pdf {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 34%, var(--border-card));
+}
+
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 54px;
+  padding: 5px 20px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.attendance-pagination-host {
+  min-width: 0;
+}
+
+:host ::ng-deep .attendance-pagination-host .tabulator-footer {
+  width: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+:host ::ng-deep .attendance-pagination-host .tabulator-footer-contents {
+  gap: 8px !important;
+}
+
+:host ::ng-deep .attendance-pagination-host .tabulator-page {
+  min-width: 38px !important;
+  height: 34px !important;
+  padding: 0 10px !important;
+  border: 1px solid var(--form-border) !important;
+  border-radius: 8px !important;
+  background: var(--bg-card) !important;
+  color: var(--text-main) !important;
+  font: inherit !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+  cursor: pointer;
+}
+
+:host ::ng-deep .attendance-pagination-host .tabulator-page:hover:not(:disabled) {
+  border-color: var(--text-active) !important;
+  background: var(--bg-active) !important;
+  color: var(--text-active) !important;
+}
+
+:host ::ng-deep .attendance-pagination-host .tabulator-page.active {
+  border-color: var(--text-active) !important;
+  background: var(--text-active) !important;
+  color: var(--text-on-active) !important;
+}
+
+:host ::ng-deep .attendance-pagination-host .tabulator-page:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+:host ::ng-deep .attendance-pagination-host .tabulator-page-size {
+  min-height: 34px;
+  padding: 0 28px 0 9px;
+  border: 1px solid var(--form-border) !important;
+  border-radius: 8px !important;
+  background: var(--form-bg) !important;
+  color: var(--text-main) !important;
+  font: inherit;
+  font-size: 11px;
+}
+
+:host ::ng-deep .attendance-pagination-host .tabulator-paginator>label {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  padding: 0 14px 12px;
+}
+
+.attendance-tabulator {
+  width: 100%;
+}
+
+:host ::ng-deep .attendance-tabulator .tabulator-cell {
+  min-height: 42px;
+  padding-top: 11px;
+  padding-bottom: 11px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-holiday-row {
+  position: relative;
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-holiday-row .attendance-holiday-cell {
+  border-right-color: transparent;
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-holiday-name-overlay {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 8px 14px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+:host ::ng-deep .attendance-tabulator .tabulator-col-title {
+  white-space: normal;
+  line-height: 1.3;
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-status-chip--present {
+  border-color: color-mix(in srgb, var(--success) 28%, var(--border-card));
+  background: color-mix(in srgb, var(--success) 13%, var(--bg-card));
+  color: var(--success);
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-status-chip--proper-thumb {
+  border-color: color-mix(in srgb, var(--success) 28%, var(--border-card));
+  background: color-mix(in srgb, var(--success) 13%, var(--bg-card));
+  color: var(--success);
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-status-chip--improper-thumb {
+  border-color: color-mix(in srgb, var(--info) 30%, var(--border-card));
+  background: color-mix(in srgb, var(--info) 13%, var(--bg-card));
+  color: var(--info);
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-status-chip--absent {
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border-card));
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-card));
+  color: var(--danger);
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-status-chip--leave {
+  border-color: color-mix(in srgb, var(--info) 28%, var(--border-card));
+  background: color-mix(in srgb, var(--info) 12%, var(--bg-card));
+  color: var(--info);
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-status-chip--warning {
+  border-color: color-mix(in srgb, var(--warning) 32%, var(--border-card));
+  background: color-mix(in srgb, var(--warning) 14%, var(--bg-card));
+  color: var(--warning);
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-status-chip--holiday,
+:host ::ng-deep .attendance-tabulator .attendance-status-chip--week-off {
+  border-color: color-mix(in srgb, #dc2626 32%, var(--border-card));
+  background: color-mix(in srgb, #dc2626 12%, var(--bg-card));
+  color: #dc2626;
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-value-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-value-badge--good {
+  border-color: color-mix(in srgb, var(--success) 28%, var(--border-card));
+  background: color-mix(in srgb, var(--success) 12%, var(--bg-card));
+  color: var(--success);
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-value-badge--bad {
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border-card));
+  background: color-mix(in srgb, var(--danger) 11%, var(--bg-card));
+  color: var(--danger);
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-value-badge--target {
+  border-color: color-mix(in srgb, var(--info) 30%, var(--border-card));
+  background: color-mix(in srgb, var(--info) 12%, var(--bg-card));
+  color: var(--info);
+}
+
+:host ::ng-deep .attendance-tabulator .attendance-value-badge--extra {
+  border-color: color-mix(in srgb, #ec4899 32%, var(--border-card));
+  background: color-mix(in srgb, #ec4899 13%, var(--bg-card));
+  color: color-mix(in srgb, #ec4899 78%, var(--text-main));
+}
+
+.snapshot-card {
+  margin-top: 14px;
+  padding: 17px 19px 19px;
+}
+
+.snapshot-heading {
+  margin-bottom: 12px;
+}
+
+.snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: 10px;
+}
+
+.snapshot-grid>div {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 66px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+  transition: border-color .18s ease, transform .18s ease;
+}
+
+.snapshot-grid>div:hover {
+  border-color: color-mix(in srgb, var(--text-active) 42%, var(--border-card));
+  transform: translateY(-1px);
+}
+
+.snapshot-grid small {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.snapshot-grid strong {
+  min-width: 0;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.state-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 210px;
+  margin-top: 15px;
+  padding: 28px;
+  text-align: center;
+}
+
+.state-card>strong {
+  margin-top: 12px;
+  color: var(--text-main);
+  font-size: 15px;
+}
+
+.state-card p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.empty-icon,
+.error-state>i {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--bg-active);
+  color: var(--text-active);
+  font-size: 22px;
+}
+
+.error-state>i {
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-card));
+  color: var(--danger);
+}
+
+.error-state button {
+  margin-top: 15px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--text-active);
+  color: var(--text-on-active);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.loading-spinner,
+.spin {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border: 3px solid color-mix(in srgb, var(--text-active) 18%, var(--bg-card));
+  border-top-color: var(--text-active);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+
+.spin {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+:host ::ng-deep .attendance-filter-field .mat-mdc-text-field-wrapper {
+  background: var(--form-bg);
+}
+
+:host ::ng-deep .attendance-filter-field .mdc-notched-outline__leading,
+:host ::ng-deep .attendance-filter-field .mdc-notched-outline__notch,
+:host ::ng-deep .attendance-filter-field .mdc-notched-outline__trailing {
+  border-color: var(--form-border) !important;
+}
+
+:host ::ng-deep .attendance-filter-field.mat-focused .mdc-notched-outline__leading,
+:host ::ng-deep .attendance-filter-field.mat-focused .mdc-notched-outline__notch,
+:host ::ng-deep .attendance-filter-field.mat-focused .mdc-notched-outline__trailing {
+  border-color: var(--text-active) !important;
+}
+
+:host ::ng-deep .attendance-filter-field .mat-mdc-select-value,
+:host ::ng-deep .attendance-filter-field .mat-mdc-select-arrow {
+  color: var(--text-main);
+}
+
+::ng-deep .attendance-select-panel.mat-mdc-select-panel,
+::ng-deep .attendance-period-select-panel.mat-mdc-select-panel {
+  max-height: 340px;
+  padding: 0;
+  border: 1px solid var(--overlay-border);
+  background: var(--overlay-bg);
+  color: var(--text-main);
+}
+
+::ng-deep .attendance-period-select-panel.mat-mdc-select-panel {
+  max-width: calc(100vw - 24px) !important;
+}
+
+::ng-deep .attendance-select-panel .attendance-select-search,
+::ng-deep .attendance-period-select-panel .attendance-select-search {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--overlay-border);
+  background: var(--overlay-bg);
+  color: var(--text-muted);
+}
+
+::ng-deep .attendance-select-panel .attendance-select-search>i,
+::ng-deep .attendance-period-select-panel .attendance-select-search>i {
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+::ng-deep .attendance-select-panel .attendance-select-search input,
+::ng-deep .attendance-period-select-panel .attendance-select-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--form-border);
+  border-radius: 7px;
+  outline: 0;
+  background: var(--form-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 12px;
+}
+
+::ng-deep .attendance-select-panel .attendance-select-search input:focus,
+::ng-deep .attendance-period-select-panel .attendance-select-search input:focus {
+  border-color: var(--text-active);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text-active) 16%, transparent);
+}
+
+::ng-deep .attendance-select-panel .mat-mdc-option,
+::ng-deep .attendance-period-select-panel .mat-mdc-option {
+  color: var(--text-main);
+}
+
+::ng-deep .attendance-select-panel .mat-mdc-option:hover:not(.mdc-list-item--disabled),
+::ng-deep .attendance-select-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled),
+::ng-deep .attendance-period-select-panel .mat-mdc-option:hover:not(.mdc-list-item--disabled),
+::ng-deep .attendance-period-select-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+  background: var(--dropdown-hover-bg);
+}
+
+::ng-deep .attendance-select-panel .employee-option-id {
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+@media (max-width: 1100px) {
+  .attendance-page {
+    padding: 16px;
+  }
+
+  .filter-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .identity-context,
+  .employee-field {
+    grid-column: span 2;
+  }
+
+  .fetch-button {
+    width: 100%;
+  }
+
+  .attendance-filter-actions {
+    grid-column: span 2;
+    width: 100%;
+    margin-bottom: 0;
+  }
+
+  .attendance-filter-actions > button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .records-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .export-actions {
+    flex-wrap: wrap;
+  }
+
+  .table-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .attendance-page {
+    padding: 10px;
+  }
+
+  .filter-card {
+    padding: 17px 14px;
+  }
+
+  .filter-heading {
+    align-items: flex-start;
+  }
+
+  .filter-heading h1 {
+    font-size: 19px;
+  }
+
+  .period-badge {
+    padding: 7px 9px;
+    font-size: 10px;
+  }
+
+  .filter-controls {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .employee-field,
+  .attendance-filter-actions {
+    grid-column: span 2;
+  }
+
+  .attendance-filter-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .attendance-filter-actions > button {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .summary-card {
+    min-height: 66px;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .summary-icon {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+    font-size: 15px;
+  }
+
+  .summary-card small {
+    font-size: 9px;
+  }
+
+  .summary-card strong {
+    font-size: 15px;
+  }
+
+  .hours-strip {
+    padding: 9px;
+  }
+
+  .hours-strip>div {
+    gap: 7px;
+  }
+
+  .hours-strip small {
+    font-size: 9px;
+  }
+
+  .hours-strip strong {
+    font-size: 11px;
+  }
+
+  .records-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 16px 14px 12px;
+  }
+
+  .export-actions {
+    width: 100%;
+  }
+
+  .export-button {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 5px;
+    font-size: 10px;
+  }
+
+  .table-toolbar {
+    padding: 9px 14px;
+  }
+
+  .attendance-pagination-host {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .table-scroll {
+    padding: 0 8px;
+  }
+
+  .snapshot-card {
+    padding: 15px 12px;
+  }
+
+  .snapshot-grid {
+    gap: 6px;
+  }
+
+  .snapshot-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+  }
+
+  .snapshot-grid>div {
+    padding: 8px;
+  }
+
+  .snapshot-grid strong {
+    font-size: 11px;
+  }
+}

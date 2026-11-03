@@ -3,6 +3,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { filter, finalize, Subject, takeUntil } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
+import { ExcelService, TableWorkbookExcelSection } from 'src/app/_core/services/excel.service';
+import { PdfService, TableReportPdfSection } from 'src/app/_core/services/pdf.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
@@ -40,6 +42,9 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
   showOverallBackButton = false;
   teamTableLoading = false;
   deletingMemberId: number | null = null;
+  private searchQuery = '';
+  excelExporting = false;
+  pdfExporting = false;
 
   constructor(
     private authService: AuthService,
@@ -47,7 +52,9 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private toasterService: ToasterService,
-    private drawerService: DrawerService
+    private drawerService: DrawerService,
+    private excelService: ExcelService,
+    private pdfService: PdfService
   ) {
     this.empid = this.storageService.getEmpId();
     const roles = this.storageService.roles;
@@ -84,6 +91,7 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
           this.tableData = Array.isArray(res)
             ? res.map((member: any) => ({
               ...member,
+              isactive: this.normalizeActiveStatus(member?.isactive),
               attendance_status: this.normalizeAttendanceStatus(member?.attendance_status)
             }))
             : [];
@@ -267,6 +275,11 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
   }
 
   // --- Formatters ---
+  private normalizeActiveStatus(value: any): boolean {
+    if (value === true || value === 1) return true;
+    return ['true', '1', 'active'].includes(`${value ?? ''}`.trim().toLowerCase());
+  }
+
   statusFormatter(cell: any) {
     const value = cell.getValue();
     let classes = '';
@@ -436,30 +449,182 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
   }
 
   onSearch(event: Event) {
-    const value = (event.target as HTMLInputElement).value.toLowerCase();
+    this.searchQuery = (event.target as HTMLInputElement).value.trim().toLowerCase();
+    this.applyTeamFilters();
+  }
 
-    if (value) {
-      // Filter across ALL relevant fields from your data structure
-      this.table.setFilter([
-        [
-          { field: "firstname", type: "like", value: value },
-          { field: "lastname", type: "like", value: value },
-          { field: "email", type: "like", value: value },
-          { field: "department_name", type: "like", value: value },
-          { field: "role", type: "like", value: value },
-          { field: "position", type: "like", value: value },
-          { field: "mobile", type: "like", value: value },
-          { field: "gender", type: "like", value: value },
-          { field: "blood_group", type: "like", value: value },
-          { field: "marital_status", type: "like", value: value },
-          { field: "shift_type", type: "like", value: value },
-          { field: 'attendanceid', type: "like", value: value },
-          { field: 'attendance_status', type: "like", value: value }
-        ]
+  private applyTeamFilters(): void {
+    if (!this.table) return;
+
+    const filters: any[] = [];
+    filters.push({
+      field: 'isactive',
+      type: '=',
+      value: true
+    });
+
+    if (this.searchQuery) {
+      // Search matches any listed field while still respecting the status filter.
+      filters.push([
+        { field: 'firstname', type: 'like', value: this.searchQuery },
+        { field: 'lastname', type: 'like', value: this.searchQuery },
+        { field: 'email', type: 'like', value: this.searchQuery },
+        { field: 'department_name', type: 'like', value: this.searchQuery },
+        { field: 'role', type: 'like', value: this.searchQuery },
+        { field: 'position', type: 'like', value: this.searchQuery },
+        { field: 'mobile', type: 'like', value: this.searchQuery },
+        { field: 'gender', type: 'like', value: this.searchQuery },
+        { field: 'blood_group', type: 'like', value: this.searchQuery },
+        { field: 'marital_status', type: 'like', value: this.searchQuery },
+        { field: 'shift_type', type: 'like', value: this.searchQuery },
+        { field: 'attendanceid', type: 'like', value: this.searchQuery },
+        { field: 'attendance_status', type: 'like', value: this.searchQuery }
       ]);
+    }
+
+    if (filters.length) {
+      this.table.setFilter(filters);
     } else {
       this.table.clearFilter();
     }
+  }
+
+  async exportExcel(): Promise<void> {
+    if (this.excelExporting || this.pdfExporting) return;
+
+    this.excelExporting = true;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    try {
+      const model = this.buildTeamExportModel();
+      if (!model.rows.length) {
+        this.toasterService.error('No team members match the current filters');
+        return;
+      }
+
+      const section: TableWorkbookExcelSection = {
+        title: model.reportName,
+        reportTitle: model.reportName,
+        sheetName: 'Team Members',
+        metadataLayout: 'compact',
+        scopeLabel: 'Team',
+        scopeName: 'Current Team',
+        headers: model.headers,
+        rows: model.rows,
+        columnWidths: [model.memberNameColumnWidth, 20, model.emailColumnWidth]
+      };
+      this.excelService.generateTableWorkbookExcel({
+        workbookTitle: model.reportName,
+        author: model.generatedBy,
+        scopeLabel: 'Team',
+        scopeName: 'Current Team',
+        exportedAt: model.exportedAt,
+        filename: `${model.filenameBase}.xlsx`
+      }, [section]);
+      this.toasterService.success('Excel team report downloaded successfully');
+    } catch (error) {
+      console.error('Team Excel export failed', error);
+      this.toasterService.error('Unable to generate Excel team report');
+    } finally {
+      this.excelExporting = false;
+    }
+  }
+
+  async exportPdf(): Promise<void> {
+    if (this.excelExporting || this.pdfExporting) return;
+
+    this.pdfExporting = true;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    try {
+      const model = this.buildTeamExportModel();
+      if (!model.rows.length) {
+        this.toasterService.error('No team members match the current filters');
+        return;
+      }
+
+      const section: TableReportPdfSection = {
+        title: model.reportName,
+        reportTitle: model.reportName,
+        metadataLayout: 'compact',
+        scopeLabel: 'Team',
+        scopeName: 'Current Team',
+        headers: model.headers,
+        rows: model.rows
+      };
+      this.pdfService.generateTableReportPdf({
+        reportTitle: model.reportName,
+        author: model.generatedBy,
+        scopeLabel: 'Team',
+        scopeName: 'Current Team',
+        exportedAt: model.exportedAt,
+        filename: `${model.filenameBase}.pdf`
+      }, [section]);
+      this.toasterService.success('PDF team report downloaded successfully');
+    } catch (error) {
+      console.error('Team PDF export failed', error);
+      this.toasterService.error('Unable to generate PDF team report');
+    } finally {
+      this.pdfExporting = false;
+    }
+  }
+
+  private buildTeamExportModel(): {
+    headers: string[];
+    rows: any[][];
+    generatedBy: string;
+    exportedAt: string;
+    filenameBase: string;
+    reportName: string;
+    memberNameColumnWidth: number;
+    emailColumnWidth: number;
+  } {
+    const members = (this.table?.getRows?.('active') || [])
+      .map((row: any) => row?.getData?.())
+      .filter((member: any) => !!member);
+    const headers = [
+      'Member', 'Mobile', 'Email', 'Department', 'Role', 'Status',
+      'Attendance', 'Shift', 'Attendance ID', 'Date Joined'
+    ];
+    const rows = members.map((member: any) => [
+      this.getTeamExportName(member),
+      member?.mobile || '-',
+      member?.email || '-',
+      member?.department_name || '-',
+      member?.position || '-',
+      member?.isactive === true ? 'Active' : 'Inactive',
+      this.normalizeAttendanceStatus(member?.attendance_status),
+      member?.shift_type || '-',
+      member?.attendanceid || '-',
+      member?.joining_date || '-'
+    ]);
+    const reportName = 'Active Employee Report';
+    const exportedAt = new Date().toLocaleString();
+    const dateToken = new Date().toISOString().slice(0, 10);
+    const memberNameColumnWidth = Math.min(255, Math.max(
+      24,
+      ...rows.map((row: any[]) => String(row[0] ?? '').length + 2)
+    ));
+    const emailColumnWidth = Math.min(255, Math.max(
+      30,
+      ...rows.map((row: any[]) => String(row[2] ?? '').length + 2)
+    ));
+
+    return {
+      headers,
+      rows,
+      generatedBy: this.storageService.getEmpName() || this.storageService.getUsername() || 'System User',
+      exportedAt,
+      filenameBase: `${reportName.replace(/\s+/g, '_').toUpperCase()}_${dateToken}`,
+      reportName,
+      memberNameColumnWidth,
+      emailColumnWidth
+    };
+  }
+
+  private getTeamExportName(member: any): string {
+    const name = `${member?.firstname || member?.employee_name || member?.name || ''} ${member?.lastname || ''}`.trim();
+    return name
+      ? name.toLowerCase().split(' ').filter(Boolean).map(word => word[0].toUpperCase() + word.slice(1)).join(' ')
+      : 'Team Member';
   }
 
   // --- Actions ---
@@ -517,7 +682,7 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
     this.enqueueTableOp(() => {
       try {
         if (typeof tableRef?.replaceData === 'function') {
-          return tableRef.replaceData(normalized);
+          return Promise.resolve(tableRef.replaceData(normalized)).then(() => this.applyTeamFilters());
         }
       } catch {
         // ignore
@@ -525,11 +690,12 @@ export class TeamComponent implements AfterViewInit, OnDestroy, OnInit {
 
       try {
         if (typeof tableRef?.setData === 'function') {
-          return tableRef.setData(normalized);
+          return Promise.resolve(tableRef.setData(normalized)).then(() => this.applyTeamFilters());
         }
       } catch {
         // ignore
       }
+      return Promise.resolve();
     });
   }
 

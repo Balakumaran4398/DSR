@@ -7,10 +7,17 @@
             <h2 class="text-lg font-bold text-gray-800 m-0 flex items-center gap-2">
                 Updates
             </h2>
-            <span
-                class="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 uppercase tracking-wide">
-                {{ totalTime }} Total
-            </span>
+            <div class="flex items-center gap-2">
+                <button *ngIf="isApprovedRequestFlow" type="button" mat-stroked-button color="primary"
+                    [disabled]="!canCreateTaskFromApprovedDsr || projectsLoading"
+                    (click)="openNewTask()">
+                    New Task
+                </button>
+                <span
+                    class="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 uppercase tracking-wide">
+                    {{ totalTime }} Total
+                </span>
+            </div>
         </div>
 
         <!-- ================= COMPOSER ================= -->
@@ -23,7 +30,7 @@
                     <label class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Date</label>
                     <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
                         <input matInput [matDatepicker]="picker" formControlName="date" placeholder="Select date"
-                            [readonly]="isDateLocked">
+                            [matDatepickerFilter]="dsrDateFilter" [readonly]="isDateLocked">
                         <mat-datepicker-toggle matIconSuffix [for]="picker" [disabled]="isDateLocked"></mat-datepicker-toggle>
                         <mat-datepicker #picker></mat-datepicker>
                     </mat-form-field>
@@ -39,16 +46,38 @@
                 </div>
             </div>
 
-            <div>
+            <div *ngIf="isApprovedRequestFlow">
+                <label class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Select Project</label>
+                <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                    <mat-select [value]="selectedProjectId" placeholder="Choose a project"
+                        [disabled]="projectsLoading || !!projectsError || !projectList.length"
+                        (selectionChange)="onProjectSelectionChange($event.value)">
+                        <mat-option *ngFor="let project of projectList" [value]="project.id">
+                            {{ project.project_title || 'Project' }}
+                        </mat-option>
+                    </mat-select>
+                    <mat-hint *ngIf="projectsLoading">Loading projects...</mat-hint>
+                    <mat-hint *ngIf="!projectsLoading && projectsError">{{ projectsError }}</mat-hint>
+                    <mat-hint *ngIf="!projectsLoading && !projectsError && !projectList.length">No projects found for this employee.</mat-hint>
+                </mat-form-field>
+            </div>
+
+            <div *ngIf="!isApprovedRequestFlow || selectedProjectId !== null">
                 <label class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">{{ selectionLabel }}</label>
                 <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
                     <mat-select formControlName="subtaskid" [placeholder]="selectionPlaceholder"
+                        [disabled]="isTaskSelectionLocked || (isApprovedRequestFlow && taskListLoading)"
                         (selectionChange)="onSelectionChange($event)">
                         <mat-option [value]="null" disabled>{{ selectionLabel }}</mat-option>
                         <mat-option *ngFor="let p of (isTaskEntryMode ? taskList : subtasks)" [value]="p.id">
                             {{ p.task }}
                         </mat-option>
                     </mat-select>
+                    <mat-hint *ngIf="isApprovedRequestFlow && taskListLoading">Loading tasks...</mat-hint>
+                    <mat-hint *ngIf="isApprovedRequestFlow && !taskListLoading && taskListError">{{ taskListError }}</mat-hint>
+                    <mat-hint *ngIf="isApprovedRequestFlow && !taskListLoading && !taskListError && !taskList.length">
+                        No open tasks found for this project on the approved date.
+                    </mat-hint>
                 </mat-form-field>
             </div>
 

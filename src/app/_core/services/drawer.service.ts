@@ -54,12 +54,14 @@ export type DrawerFormType = DrawerTaskFormType | null;
 
 export interface DrawerTaskCreateContext {
   mode: 'create';
+  project_id?: string | number;
   employee_id: string | number;
   employee_name?: string;
   start_date: string;
   end_date: string;
   locked_fields: Array<'start_date' | 'end_date'>;
   not_send_dsr_request_id: string | number;
+  returnToDsrContext?: Record<string, any>;
 }
 
 export interface DrawerAction {

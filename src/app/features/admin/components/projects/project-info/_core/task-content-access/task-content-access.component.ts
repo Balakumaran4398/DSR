@@ -391,9 +391,13 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
   }
 
   private getNotSendDsrWorkflowContext(taskId: any): Record<string, any> | null {
-    const generatedTaskId = this.route.snapshot.queryParamMap.get('generatedTaskId');
-    const fixedDsrDate = this.route.snapshot.queryParamMap.get('notSendDsrDate');
-    const requestId = this.route.snapshot.queryParamMap.get('notSendDsrRequestId');
+    const routeParams = this.route.snapshot.queryParamMap;
+    const navigationState = this.router.getCurrentNavigation()?.extras.state as any;
+    const taskNavigationContext = navigationState?.taskNavigationContext
+      || (typeof window !== 'undefined' ? window.history.state?.taskNavigationContext : null);
+    const generatedTaskId = routeParams.get('generatedTaskId') || taskNavigationContext?.generatedTaskId;
+    const fixedDsrDate = routeParams.get('notSendDsrDate') || taskNavigationContext?.notSendDsrDate;
+    const requestId = routeParams.get('notSendDsrRequestId') || taskNavigationContext?.notSendDsrRequestId;
 
     if (
       !generatedTaskId
@@ -602,7 +606,8 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
     this.dsrEntriesTable = new Tabulator(this.dsrEntriesTableRef.nativeElement, {
       data: this.dsrEntriesData,
       layout: "fitColumns",
-      // responsiveLayout: "collapse",
+      responsiveLayout: "collapse",
+      responsiveLayoutCollapseStartOpen: false,
       pagination: "local",
       paginationSize: 10,
       paginationCounter: "rows",
@@ -623,11 +628,12 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
         { column: "date", dir: "desc" },
       ],
       columns: [
-        { title: "Date", field: "date", width: 120 },
+        { title: "Date", field: "date", width: 120, responsive: 1 },
         {
           title: "Employee",
           field: "firstname",
           minWidth: 150,
+          responsive: 2,
           formatter: (cell: any) =>
             `<span class="font-semibold text-slate-800">${cell.getValue() || '-'}</span>`
         },
@@ -635,6 +641,7 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
           title: "Project",
           field: "project_title",
           minWidth: 150,
+          responsive: 4,
           formatter: (cell: any) =>
             `<span class="text-slate-700">${cell.getValue() || '-'}</span>`
         },
@@ -642,6 +649,7 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
           title: "Task",
           field: "task",
           minWidth: 150,
+          responsive: 0,
           formatter: (cell: any) =>
             `<span class="font-medium text-slate-900">${cell.getValue() || '-'}</span>`
         },
@@ -650,16 +658,18 @@ export class TaskContentAccessComponent implements OnInit, OnChanges, OnDestroy 
           title: "Comments",
           field: "comments",
           minWidth: 280,
+          responsive: 5,
           formatter: (cell: any) => {
             const value = cell.getValue() || '-';
             return `<div class="whitespace-normal leading-6 text-slate-600">${value}</div>`;
           }
         },
-        { title: "Worked Hours", field: "worked_hours", width: 130, hozAlign: "center" },
+        { title: "Worked Hours", field: "worked_hours", width: 130, hozAlign: "center", responsive: 3 },
         ...(this.contentMode === 'task' ? [{
           title: "Actions",
           field: "actions", // Ensures CSS targeting matches a "field"
           width: 100,
+          responsive: 0,
           hozAlign: "center",
           headerSort: false,
           frozen: true,

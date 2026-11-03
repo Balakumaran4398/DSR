@@ -39,8 +39,13 @@
 :host ::ng-deep .dsr-action--apply,
 :host ::ng-deep .dsr-action--approve { background: var(--text-active); color: var(--text-on-active, #fff); border-color: var(--text-active); }
 :host ::ng-deep .dsr-action--reject { color: #dc2626; border-color: color-mix(in srgb, #dc2626 35%, var(--border-card)); }
+:host ::ng-deep .dsr-action--reason { color: var(--text-active); }
 :host ::ng-deep .dsr-action-note { display: inline-flex; align-items: center; gap: .3rem; color: var(--text-muted); font-size: .76rem; }
 :host ::ng-deep .dsr-action-spinner { animation: dsr-action-spin .8s linear infinite; }
-:host ::ng-deep .dsr-request-highlight { box-shadow: inset 4px 0 0 var(--text-active); background: var(--bg-active) !important; }
+:host ::ng-deep .dsr-request-highlight {
+  box-shadow: inset 4px 0 0 var(--text-active);
+  background: var(--bg-active) !important;
+  transition: background-color .35s ease, box-shadow .35s ease;
+}
 
 @keyframes dsr-action-spin { to { transform: rotate(360deg); } }

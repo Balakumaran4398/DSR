@@ -9,97 +9,164 @@
         <h1 class="text-lg sm:text-xl font-bold text-slate-900">
           Dashboard
         </h1>
-        <p class="text-xs sm:text-sm text-slate-500">
+        <!-- <p class="text-xs sm:text-sm text-slate-500">
           Company Overview
           <span></span>
           Real-time insights across Employees, Tasks, Issues, Releases &amp; Tickets
-        </p>
+        </p> -->
       </div>
     </div>
-    <div class="overall-actions">
-      <div #customDateFilter class="overall-date-filter">
 
-        <!-- Segmented Preset Buttons -->
-        <div class="overall-preset-group">
-          <button type="button" (click)="selectPreset('weekly')"
-            [class.overall-preset-button--active]="selectedPreset === 'weekly'" class="overall-preset-button">
-            Weekly
-          </button>
-
-          <button type="button" (click)="selectPreset('bi-weekly')"
-            [class.overall-preset-button--active]="selectedPreset === 'bi-weekly'" class="overall-preset-button">
-            Bi-Weekly
-          </button>
-
-          <button type="button" (click)="selectPreset('monthly')"
-            [class.overall-preset-button--active]="selectedPreset === 'monthly'" class="overall-preset-button">
-            This Month
-          </button>
-
-          <button type="button" (click)="$event.stopPropagation(); selectPreset('custom')"
-            [class.overall-preset-button--active]="selectedPreset === 'custom'" class="overall-preset-button">
-            Custom
-          </button>
-        </div>
-
-        <!-- Conditional Date Picker & Apply Button Popup (Controlled by isCustomOpen) -->
-        <div *ngIf="isCustomOpen" #customPopup (click)="$event.stopPropagation()" class="overall-custom-date-panel">
-
-          <mat-form-field appearance="outline" class="overall-custom-date-range" subscriptSizing="dynamic">
-            <mat-date-range-input [rangePicker]="picker">
-              <input matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate" />
-              <input matEndDate placeholder="End Date" [(ngModel)]="filterEndDate" />
-            </mat-date-range-input>
-            <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-            <mat-date-range-picker #picker></mat-date-range-picker>
-          </mat-form-field>
-
-          <div class="overall-custom-date-actions">
-            <button type="button" (click)="applyCustomFilter()" [disabled]="!filterStartDate || !filterEndDate"
-              class="overall-custom-date-apply">
-              Apply Filter
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
   </header>
 
   <div class="overall-scroll-content">
-    <div class="overall-metric-grid">
-      <button *ngFor="let metric of metrics; trackBy: trackByLabel" type="button" class="overall-stat-card"
-        [ngClass]="'overall-stat-card--' + metric.tone"
-        [ngStyle]="{ '--metric-color': metric.color, '--metric-soft': metric.softColor }"
-        [class.overall-stat-card--refreshing]="isMetricLoading(metric.dialogType) && metric.numericValue > 0"
-        [attr.aria-busy]="isMetricLoading(metric.dialogType)"
-        [disabled]="isMetricLoading(metric.dialogType) && metric.numericValue === 0"
-        (click)="openMetricDialog(metric.dialogType)">
-        <ng-container *ngIf="!isMetricLoading(metric.dialogType) || metric.numericValue > 0; else metricSkeleton">
+    <section *ngIf="showAttendanceSection" class="overall-attendance-section" aria-label="Daily attendance summary">
+      <div class="overall-attendance-header">
+        <div>
+          <h2>Daily Attendance</h2>
+          <p>Attendance summary for the selected date</p>
+        </div>
+        <mat-form-field appearance="outline" class="overall-attendance-date" subscriptSizing="dynamic">
+          <input appDatePickerOnly matInput [matDatepicker]="attendanceDatePicker" [ngModel]="attendanceDate"
+            (dateChange)="onAttendanceDateChange($event.value)" aria-label="Attendance date" />
+          <mat-datepicker-toggle matIconSuffix [for]="attendanceDatePicker"></mat-datepicker-toggle>
+          <mat-datepicker #attendanceDatePicker></mat-datepicker>
+        </mat-form-field>
+      </div>
+
+      <div class="overall-attendance-cards" [attr.aria-busy]="attendanceLoading">
+        <button type="button" class="overall-attendance-card overall-attendance-card--present"
+          [disabled]="attendanceLoading" (click)="openAttendanceList('present')" aria-label="Show present employees">
           <div>
-            <span class="overall-stat-card__label">{{ metric.label }}</span>
-            <strong>{{ metric.displayValue || metric.value }}</strong>
-            <!-- <p [class.overall-stat-card__delta--down]="metric.trend === 'down'">
+            <span>On Time Present</span>
+            <strong *ngIf="!attendanceLoading; else attendanceCountSkeleton">{{ attendancePresentCount }}</strong>
+          </div>
+          <i class="ri-checkbox-circle-fill" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="overall-attendance-card overall-attendance-card--absent"
+          [disabled]="attendanceLoading" (click)="openAttendanceList('absent')" aria-label="Show absent employees">
+          <div>
+            <span>Absent</span>
+            <strong *ngIf="!attendanceLoading; else attendanceCountSkeleton">{{ attendanceAbsentCount }}</strong>
+          </div>
+          <i class="ri-close-circle-fill" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="overall-attendance-card overall-attendance-card--late"
+          [disabled]="attendanceLoading" (click)="openAttendanceList('late')" aria-label="Show late employees">
+          <div>
+            <span>Late</span>
+            <strong *ngIf="!attendanceLoading; else attendanceCountSkeleton">{{ attendanceLateCount }}</strong>
+          </div>
+          <i class="ri-time-fill" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="overall-attendance-card overall-attendance-card--improper-thumb"
+          [disabled]="attendanceLoading" (click)="openAttendanceList('improper-thumb')"
+          aria-label="Show employees with improper thumb">
+          <div>
+            <span>Improper Thumb</span>
+            <strong *ngIf="!attendanceLoading; else attendanceCountSkeleton">{{ attendanceImproperThumbCount }}</strong>
+          </div>
+          <i class="ri-fingerprint-line" aria-hidden="true"></i>
+        </button>
+      </div>
+      <ng-template #attendanceCountSkeleton><strong class="overall-attendance-skeleton">…</strong></ng-template>
+      <p *ngIf="attendanceErrorMessage" class="overall-attendance-error" role="alert">{{ attendanceErrorMessage }}</p>
+    </section>
+
+
+    <section class="overall-attendance-section">
+
+
+
+      <div class="overall-actions mb-2">
+        <div class="overall-attendance-header">
+          <div>
+            <h2>Company Overview</h2>
+            <p class="text-xs sm:text-sm text-slate-500">
+              <span></span>
+              Real-time insights across Employees, Tasks, Issues, Releases &amp; Tickets
+            </p>
+          </div>
+        </div>
+        <div #customDateFilter class="overall-date-filter">
+          <!-- Segmented Preset Buttons -->
+          <div class="overall-preset-group">
+            <button type="button" (click)="selectPreset('weekly')"
+              [class.overall-preset-button--active]="selectedPreset === 'weekly'" class="overall-preset-button">
+              Weekly
+            </button>
+
+            <button type="button" (click)="selectPreset('bi-weekly')"
+              [class.overall-preset-button--active]="selectedPreset === 'bi-weekly'" class="overall-preset-button">
+              Bi-Weekly
+            </button>
+
+            <button type="button" (click)="selectPreset('monthly')"
+              [class.overall-preset-button--active]="selectedPreset === 'monthly'" class="overall-preset-button">
+              This Month
+            </button>
+
+            <button type="button" (click)="$event.stopPropagation(); selectPreset('custom')"
+              [class.overall-preset-button--active]="selectedPreset === 'custom'" class="overall-preset-button">
+              Custom
+            </button>
+          </div>
+
+          <!-- Conditional Date Picker & Apply Button Popup (Controlled by isCustomOpen) -->
+          <div *ngIf="isCustomOpen" #customPopup (click)="$event.stopPropagation()" class="overall-custom-date-panel">
+
+            <mat-form-field appearance="outline" class="overall-custom-date-range" subscriptSizing="dynamic">
+              <mat-date-range-input [rangePicker]="picker">
+                <input appDatePickerOnly matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate" />
+                <input appDatePickerOnly matEndDate placeholder="End Date" [(ngModel)]="filterEndDate" />
+              </mat-date-range-input>
+              <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+              <mat-date-range-picker #picker></mat-date-range-picker>
+            </mat-form-field>
+
+            <div class="overall-custom-date-actions">
+              <button type="button" (click)="applyCustomFilter()" [disabled]="!filterStartDate || !filterEndDate"
+                class="overall-custom-date-apply">
+                Apply Filter
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="overall-metric-grid">
+        <button *ngFor="let metric of metrics; trackBy: trackByLabel" type="button" class="overall-stat-card"
+          [ngClass]="'overall-stat-card--' + metric.tone"
+          [ngStyle]="{ '--metric-color': metric.color, '--metric-soft': metric.softColor }"
+          [class.overall-stat-card--refreshing]="isMetricLoading(metric.dialogType) && metric.numericValue > 0"
+          [attr.aria-busy]="isMetricLoading(metric.dialogType)"
+          [disabled]="isMetricLoading(metric.dialogType) && metric.numericValue === 0"
+          (click)="openMetricDialog(metric.dialogType)">
+          <ng-container *ngIf="!isMetricLoading(metric.dialogType) || metric.numericValue > 0; else metricSkeleton">
+            <div>
+              <span class="overall-stat-card__label">{{ metric.label }}</span>
+              <strong>{{ metric.displayValue || metric.value }}</strong>
+              <!-- <p [class.overall-stat-card__delta--down]="metric.trend === 'down'">
             <i [class]="metric.trend === 'down' ? 'ri-arrow-down-s-fill' : 'ri-arrow-up-s-fill'"></i>
             {{ metric.subLabel }}
           </p> -->
-            <small *ngIf="getMetricError(metric.dialogType)" class="overall-local-error">{{
-              getMetricError(metric.dialogType) }}</small>
-          </div>
-        </ng-container>
-        <ng-template #metricSkeleton>
-          <div class="overall-card-skeleton">
-            <span></span>
-            <strong></strong>
-            <small></small>
-          </div>
-        </ng-template>
-        <span class="overall-stat-card__icon">
-          <i
-            [class]="isMetricLoading(metric.dialogType) && metric.numericValue > 0 ? 'ri-loader-4-line overall-spin-icon' : metric.icon"></i>
-        </span>
-      </button>
-    </div>
-
+              <small *ngIf="getMetricError(metric.dialogType)" class="overall-local-error">{{
+                getMetricError(metric.dialogType) }}</small>
+            </div>
+          </ng-container>
+          <ng-template #metricSkeleton>
+            <div class="overall-card-skeleton">
+              <span></span>
+              <strong></strong>
+              <small></small>
+            </div>
+          </ng-template>
+          <span class="overall-stat-card__icon">
+            <i
+              [class]="isMetricLoading(metric.dialogType) && metric.numericValue > 0 ? 'ri-loader-4-line overall-spin-icon' : metric.icon"></i>
+          </span>
+        </button>
+      </div>
+    </section>
     <section class="overall-panel overall-overview-panel">
       <div class="overall-panel__header">
         <h2>Overview</h2>
@@ -494,8 +561,8 @@
         <button type="button" (click)="retryOverallDashboard()">Retry</button>
       </div>
 
-      <div #performanceTableDiv
-        class="overall-performance-table app-tabulator-loading-host app-tabulator--ten-row-cap"></div>
+      <div #performanceTableDiv class="overall-performance-table app-tabulator-loading-host app-tabulator--ten-row-cap">
+      </div>
     </section>
   </div>
 

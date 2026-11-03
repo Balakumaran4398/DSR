@@ -4,6 +4,7 @@ import { filter, finalize, from } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
+import { NotificationNavigationService } from 'src/app/_core/services/notification-navigation.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { TransientViewStateService } from 'src/app/_core/services/transient-view-state.service';
 import { attachStandardTabulatorPagination } from 'src/app/_core/utils/tabulator-pagination.util';
@@ -63,7 +64,7 @@ export class IssuesComponent {
   deletingIssueId: number | null = null;
   updatingIssueId: number | null = null;
   movingPhaseId: number | null = null;
-  private originalAssignedTo: number | null = null;
+  private originalIssueAssignments: { assigned_from: any; assigned_to: any } | null = null;
   readonly categoryOptions = [
     { value: 'High', textClass: 'text-red-600' },
     { value: 'Medium', textClass: 'text-amber-600' },
@@ -78,7 +79,7 @@ export class IssuesComponent {
     return acc;
   }, {} as Record<string, string>);
 
-  constructor(private authService: AuthService, private router: Router, private route: ActivatedRoute, private toasterService: ToasterService, private storageService: StorageService, private drawerService: DrawerService, private transientViewStateService: TransientViewStateService) {
+  constructor(private authService: AuthService, private router: Router, private route: ActivatedRoute, private toasterService: ToasterService, private storageService: StorageService, private drawerService: DrawerService, private transientViewStateService: TransientViewStateService, private notificationNavigationService: NotificationNavigationService) {
     this.empid = this.storageService.getEmpId();
 
     this.route.paramMap.subscribe(params => {
@@ -160,12 +161,7 @@ export class IssuesComponent {
       columnDefaults: {
         editable: (cell: any) => {
           const rowData = cell.getRow().getData();
-          const loggedInEmpId = Number(this.storageService.getEmpId());
-          const assignedFrom = Number(rowData.assigned_from);
-          const assignedTo = Number(rowData.assigned_to);
-          const isAdmin = this.storageService.roles?.isAdmin;
-          const canEdit = isAdmin || loggedInEmpId === assignedFrom || loggedInEmpId === assignedTo;
-          return canEdit;
+          return this.canManageIssue(rowData);
         }
       },
       // initialSort: [
@@ -238,6 +234,7 @@ export class IssuesComponent {
           field: "assigned_to",
           minWidth: 200,
           editor: "list",
+          editable: () => this.canEditAssignmentAndDescription(),
           editorParams: {
             values: this.employeeEditorValues,
             autocomplete: true,
@@ -326,7 +323,7 @@ export class IssuesComponent {
         //   }
         // },
         { title: "Start Date", field: "start_date", width: 120 },
-        { title: "End Date", field: "end_date", width: 120, editor: 'date' },
+        { title: "End Date", field: "end_date", width: 120 },
         {
           title: "Timeline",
           field: "end_date",
@@ -430,7 +427,8 @@ export class IssuesComponent {
           field: "description",
           width: 250,
           formatter: this.descriptionFormatter, // Uses the new formatter below
-          editor: "textarea"
+          editor: "textarea",
+          editable: () => this.canEditAssignmentAndDescription()
         },
         {
           title: "Actions",
@@ -455,19 +453,27 @@ export class IssuesComponent {
     });
 
     this.table.on("cellEditing", (cell: any) => {
-      if (cell.getField() === "assigned_to") {
-        this.originalAssignedTo = Number(cell.getValue());
-      }
+      const rowData = cell.getRow().getData();
+      this.originalIssueAssignments = {
+        assigned_from: this.snapshotIssueAssignment(rowData?.assigned_from),
+        assigned_to: this.snapshotIssueAssignment(rowData?.assigned_to)
+      };
     });
 
     this.table.on('cellEdited', (cell: any) => {
       const rowData = cell.getRow().getData();
-      const loggedInEmpId = Number(this.storageService.getEmpId());
-      const isAdmin = this.storageService.roles?.isAdmin;
-      const assignedFrom = Number(rowData.assigned_from);
-      const assignedTo =
-        cell.getField() === "assigned_to" ? Number(this.originalAssignedTo) : Number(rowData.assigned_to);
-      const canEdit = isAdmin || loggedInEmpId === assignedFrom || loggedInEmpId === assignedTo;
+      const field = cell.getField?.();
+      if ((field === 'assigned_to' || field === 'description') && !this.canEditAssignmentAndDescription()) {
+        this.originalIssueAssignments = null;
+        this.toasterService.error("You are Not Allowed.");
+        cell.restoreOldValue();
+        return;
+      }
+      const permissionRow = this.originalIssueAssignments
+        ? { ...rowData, ...this.originalIssueAssignments }
+        : rowData;
+      const canEdit = this.canManageIssue(permissionRow);
+      this.originalIssueAssignments = null;
       if (!canEdit) {
         this.toasterService.error("You are Not Allowed.");
         cell.restoreOldValue();
@@ -502,6 +508,7 @@ export class IssuesComponent {
   }
   actionFormatter(cell: any) {
     const data = cell.getData?.() ?? {};
+    if (!this.canManageIssue(data)) return '';
     const issueId = Number(data?.id);
     const isDeleting = this.deletingIssueId === issueId;
     const isUpdating = this.updatingIssueId === issueId;
@@ -533,10 +540,7 @@ export class IssuesComponent {
     const data = row.getData();
     console.log(data);
 
-    const loggedInEmpId = this.storageService.getEmpId();
-    const isEmployee = this.storageService.roles?.isEmployee;
-    const isAssignedUser = loggedInEmpId === data.assigned_to || loggedInEmpId === data.assigned_from;
-    if (isEmployee && !isAssignedUser) {
+    if (!this.canManageIssue(data)) {
       this.toasterService.error("You are Not Allowed.");
       return;
     }
@@ -945,24 +949,62 @@ export class IssuesComponent {
   }
 
   private canOpenIssueTaskDetails(rowData: any): boolean {
-    const loggedInEmpId = Number(this.storageService.getEmpId());
-    const assignedFrom = Number(rowData?.assigned_from);
-    const assignedTo = Number(rowData?.assigned_to);
-    const roles = this.storageService.roles;
+    return this.canManageIssue(rowData);
+  }
 
-    return !!(
-      roles?.isAdmin ||
-      roles?.isManager ||
-      loggedInEmpId === assignedFrom ||
-      loggedInEmpId === assignedTo
-    );
+  private canManageIssue(rowData: any): boolean {
+    const roles = this.storageService.roles;
+    if (roles?.isAdmin || roles?.isManager) return true;
+
+    const loggedInEmployeeId = this.normalizeIssueEmployeeId(this.storageService.getEmpId());
+    if (!loggedInEmployeeId) return false;
+
+    const assignedIds = [
+      ...this.normalizeIssueEmployeeIds(rowData?.assigned_from),
+      ...this.normalizeIssueEmployeeIds(rowData?.assigned_to)
+    ];
+    return assignedIds.includes(loggedInEmployeeId);
+  }
+
+  private canEditAssignmentAndDescription(): boolean {
+    const roles = this.storageService.roles;
+    return !!(roles?.isAdmin || roles?.isManager);
+  }
+
+  private normalizeIssueEmployeeIds(value: any): string[] {
+    const values = Array.isArray(value) ? value : [value];
+    return values.flatMap(item => {
+      if (item === null || item === undefined || item === '') return [];
+      if (typeof item === 'object') {
+        return this.normalizeIssueEmployeeIds(
+          item.id ?? item.value ?? item.employee_id ?? item.employeeid
+        );
+      }
+      const normalized = this.normalizeIssueEmployeeId(item);
+      return normalized ? [normalized] : [];
+    });
+  }
+
+  private normalizeIssueEmployeeId(value: any): string {
+    if (value === null || value === undefined || value === '') return '';
+    const normalized = `${value}`.trim();
+    if (!normalized) return '';
+    const numericId = Number(normalized);
+    return Number.isFinite(numericId) ? `${numericId}` : normalized;
+  }
+
+  private snapshotIssueAssignment(value: any): any {
+    if (Array.isArray(value)) {
+      return value.map(item => item && typeof item === 'object' ? { ...item } : item);
+    }
+    return value && typeof value === 'object' ? { ...value } : value;
   }
 
   private openTaskDetails(rowData: any): void {
     this.saveViewState();
     sessionStorage.setItem('activeProjectTab', 'issues');
-    this.router.navigate(['/main/projects/project-content', this.projectid, rowData.id], {
-      queryParams: this.buildTaskDetailsQueryParams(rowData)
+    this.router.navigate(['/main/tasks', this.projectid, rowData.id], {
+      queryParams: this.buildTaskDetailsQueryParams()
     });
   }
 
@@ -1179,15 +1221,11 @@ export class IssuesComponent {
       .replace(/'/g, '&#39;');
   }
 
-  private buildTaskDetailsQueryParams(rowData?: any): Record<string, string | null> {
-    const weekRange = this.getWeekRangeFromDate(rowData?.start_date);
-    const navigationFromDate = weekRange?.fromdate || this.fromdate;
-    const navigationToDate = weekRange?.todate || this.todate;
-
+  private buildTaskDetailsQueryParams(): Record<string, string | null> {
     return {
       tasktype: 'bug',
-      fromdate: navigationFromDate || null,
-      todate: navigationToDate || null
+      fromdate: this.fromdate || null,
+      todate: this.todate || null
     };
   }
 
@@ -1237,8 +1275,9 @@ export class IssuesComponent {
 
   private applyNavigationDateRange(): void {
     const params = this.route.snapshot.queryParamMap;
-    const fromDate = params.get('fromdate') || params.get('startDate');
-    const toDate = params.get('todate') || params.get('endDate');
+    const context = this.notificationNavigationService.resolve('issue', undefined, this.projectid);
+    const fromDate = context?.startDate || params.get('fromdate') || params.get('startDate');
+    const toDate = context?.endDate || params.get('todate') || params.get('endDate');
 
     if (!this.isValidDateRangeValue(fromDate) || !this.isValidDateRangeValue(toDate)) {
       return;

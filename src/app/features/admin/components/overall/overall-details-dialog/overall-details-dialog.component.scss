@@ -204,6 +204,16 @@
   line-height: 1.35;
 }
 
+.overall-details-table--centered th,
+.overall-details-table--centered td {
+  text-align: center;
+}
+
+.overall-details-table--centered .overall-details-sort-button {
+  justify-content: center;
+  text-align: center;
+}
+
 .overall-details-sort-button {
   width: 100%;
   min-height: 2rem;

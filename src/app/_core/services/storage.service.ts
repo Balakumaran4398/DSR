@@ -124,7 +124,7 @@ export class StorageService {
 
   getCompanyId(): string | number | null {
     const user = this.getUser();
-    return user ? user.companyid || user.company_id || user.id || user.userId || null : null;
+    return user ? user.companyid ?? user.company_id ?? null : null;
   }
 
   clearUser(): void {

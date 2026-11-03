@@ -2,6 +2,12 @@ import { DatePipe } from '@angular/common';
 import { ConnectedPosition } from '@angular/cdk/overlay';
 import { AfterViewInit, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 
+export interface DateRangeChange {
+  startDate: Date;
+  endDate: Date;
+  preset?: string | null;
+}
+
 @Component({
   selector: 'app-date-range-filter',
   templateUrl: './date-range-filter.component.html',
@@ -14,7 +20,7 @@ export class DateRangeFilterComponent implements AfterViewInit, OnChanges {
   @Input() navigationStep: 'range' | 'week' = 'range';
 
   /* ===== EMIT ONLY (ADDED) ===== */
-  @Output() rangeChange = new EventEmitter<{ startDate: Date; endDate: Date }>();
+  @Output() rangeChange = new EventEmitter<DateRangeChange>();
 
   /* ===== STATE ===== */
   startDate: Date = new Date(new Date().setDate(new Date().getDate() - 7));
@@ -118,7 +124,8 @@ export class DateRangeFilterComponent implements AfterViewInit, OnChanges {
   private emitRange() {
     this.rangeChange.emit({
       startDate: this.startDate,
-      endDate: this.endDate
+      endDate: this.endDate,
+      preset: this.activePreset
     });
   }
 
@@ -134,7 +141,11 @@ export class DateRangeFilterComponent implements AfterViewInit, OnChanges {
     this.endDate = end;
     this.tempStart = new Date(start);
     this.tempEnd = new Date(end);
-    this.activePreset = 'Custom';
+    const currentWeek = this.getCurrentWeek();
+    this.activePreset = start.toDateString() === currentWeek.start.toDateString()
+      && end.toDateString() === currentWeek.end.toDateString()
+      ? 'This Week'
+      : 'Custom';
     return true;
   }
 
@@ -200,11 +211,16 @@ export class DateRangeFilterComponent implements AfterViewInit, OnChanges {
   }
 
   applyPreset(preset: any) {
-    const end = new Date();
-    const start = new Date();
+    const today = new Date();
+    let start = new Date(today);
+    let end = new Date(today);
 
     if (preset.type === 'month') {
-      start.setDate(1);
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+      end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      end.setHours(23, 59, 59, 999);
+    } else if (preset.type === 'week') {
+      ({ start, end } = this.getCurrentWeek());
     } else if (preset.type === 'lastMonth') {
       start.setMonth(start.getMonth() - 1);
       start.setDate(1);

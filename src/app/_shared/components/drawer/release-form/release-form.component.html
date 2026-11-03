@@ -285,16 +285,12 @@
                             </label>
                             <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
                                 <input matInput [matDatepicker]="qcTestingStartPicker"
-                                    formControlName="qc_testing_start_date" [min]="minDate" placeholder="MM/DD/YYYY">
+                                    formControlName="qc_testing_start_date" placeholder="MM/DD/YYYY">
                                 <mat-datepicker-toggle matIconSuffix
                                     [for]="qcTestingStartPicker"></mat-datepicker-toggle>
                                 <mat-datepicker #qcTestingStartPicker></mat-datepicker>
                                 <mat-error *ngIf="releaseForm.get('qc_testing_start_date')?.hasError('required')">
                                     QC Testing Start Date is required.
-                                </mat-error>
-                                <mat-error
-                                    *ngIf="releaseForm.get('qc_testing_start_date')?.hasError('matDatepickerMin')">
-                                    Past dates are not allowed.
                                 </mat-error>
                             </mat-form-field>
                         </div>

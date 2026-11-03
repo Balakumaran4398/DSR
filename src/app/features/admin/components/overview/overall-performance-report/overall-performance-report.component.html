@@ -65,8 +65,8 @@
         <div *ngIf="isCustomOpen" class="custom-date-panel" (click)="$event.stopPropagation()">
           <mat-form-field appearance="outline" class="custom-date-range" subscriptSizing="dynamic">
             <mat-date-range-input [rangePicker]="performanceRangePicker">
-              <input matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate" />
-              <input matEndDate placeholder="End Date" [(ngModel)]="filterEndDate" />
+              <input appDatePickerOnly matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate" />
+              <input appDatePickerOnly matEndDate placeholder="End Date" [(ngModel)]="filterEndDate" />
             </mat-date-range-input>
             <mat-datepicker-toggle matIconSuffix [for]="performanceRangePicker"></mat-datepicker-toggle>
             <mat-date-range-picker #performanceRangePicker></mat-date-range-picker>
@@ -118,7 +118,7 @@
       <div *ngIf="section.showDepartmentHeading" class="department-report-heading">
         <div>
           <span>Department</span>
-          <h2>{{ section.departmentName }}</h2>
+          <h2>{{ getDisplayDepartmentName(section.departmentName) }}</h2>
         </div>
         <strong>{{ section.departmentRecordCount }} Records</strong>
       </div>
@@ -126,7 +126,7 @@
       <section class="department-section">
         <div class="department-section__header">
           <div class="department-section__heading">
-            <span class="department-section__eyebrow">{{ section.departmentName }} Department</span>
+            <span class="department-section__eyebrow">{{ getDepartmentEyebrow(section.departmentName) }}</span>
             <h2>{{ section.reportTitle }}</h2>
           </div>
           <div class="department-section__tools">
@@ -268,8 +268,8 @@
               </select>
             </label>
             <button type="button" [disabled]="section.pageIndex === 0" (click)="goToPage(section, 0)">First</button>
-            <button type="button" title="Previous page" aria-label="Previous page" [disabled]="section.pageIndex === 0"
-              (click)="goToPage(section, section.pageIndex - 1)">
+            <button type="button" title="Show the previous five pages" aria-label="Show the previous five pages" [disabled]="!section.pageNumbers.length || section.pageNumbers[0] === 1"
+              (click)="goToPreviousPageGroup(section)">
               Prev
             </button>
             <span class="app-pagination-pages">
@@ -279,9 +279,9 @@
                 {{ page }}
               </button>
             </span>
-            <button type="button" title="Next page" aria-label="Next page"
-              [disabled]="section.pageIndex >= section.totalPages - 1"
-              (click)="goToPage(section, section.pageIndex + 1)">
+            <button type="button" title="Show the next five pages" aria-label="Show the next five pages"
+              [disabled]="!section.pageNumbers.length || section.pageNumbers[section.pageNumbers.length - 1] >= section.totalPages"
+              (click)="goToNextPageGroup(section)">
               Next
             </button>
             <button type="button" [disabled]="section.pageIndex >= section.totalPages - 1" (click)="goToPage(section, section.totalPages - 1)">Last</button>

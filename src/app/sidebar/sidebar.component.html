@@ -97,8 +97,8 @@
         <span class="dsr-nav-tooltip">Documents</span>
       </a>
 
-      <a *ngIf="canAccess('performance')" class="dsr-nav-nav-link"
-        [class.dsr-nav-active]="activeLink === 'performance'" (click)="activateLink('performance')">
+      <a *ngIf="canAccess('performance')" class="dsr-nav-nav-link" [class.dsr-nav-active]="activeLink === 'performance'"
+        (click)="activateLink('performance')">
         <i class="ri-bar-chart-box-line dsr-nav-nav-icon"></i>
         <span class="dsr-nav-nav-text">Performance</span>
         <span class="dsr-nav-tooltip">Performance</span>
@@ -117,7 +117,20 @@
         <span class="dsr-nav-nav-text">Tickets</span>
         <span class="dsr-nav-tooltip">Tickets</span>
       </a>
-
+      <div *ngIf="canAccess('attendance') || canAccess('holiday-calendar')" class="dsr-nav-nav-link"
+        [class.dsr-nav-open]="openSubmenu === 'attendance-holidays'" (click)="toggleSubmenu('attendance-holidays')">
+        <i class="ri-calendar-check-line dsr-nav-nav-icon"></i>
+        <span class="dsr-nav-nav-text">HR Settings</span>
+        <i class="ri-arrow-down-s-line dsr-nav-nav-arrow"></i>
+        <span class="dsr-nav-tooltip">HR Settings</span>
+      </div>
+      <div *ngIf="canAccess('attendance') || canAccess('holiday-calendar')" class="dsr-nav-submenu"
+        [class.dsr-nav-open]="openSubmenu === 'attendance-holidays'">
+        <a *ngIf="canAccess('attendance')" class="dsr-nav-nav-sub-link"
+          [class.dsr-nav-active]="activeLink === 'attendance'" (click)="activateLink('attendance')">Attendance</a>
+        <a *ngIf="canAccess('holiday-calendar')" class="dsr-nav-nav-sub-link"
+          [class.dsr-nav-active]="activeLink === 'holiday-calendar'" (click)="activateLink('holiday-calendar')">Holiday Calendar</a>
+      </div>
       <div *ngIf="canAccess('mom') || canAccess('mail')" class="dsr-nav-nav-link"
         [class.dsr-nav-open]="openSubmenu === 'analytics'" (click)="toggleSubmenu('analytics')">
         <i class="ri-bar-chart-box-line dsr-nav-nav-icon"></i>
@@ -129,35 +142,24 @@
         [class.dsr-nav-open]="openSubmenu === 'analytics'">
         <a *ngIf="canAccess('mail')" class="dsr-nav-nav-sub-link" [class.dsr-nav-active]="activeLink === 'mail'"
           (click)="activateLink('mail')">
-          <!-- <i class="ri-mail-line dsr-nav-nav-icon"></i> -->
           Mail</a>
-
-
         <a *ngIf="canAccess('hierarchy')" class="dsr-nav-nav-sub-link"
           [class.dsr-nav-active]="activeLink === 'hierarchy'" (click)="activateLink('hierarchy')">
-          <!-- <i class="ri-git-merge-line dsr-nav-nav-icon"></i> -->
           Hierarchy
         </a>
-
         <a *ngIf="canAccess('notsenddsr')" class="dsr-nav-nav-sub-link"
           [class.dsr-nav-active]="activeLink === 'notsenddsr'" (click)="activateLink('notsenddsr')">
           Not Send DSR
         </a>
-
-
       </div>
 
-      <!-- <a class="dsr-nav-nav-link" [class.dsr-nav-active]="activeLink === 'attendance'" (click)="activateLink('attendance')">
-      <i class="ri-fingerprint-line dsr-nav-nav-icon"></i>
-      <span class="dsr-nav-nav-text">Attendance</span>
-      <span class="dsr-nav-tooltip">Attendance</span>
+
+      <a *ngIf="canAccess('reports')" class="dsr-nav-nav-link" [class.dsr-nav-active]="activeLink === 'reports'" (click)="activateLink('reports')">
+        <i class="ri-file-chart-line dsr-nav-nav-icon"></i>
+        <span class="dsr-nav-nav-text">Reports</span>
+        <!-- <span class="dsr-nav-badge">4</span> -->
+        <span class="dsr-nav-tooltip">Reports</span>
       </a>
-      <a class="dsr-nav-nav-link" [class.dsr-nav-active]="activeLink === 'inbox'" (click)="activateLink('inbox')">
-        <i class="ri-mail-line dsr-nav-nav-icon"></i>
-        <span class="dsr-nav-nav-text">Inbox</span>
-        <span class="dsr-nav-badge">4</span>
-        <span class="dsr-nav-tooltip">Inbox</span>
-      </a> -->
 
       <!-- <div class="dsr-nav-menu-label">Sales</div> -->
       <!-- Leads Submenu -->

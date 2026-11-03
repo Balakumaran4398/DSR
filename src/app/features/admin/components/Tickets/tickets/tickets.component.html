@@ -28,6 +28,7 @@
 
                 <mat-form-field appearance="outline" class="ticket-filter-field" subscriptSizing="dynamic">
                     <mat-select placeholder="All Employees" [value]="selectedEmployeeId"
+                        [disabled]="!isRaisedTickets && !canSelectEmployee"
                         (selectionChange)="onEmployeeFilterChange($event.value)"
                         (openedChange)="onEmployeeSelectOpened($event)">
                         <div class="sticky top-0 z-10 bg-white px-3 py-2 border-b border-slate-100"
@@ -48,6 +49,7 @@
                 <mat-form-field *ngIf="!isRaisedTickets" appearance="outline" class="ticket-filter-field"
                     subscriptSizing="dynamic">
                     <mat-select placeholder="All Departments" [value]="selectedDepartmentId"
+                        [disabled]="!canSelectDepartment"
                         (selectionChange)="onDepartmentFilterChange($event.value)"
                         (openedChange)="onDepartmentSelectOpened($event)">
                         <div class="sticky top-0 z-10 bg-white px-3 py-2 border-b border-slate-100"
@@ -57,7 +59,7 @@
                                 placeholder="Search Department" [value]="departmentSearchTerm"
                                 (input)="filterDepartments($event)">
                         </div>
-                        <mat-option value="">All Departments</mat-option>
+                        <mat-option *ngIf="canSelectDepartment" value="">All Departments</mat-option>
                         <mat-option *ngFor="let department of filteredDepartments" [value]="department.filter_id">
                             {{ department.department_name }}
                         </mat-option>
@@ -83,10 +85,26 @@
                 <!-- ACTION BUTTONS WRAPPER -->
                 <div class="tickets-toolbar-buttons">
 
-                    <button *ngIf="!isRaisedTickets" (click)="generateTicketsPdf()" [disabled]="!canDownloadPdf || ticketPdfExporting"
-                        [title]="ticketPdfExporting ? 'Preparing PDF' : 'Download PDF'"
-                        class="tickets-toolbar-button pdf-enabled inline-flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg">
+                    <button *ngIf="!isRaisedTickets" type="button" (click)="generateTicketsPdf()"
+                        [disabled]="!canDownloadPdf || ticketPdfExporting || ticketExcelExporting"
+                        [title]="ticketPdfExporting ? 'Generating PDF...' : 'PDF Download'"
+                        class="tickets-toolbar-button cursor-pointer transition-all duration-200 inline-flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg shadow-sm border"
+                        [ngClass]="{
+                            'pdf-enabled': canDownloadPdf && !ticketPdfExporting && !ticketExcelExporting,
+                            'pdf-disabled': !canDownloadPdf || ticketPdfExporting || ticketExcelExporting
+                        }">
                         <i [class]="ticketPdfExporting ? 'ri-loader-4-line tickets-export-spinner' : 'ri-file-pdf-2-fill tickets-export-icon'"></i>
+                    </button>
+
+                    <button *ngIf="!isRaisedTickets" type="button" (click)="generateTicketsExcel()"
+                        [disabled]="!canDownloadPdf || ticketExcelExporting || ticketPdfExporting"
+                        [title]="ticketExcelExporting ? 'Generating Excel...' : 'Excel Download'"
+                        class="tickets-toolbar-button cursor-pointer transition-all duration-200 inline-flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg shadow-sm border"
+                        [ngClass]="{
+                            'excel-enabled': canDownloadPdf && !ticketExcelExporting && !ticketPdfExporting,
+                            'pdf-disabled': !canDownloadPdf || ticketExcelExporting || ticketPdfExporting
+                        }">
+                        <i [class]="ticketExcelExporting ? 'ri-loader-4-line tickets-export-spinner' : 'ri-file-excel-2-fill tickets-export-icon'"></i>
                     </button>
 
                     <button *ngIf="isRaisedTickets"

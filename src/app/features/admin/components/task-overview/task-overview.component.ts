@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, Optional, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { AuthService } from 'src/app/_core/services/auth.service';
@@ -6,6 +6,8 @@ import { StorageService } from 'src/app/_core/services/storage.service';
 import { Employee } from '../projects/project-info/release-manager/release-manager.component';
 import { finalize } from 'rxjs';
 import { PdfService } from 'src/app/_core/services/pdf.service';
+import { ExcelService } from 'src/app/_core/services/excel.service';
+import { ToasterService } from 'src/app/_core/services/toaster.service';
 import { attachTabulatorPaginationPersistence, buildTabulatorPaginationKey } from 'src/app/_core/utils/tabulator-pagination.util';
 interface Task {
   id: number;
@@ -42,7 +44,7 @@ export class TaskOverviewComponent implements OnInit {
   employeeSearchText = '';
   viewMode: 'card' | 'table' = 'card';
 
-  constructor(private authService: AuthService, private storageService: StorageService, private pdfService: PdfService, private route: ActivatedRoute) {
+  constructor(private authService: AuthService, private storageService: StorageService, private pdfService: PdfService, private excelService: ExcelService, private route: ActivatedRoute, @Optional() private toasterService?: ToasterService) {
     this.empId = storageService.getEmpId();
     this.getEmployeeList();
   }
@@ -62,6 +64,7 @@ export class TaskOverviewComponent implements OnInit {
   taskData: any[] = [];
   taskLoading = false;
   pdfExporting = false;
+  excelExporting = false;
   ngOnInit() {
     // const today = new Date();
 
@@ -318,17 +321,244 @@ export class TaskOverviewComponent implements OnInit {
     if (this.pdfExporting || !this.canDownloadPdf) return;
 
     this.pdfExporting = true;
-    const employee = this.selectedEmployee?.id === 0
-      ? { ...this.selectedEmployee, employee_name: 'All Employee' }
-      : this.selectedEmployee;
-
-    setTimeout(() => {
+    this.loadDsrExportRows('pdf', (rows, fromDate, toDate, selectedEmployee) => {
+      const employee = selectedEmployee?.id === 0
+        ? { ...selectedEmployee, employee_name: 'All Employee' }
+        : selectedEmployee;
       try {
-        this.pdfService.generatePDF(employee, this.filterStartDate, this.filterEndDate, this.taskData);
+        this.pdfService.generatePDF(employee, fromDate, toDate, rows);
+      } catch (error) {
+        console.error('PDF generation failed', error);
+        this.toasterService?.error('Unable to generate the DSR PDF.');
       } finally {
         this.pdfExporting = false;
       }
-    }, 0);
+    });
+  }
+
+  generateDSRExcel(): void {
+    if (this.excelExporting || !this.canDownloadPdf) return;
+
+    this.excelExporting = true;
+    this.loadDsrExportRows('excel', (rows, fromDate, toDate, selectedEmployee) => {
+      try {
+      const employeeName = selectedEmployee?.id === 0
+        ? 'All Employee'
+        : selectedEmployee?.employee_name || 'Employee';
+      this.excelService.generateDsrCalendarExcel(
+        employeeName,
+        fromDate,
+        toDate,
+        rows
+      );
+      } catch (error) {
+        console.error('Excel generation failed', error);
+        this.toasterService?.error('Unable to generate the DSR Excel file.');
+      } finally {
+        this.excelExporting = false;
+      }
+    });
+  }
+
+  private loadDsrExportRows(format: 'pdf' | 'excel', onSuccess: (rows: any[], fromDate: Date, toDate: Date, selectedEmployee: any) => void): void {
+    const selectedEmployee = { ...(this.selectedEmployee || {}) };
+    const exportFromDate = this.filterStartDate ? new Date(this.filterStartDate) : null;
+    const exportToDate = this.filterEndDate ? new Date(this.filterEndDate) : null;
+    const employeeId = Number(selectedEmployee?.id);
+    const userId = Number(this.empId);
+    if (!Number.isFinite(employeeId) || !Number.isFinite(userId) || !exportFromDate || !exportToDate) {
+      if (format === 'pdf') this.pdfExporting = false;
+      else this.excelExporting = false;
+      this.toasterService?.error('Select an employee and date range before exporting.');
+      return;
+    }
+
+    this.authService.getDsrOverviewListByEmpIdNdFromToDateNdUserId(
+      employeeId,
+      this.formatDateToYMD(exportFromDate),
+      this.formatDateToYMD(exportToDate),
+      userId
+    ).pipe(finalize(() => {
+      if (format === 'pdf') this.pdfExporting = false;
+      else this.excelExporting = false;
+    })).subscribe({
+      next: (response: any) => {
+        const source = Array.isArray(response)
+          ? response
+          : response?.data ?? response?.rows ?? response?.result ?? response?.results ?? response?.list ?? [];
+        onSuccess(this.getCalendarReportRows(Array.isArray(source) ? source : [], exportFromDate, exportToDate, selectedEmployee), exportFromDate, exportToDate, selectedEmployee);
+      },
+      error: (error: any) => {
+        console.error('DSR export list request failed', error);
+        this.toasterService?.error(error?.error?.message || 'Unable to load DSR report data.');
+      }
+    });
+  }
+
+  private getCalendarReportRows(
+    sourceRows: any[] = this.taskData,
+    fromDate: Date | null = this.filterStartDate,
+    toDate: Date | null = this.filterEndDate,
+    selectedEmployee: any = this.selectedEmployee
+  ): any[] {
+    if (!fromDate || !toDate) return [];
+
+    const grouped = new Map<string, any[]>();
+    for (const item of sourceRows) {
+      const date = this.parseCalendarDate(item?.date ?? item?.work_date ?? item?.workDate ?? item?.attendance_date ?? item?.holiday_date ?? item?.holidayDate ?? item?.leave_date ?? item?.leaveDate);
+      if (!date) continue;
+
+      const dateKey = this.formatDateToYMD(date);
+      const rows = grouped.get(dateKey) || [];
+      rows.push(item);
+      grouped.set(dateKey, rows);
+    }
+
+    const rows: any[] = [];
+    const start = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+    const end = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+
+    for (const date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+      const dateKey = this.formatDateToYMD(date);
+      const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+      const dateItems = grouped.get(dateKey) || [];
+      const isFutureDate = date > new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+      if (!dateItems.length) {
+        const isSunday = date.getDay() === 0;
+        const isFutureWorkingDay = isFutureDate && !isSunday;
+        rows.push({
+          date: this.formatCalendarDate(date),
+          day: isSunday ? '' : weekday,
+          employee_name: selectedEmployee?.id === 0 ? 'All Employee' : selectedEmployee?.employee_name || '-',
+          project_title: isSunday ? 'Sunday' : '', version: '', start_date: '', end_date: '',
+          task: isSunday || isFutureWorkingDay ? '' : 'No DSR Entered',
+          sub_task: '', worked_hours: '', completion_percentage: '', comments: '',
+          statusText: isFutureWorkingDay ? '-' : isSunday ? 'Week Off' : 'Absent',
+          isWeekOff: isSunday,
+          isSunday,
+          isFuture: isFutureWorkingDay,
+          isHoliday: false,
+          holiday_name: ''
+        });
+        continue;
+      }
+
+      dateItems.forEach(item => {
+        const status = `${item?.statusText ?? item?.status_text ?? item?.attendance_status ?? item?.day_status ?? item?.status ?? item?.record_type ?? item?.recordType ?? item?.type ?? ''}`.trim();
+        const holidayObjectName = this.getCalendarRecordLabel(item?.holiday, ['name', 'title', 'holiday_name', 'holidayName']);
+        const holidayValue = typeof item?.holiday === 'string' ? item.holiday.trim() : holidayObjectName;
+        const holidayName = this.getCalendarRecordLabel(item, ['holiday_name', 'holidayName', 'holiday_title', 'holidayTitle', 'festival_name', 'festivalName']) || holidayValue;
+        const leaveObjectName = this.getCalendarRecordLabel(item?.leave, ['name', 'title', 'leave_name', 'leaveName', 'leave_type', 'leaveType']);
+        const leaveName = this.getCalendarRecordLabel(item, ['leave_name', 'leaveName', 'leave_type', 'leaveType', 'leave_reason', 'leaveReason']) || leaveObjectName;
+        const normalizedStatus = status.toLowerCase();
+        const workLabel = this.getCalendarRecordLabel(item, ['task', 'sub_task', 'subTask']);
+        const isSunday = date.getDay() === 0;
+        const explicitlyWeekOff = normalizedStatus.includes('week off') || normalizedStatus.includes('weekoff') || normalizedStatus.includes('weekly off') || normalizedStatus === 'sunday';
+        const isWeekOff = explicitlyWeekOff || isSunday;
+        const isHoliday = !isWeekOff && (normalizedStatus.includes('holiday') || !!holidayName || /^holiday\b/i.test(workLabel) || item?.is_holiday === true || item?.isHoliday === true);
+        const leaveActivity = ['task', 'sub_task', 'subTask'].map(key => `${item?.[key] ?? ''}`.trim()).find(value => /^leave(?:\b|\s|[-:])/i.test(value)) || '';
+        const isLeave = !isHoliday && !isWeekOff && (normalizedStatus.includes('leave') || !!leaveName || !!leaveActivity || item?.is_leave === true || item?.isLeave === true);
+        const isFutureWorkingDay = isFutureDate && !isHoliday && !isWeekOff && !isLeave;
+        const taskValue = this.getCalendarRecordLabel(item, ['task', 'task_name', 'taskName', 'sub_task', 'subTask', 'subtask_name', 'subtaskName']);
+        const hasDsr = [taskValue, this.getCalendarRecordLabel(item, ['project_title', 'project_name', 'projectName']), this.getCalendarRecordLabel(item, ['worked_hours', 'workedHours', 'hours'])]
+          .some(value => !!value && !/^(?:-|--|null|undefined|working day|no dsr entered|not dsr entered|absent|holiday|week off|weekly off|sunday|0 hours?)$/i.test(value))
+          || item?.subtaskid !== null && item?.subtaskid !== undefined
+          || item?.sub_task_id !== null && item?.sub_task_id !== undefined;
+        const isWorkingDayMarker = normalizedStatus === 'working day' || normalizedStatus === 'workingday' || normalizedStatus === 'working';
+        const holidayActivity = this.getCalendarRecordLabel(item, ['sub_task', 'subTask', 'task', 'comments']);
+        const inferredHolidayName = holidayName || (isHoliday ? holidayActivity.replace(/^holiday\s*[-:]?\s*/i, '') : '');
+        const eventName = isWeekOff
+          ? holidayName || 'Week Off'
+          : isLeave
+          ? leaveName || leaveActivity || status || 'Leave'
+          : isHoliday
+            ? inferredHolidayName || status || 'Holiday'
+            : '';
+        const eventLabel = eventName.replace(/^(holiday|leave)\s*[-:]?\s*/i, '').trim();
+        const taskLabel = isWeekOff
+          ? 'Week Off'
+          : isHoliday
+          ? `Holiday - ${eventLabel || 'Holiday'}`
+          : isLeave
+            ? `Leave - ${eventLabel || 'Leave'}`
+            : isSunday
+              ? 'Week Off'
+              : item?.task ?? item?.sub_task ?? item?.subTask ?? '-';
+        const statusText = isHoliday
+          ? 'Holiday'
+          : isWeekOff
+            ? 'Week Off'
+            : isLeave
+              ? 'Leave'
+              : normalizedStatus === 'absent' || (isWorkingDayMarker && !hasDsr) || (!status && !hasDsr)
+                ? 'Absent'
+                : isWorkingDayMarker
+                  ? 'Present'
+                  : status || 'Present';
+        if (isFutureWorkingDay) {
+          rows.push({
+            ...item,
+            date: this.formatCalendarDate(date),
+            day: item?.day || item?.day_name || item?.dayName || weekday,
+            employee_name: item?.employee_name ?? item?.employeeName ?? item?.emp_name ?? (selectedEmployee?.id === 0 ? 'All Employee' : selectedEmployee?.employee_name || '-'),
+            project_title: '', version: '', start_date: '', end_date: '', task: '', sub_task: '',
+            worked_hours: '', completion_percentage: '', comments: '', holiday_name: '',
+            statusText: '-', isHoliday: false, isWeekOff: false, isSunday: false, isFuture: true
+          });
+          return;
+        }
+        rows.push({
+          ...item,
+          date: this.formatCalendarDate(date),
+          day: isSunday ? '' : item?.day || item?.day_name || item?.dayName || weekday,
+          employee_name: item?.employee_name ?? item?.employeeName ?? item?.emp_name ?? (selectedEmployee?.id === 0 ? 'All Employee' : selectedEmployee?.employee_name || '-'),
+          project_title: item?.project_title ?? item?.project_name ?? item?.projectName ?? '-',
+          version: item?.version ?? item?.version_name ?? item?.versionName ?? '-',
+          start_date: item?.start_date ?? item?.startDate ?? '-',
+          end_date: item?.end_date ?? item?.endDate ?? '-',
+          task: taskLabel,
+          sub_task: item?.sub_task ?? item?.subTask ?? item?.subtask_name ?? item?.subtaskName ?? '-',
+          worked_hours: item?.worked_hours ?? item?.workedHours ?? item?.hours ?? '-',
+          completion_percentage: item?.completion_percentage ?? item?.completionPercentage ?? item?.progress ?? '-',
+          comments: item?.comments ?? item?.remarks ?? '-',
+          holiday_name: inferredHolidayName,
+          statusText,
+          isHoliday,
+          isWeekOff: statusText === 'Week Off',
+          isSunday: isSunday && isWeekOff
+        });
+      });
+    }
+
+    return rows;
+  }
+
+  private parseCalendarDate(value: any): Date | null {
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    }
+    const text = `${value ?? ''}`.trim();
+    if (!text) return null;
+
+    const ymdMatch = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/.exec(text);
+    const dmyMatch = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/.exec(text);
+    if (ymdMatch) return new Date(Number(ymdMatch[1]), Number(ymdMatch[2]) - 1, Number(ymdMatch[3]));
+    if (dmyMatch) return new Date(Number(dmyMatch[3]), Number(dmyMatch[2]) - 1, Number(dmyMatch[1]));
+    const parsed = new Date(text);
+    return Number.isNaN(parsed.getTime()) ? null : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  }
+
+  private formatCalendarDate(date: Date): string {
+    return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
+  }
+
+  private getCalendarRecordLabel(record: any, keys: string[]): string {
+    for (const key of keys) {
+      const value = record?.[key];
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return '';
   }
   private getDateRangeLabel(): string {
     if (!this.filterStartDate || !this.filterEndDate) return '';

@@ -17,7 +17,7 @@ export const releaseVersionValidator: ValidatorFn = (control: AbstractControl): 
   const value = `${control.value ?? ''}`;
   if (!value) return null;
 
-  if (!/^v-?\d{1,3}\.\d{1,3}(?:\.\d{1,3})?$/.test(value)) {
+  if (!/^v-?\d{1,3}\.\d{1,3}(?:\.\d{1,3})?$/i.test(value)) {
     return { versionFormat: true };
   }
 
@@ -39,11 +39,12 @@ export class ReleaseFormComponent implements OnInit {
   releaseTypeFilterControl = new FormControl('');
   statusFilterControl = new FormControl('');
   private readonly closedStatuses: ReleaseStatus[] = ['Pass', 'Rejected', 'Failed'];
-  private readonly qcStartDateStatuses: ReleaseStatus[] = ['In-Progress', 'Pass', 'Failed'];
+  private readonly qcStartDateStatuses: ReleaseStatus[] = ['On-Hold', 'In-Progress', 'Rejected', 'Pass', 'Failed'];
   private readonly qcStartRequiredStatuses: ReleaseStatus[] = ['In-Progress', 'Pass', 'Failed'];
   private readonly qcEndDateStatuses: ReleaseStatus[] = ['In-Progress', 'Pass', 'Failed'];
   private readonly qcEndRequiredStatuses: ReleaseStatus[] = ['In-Progress'];
   private lastManualStatus: ReleaseStatus = 'Upcoming-Release';
+  private previousStatus: ReleaseStatus = 'Upcoming-Release';
   projectList: any = [];
   versionList: any[] = [];
   releaseList: any[] = [];
@@ -221,13 +222,16 @@ export class ReleaseFormComponent implements OnInit {
     });
 
     this.releaseForm.get('status')?.valueChanges.subscribe(status => {
+      const normalizedStatus = status as ReleaseStatus | null;
+      this.captureQcTestingStartDate(this.previousStatus, normalizedStatus);
       if (status && !this.releaseForm.get('ismail')?.value && status !== 'To-be-Tested') {
         this.lastManualStatus = status as ReleaseStatus;
       }
       this.toggleReasonValidator(status === 'Rejected');
-      this.syncClosedDateWithStatus(status as ReleaseStatus | null);
-      this.syncQcTestingDatesWithStatus(status as ReleaseStatus | null);
-      this.applyAssignedToPermission(status as ReleaseStatus | null);
+      this.syncClosedDateWithStatus(normalizedStatus);
+      this.syncQcTestingDatesWithStatus(normalizedStatus);
+      this.applyAssignedToPermission(normalizedStatus);
+      this.previousStatus = normalizedStatus ?? 'Upcoming-Release';
     });
 
     this.releaseForm.get('release_type')?.valueChanges.subscribe(type => {
@@ -535,12 +539,18 @@ export class ReleaseFormComponent implements OnInit {
       }
     });
 
-    this.releaseForm.get('qc_testing_start_date')?.enable({ emitEvent: false });
+    const qcStartDateControl = this.releaseForm.get('qc_testing_start_date');
+    if (!this.isExternalRelease() && this.isInProgress) {
+      qcStartDateControl?.enable({ emitEvent: false });
+    } else {
+      qcStartDateControl?.disable({ emitEvent: false });
+    }
     this.releaseForm.get('qc_testing_end_date')?.enable({ emitEvent: false });
   }
 
   private resetForCreateMode(): void {
     this.isEditMode = false;
+    this.previousStatus = 'Upcoming-Release';
     this.releaseForm.enable({ emitEvent: false });
     this.releaseForm.reset({
       id: 0,
@@ -584,6 +594,7 @@ export class ReleaseFormComponent implements OnInit {
 
     const patchedStatus = this.normalizeReleaseStatus(data.status);
     const patchedReleaseType = this.getReleaseTypeFromData(data);
+    this.previousStatus = patchedStatus;
     if (patchedStatus !== 'To-be-Tested') {
       this.lastManualStatus = patchedStatus;
     }
@@ -647,15 +658,19 @@ export class ReleaseFormComponent implements OnInit {
         this.lastManualStatus = currentStatus;
       }
       statusControl.setValue('To-be-Tested', { emitEvent: false });
+      this.previousStatus = 'To-be-Tested';
       this.syncClosedDateWithStatus('To-be-Tested');
       this.syncQcTestingDatesWithStatus('To-be-Tested');
       return;
     }
 
     if (currentStatus === 'To-be-Tested') {
-      statusControl.setValue(this.lastManualStatus || 'Upcoming-Release', { emitEvent: false });
-      this.syncClosedDateWithStatus(this.lastManualStatus || 'Upcoming-Release');
-      this.syncQcTestingDatesWithStatus(this.lastManualStatus || 'Upcoming-Release');
+      const restoredStatus = this.lastManualStatus || 'Upcoming-Release';
+      this.captureQcTestingStartDate('To-be-Tested', restoredStatus);
+      statusControl.setValue(restoredStatus, { emitEvent: false });
+      this.previousStatus = restoredStatus;
+      this.syncClosedDateWithStatus(restoredStatus);
+      this.syncQcTestingDatesWithStatus(restoredStatus);
     }
   }
 
@@ -706,6 +721,7 @@ export class ReleaseFormComponent implements OnInit {
       qcStartDateControl.setValue('', { emitEvent: false });
       qcEndDateControl.clearValidators();
       qcEndDateControl.setValue('', { emitEvent: false });
+      qcStartDateControl.disable({ emitEvent: false });
       qcStartDateControl.updateValueAndValidity({ emitEvent: false });
       qcEndDateControl.updateValueAndValidity({ emitEvent: false });
       return;
@@ -715,6 +731,12 @@ export class ReleaseFormComponent implements OnInit {
       qcStartDateControl.setValidators(this.isQcTestingStartRequired(status) ? [Validators.required] : []);
     } else {
       qcStartDateControl.clearValidators();
+    }
+
+    if (status === 'In-Progress') {
+      qcStartDateControl.enable({ emitEvent: false });
+    } else {
+      qcStartDateControl.disable({ emitEvent: false });
     }
 
     if (this.shouldShowQcTestingEndDate(status)) {
@@ -730,6 +752,21 @@ export class ReleaseFormComponent implements OnInit {
 
     qcStartDateControl.updateValueAndValidity({ emitEvent: false });
     qcEndDateControl.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private captureQcTestingStartDate(
+    previousStatus: ReleaseStatus | null | undefined,
+    status: ReleaseStatus | null | undefined
+  ): void {
+    const qcStartDateControl = this.releaseForm.get('qc_testing_start_date');
+    if (!qcStartDateControl || this.isExternalRelease() || !status || qcStartDateControl.value) return;
+
+    const enteredInProgress = status === 'In-Progress' && previousStatus !== 'In-Progress';
+    const leftTestingQueue = previousStatus === 'To-be-Tested' &&
+      status !== 'To-be-Tested' && status !== 'Upcoming-Release';
+    if (!enteredInProgress && !leftTestingQueue) return;
+
+    qcStartDateControl.setValue(this.getTodayDate(), { emitEvent: false });
   }
 
   private shouldShowQcTestingStartDate(status: ReleaseStatus | null | undefined): boolean {

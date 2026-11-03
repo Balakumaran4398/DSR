@@ -110,6 +110,62 @@ describe('ReleaseFormComponent select filters', () => {
   });
 });
 
+describe('ReleaseFormComponent QC testing start date', () => {
+  let component: ReleaseFormComponent;
+  let qcStartDateControl: FormControl;
+  const capturedDate = new Date(2026, 9, 3);
+
+  beforeEach(() => {
+    component = Object.create(ReleaseFormComponent.prototype);
+    (component as any).qcStartDateStatuses = ['On-Hold', 'In-Progress', 'Rejected', 'Pass', 'Failed'];
+    (component as any).qcStartRequiredStatuses = ['In-Progress', 'Pass', 'Failed'];
+    (component as any).qcEndDateStatuses = ['In-Progress', 'Pass', 'Failed'];
+    (component as any).qcEndRequiredStatuses = ['In-Progress'];
+    qcStartDateControl = new FormControl('');
+    component.releaseForm = new FormGroup({
+      status: new FormControl<ReleaseStatus>('To-be-Tested', { nonNullable: true }),
+      release_type: new FormControl<ReleaseType>('Internal', { nonNullable: true }),
+      qc_testing_start_date: qcStartDateControl,
+      qc_testing_end_date: new FormControl('')
+    });
+    spyOn<any>(component, 'getTodayDate').and.returnValue(capturedDate);
+  });
+
+  it('shows the start date for every QC result status in the requirement', () => {
+    ['On-Hold', 'In-Progress', 'Rejected', 'Pass', 'Failed'].forEach(status => {
+      expect((component as any).shouldShowQcTestingStartDate(status)).withContext(status).toBeTrue();
+    });
+    expect((component as any).shouldShowQcTestingStartDate('To-be-Tested')).toBeFalse();
+    expect((component as any).shouldShowQcTestingStartDate('Upcoming-Release')).toBeFalse();
+  });
+
+  it('captures today only for the first transition from To-be-Tested to a non-upcoming status', () => {
+    (component as any).captureQcTestingStartDate('To-be-Tested', 'On-Hold');
+    expect(qcStartDateControl.value).toBe(capturedDate);
+
+    const manuallyChangedDate = new Date(2026, 9, 1);
+    qcStartDateControl.setValue(manuallyChangedDate);
+    (component as any).captureQcTestingStartDate('To-be-Tested', 'Failed');
+    expect(qcStartDateControl.value).toBe(manuallyChangedDate);
+  });
+
+  it('does not capture a start date when To-be-Tested changes to Upcoming-Release', () => {
+    (component as any).captureQcTestingStartDate('To-be-Tested', 'Upcoming-Release');
+    expect(qcStartDateControl.value).toBeFalsy();
+  });
+
+  it('allows editing only while the status is In-Progress', () => {
+    (component as any).syncQcTestingDatesWithStatus('On-Hold');
+    expect(qcStartDateControl.disabled).toBeTrue();
+
+    (component as any).syncQcTestingDatesWithStatus('In-Progress');
+    expect(qcStartDateControl.enabled).toBeTrue();
+
+    (component as any).syncQcTestingDatesWithStatus('Rejected');
+    expect(qcStartDateControl.disabled).toBeTrue();
+  });
+});
+
 describe('ReleaseFormComponent submission', () => {
   let component: ReleaseFormComponent;
   let authService: jasmine.SpyObj<any>;

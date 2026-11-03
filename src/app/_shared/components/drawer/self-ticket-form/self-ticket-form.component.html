@@ -11,6 +11,11 @@
     <p class="text-sm text-slate-500 mt-1">
       {{ isEditMode ? 'Modify ticket information' : 'Create a new support ticket' }}
     </p>
+    <div *ngIf="data?.source === 'not-send-dsr' && data?.notSentDsrDate" class="mt-3">
+      <label class="block text-xs font-semibold text-slate-600 mb-1">Not sent DSR date</label>
+      <input class="w-full max-w-xs rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700"
+        [value]="data.notSentDsrDate" readonly />
+    </div>
   </div>
 
   <!-- Body -->
@@ -170,6 +175,21 @@
           </div>
 
 
+          <!-- Assigned date -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Assigned Date <span class="text-slate-400">(Optional)</span>
+            </label>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <input matInput [matDatepicker]="assignedDatePicker" formControlName="assigned_date"
+                [matDatepickerFilter]="assignedDateFilter" [readonly]="data?.source === 'not-send-dsr'"
+                placeholder="Select assigned date">
+              <mat-datepicker-toggle matIconSuffix [for]="assignedDatePicker"
+                [disabled]="data?.source === 'not-send-dsr'"></mat-datepicker-toggle>
+              <mat-datepicker #assignedDatePicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+
           <!-- Priority -->
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">
@@ -221,7 +241,7 @@
             </label>
             <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
               <mat-select formControlName="ticketCategoryId" placeholder="Select Category"
-                (openedChange)="onCategorySelectOpened($event)" (selectionChange)="getTicketsByCategory($event.value)">
+                (openedChange)="onCategorySelectOpened($event)" (selectionChange)="onTicketCategoryChange($event.value)">
                 <mat-select-trigger>
                   {{ getCategoryName() }}
                 </mat-select-trigger>
@@ -234,7 +254,7 @@
                   No Categories
                 </mat-option>
                 <mat-option *ngFor="let category of filteredCategories" [value]="category.id">
-                  {{ category.type }}
+                  {{ category.name }}
                 </mat-option>
               </mat-select>
               <mat-error *ngIf="rf.ticketCategoryId?.invalid">Ticket category is required</mat-error>
@@ -247,9 +267,10 @@
               Ticket Name <span class="text-red-500">*</span>
             </label>
             <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-              <mat-select formControlName="ticket_name" placeholder="Select Ticket">
+              <mat-select formControlName="ticketCategoryDataId" placeholder="Select Ticket"
+                (selectionChange)="onTicketSelectionChange($event.value)">
                 <mat-select-trigger>
-                  {{ rf.ticket_name?.value || 'Select Ticket' }}
+                  {{ getSelectedTicketName() }}
                 </mat-select-trigger>
                 <div class="px-3 py-2 bg-white sticky top-0 z-10" (click)="$event.stopPropagation()"
                   (keydown)="$event.stopPropagation()">
@@ -257,12 +278,12 @@
                     placeholder="Search Tickets" [value]="ticketSearchText" (input)="filterTickets($event)">
                 </div>
                 <mat-option [value]="null">No Tickets</mat-option>
-                <mat-option *ngFor="let ticket of filteredTickets" [value]="ticket.name">
+                <mat-option *ngFor="let ticket of filteredTickets" [value]="ticket.id">
                   {{ ticket.name }}
                 </mat-option>
                 <!-- <mat-option *ngIf="!filteredTickets.length" disabled>No tickets found</mat-option> -->
               </mat-select>
-              <mat-error *ngIf="rf.ticket_name?.invalid">Ticket name is required</mat-error>
+              <mat-error *ngIf="rf.ticketCategoryDataId?.invalid">Ticket name is required</mat-error>
             </mat-form-field>
           </div>
 

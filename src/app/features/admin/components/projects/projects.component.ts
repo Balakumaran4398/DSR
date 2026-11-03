@@ -207,6 +207,7 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
           title: "Manager",
           field: "assigned_manager",
           editor: "list",
+          editable: () => !!this.storageService.roles?.isAdmin,
           width: 200,
           editorParams: {
             values: this.managerEditorValues,
@@ -247,21 +248,23 @@ export class ProjectsComponent implements AfterViewInit, OnDestroy, OnInit {
           title: "Start Date",
           field: "start_date",
           editor: "date",
+          editable: () => !!this.storageService.roles?.isAdmin,
           width: 120,
-          formatter: (cell: any) => {
-            const val = cell.getValue();
-            return `<span class="text-sm font-medium text-gray-600">${val}</span>`;
-          }
+          // formatter: (cell: any) => {
+          //   const val = cell.getValue();
+          //   return `<span class="text-sm font-medium text-gray-600">${val}</span>`;
+          // }
         },
         {
           title: "End Date",
           field: "end_date",
           editor: "date",
+          editable: () => !!this.storageService.roles?.isAdmin,
           width: 120,
-          formatter: (cell: any) => {
-            const val = cell.getValue();
-            return `<span class="text-sm font-medium text-gray-600">${val}</span>`;
-          }
+          // formatter: (cell: any) => {
+          //   const val = cell.getValue();
+          //   return `<span class="text-sm font-medium text-gray-600">${val}</span>`;
+          // }
         },
         {
           title: "Timeline",

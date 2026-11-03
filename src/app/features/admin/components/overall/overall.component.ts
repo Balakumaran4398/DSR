@@ -10,6 +10,7 @@ import { OverdueComponent } from '../../core/charts/overdue/overdue.component';
 import { ProjectStatusReportComponent } from '../../core/charts/project-status-report/project-status-report.component';
 import { OverallDetailsDialogComponent } from './overall-details-dialog/overall-details-dialog.component';
 import { APP_TABLE_DEFAULT_PAGE_SIZE, APP_TABLE_PAGE_SIZE_OPTIONS, APP_TABLE_VISIBLE_ROW_COUNT, attachStandardTabulatorPagination, buildTablePageNumbers } from 'src/app/_core/utils/tabulator-pagination.util';
+import { attendanceStatusTone } from 'src/app/_core/utils/attendance-report.util';
 
 declare const Tabulator: any;
 
@@ -145,6 +146,14 @@ export class OverallComponent implements AfterViewInit, OnInit, OnDestroy {
   employeesErrorMessage = '';
   dashboardErrorMessage = '';
   projectPerformanceErrorMessage = '';
+  attendanceDate = new Date();
+  attendancePresentCount = 0;
+  attendanceAbsentCount = 0;
+  attendanceLateCount = 0;
+  attendanceImproperThumbCount = 0;
+  attendanceRows: any[] = [];
+  attendanceLoading = false;
+  attendanceErrorMessage = '';
 
   companyOptions: string[] = [];
   visibleCompanyRows: CompanyPerformance[] = [];
@@ -203,6 +212,7 @@ export class OverallComponent implements AfterViewInit, OnInit, OnDestroy {
   };
 
   private loadSubscription?: Subscription;
+  private attendanceSubscription?: Subscription;
   private empId: string | number | null = null;
   private allTaskRows: any[] = [];
   private allIssueRows: any[] = [];
@@ -293,6 +303,12 @@ export class OverallComponent implements AfterViewInit, OnInit, OnDestroy {
     private excelService: ExcelService,
     private cdr: ChangeDetectorRef
   ) { }
+
+  get showAttendanceSection(): boolean {
+    const roles = this.storageService.roles;
+    return roles.isAdmin || roles.isManager;
+  }
+
   formattedStartDate = '';
   formattedEndDate = '';
 
@@ -300,6 +316,7 @@ export class OverallComponent implements AfterViewInit, OnInit, OnDestroy {
     this.empId = this.storageService.getEmpId();
     this.initializeDefaultDateRange();
     this.metrics = this.buildMetrics(this.metricSnapshot);
+    this.loadAttendanceForSelectedDate();
     this.loadOverallAnalytics();
   }
 
@@ -320,6 +337,7 @@ export class OverallComponent implements AfterViewInit, OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.loadSubscription?.unsubscribe();
+    this.attendanceSubscription?.unsubscribe();
     if (this.performanceTableCheckInterval) {
       clearInterval(this.performanceTableCheckInterval);
     }
@@ -332,6 +350,114 @@ export class OverallComponent implements AfterViewInit, OnInit, OnDestroy {
     if (this.countAnimationFrame) {
       cancelAnimationFrame(this.countAnimationFrame);
     }
+  }
+
+  onAttendanceDateChange(date: Date | null): void {
+    if (!date || Number.isNaN(date.getTime())) return;
+    this.attendanceDate = date;
+    this.loadAttendanceForSelectedDate();
+  }
+
+  openAttendanceList(status: 'present' | 'absent' | 'late' | 'improper-thumb'): void {
+    const rows = this.attendanceRows.filter(row => this.getAttendanceCardStatuses(row).includes(status));
+    const labels = {
+      present: 'Present Employees',
+      absent: 'Absent Employees',
+      late: 'Late Employees',
+      'improper-thumb': 'Improper Thumb Employees'
+    };
+    this.matDialog.open(OverallDetailsDialogComponent, {
+      data: {
+        title: `${labels[status]} — ${this.formatDisplayDate(this.attendanceDate)}`,
+        icon: status === 'present' ? 'ri-checkbox-circle-line'
+          : status === 'absent' ? 'ri-close-circle-line'
+            : status === 'late' ? 'ri-time-line' : 'ri-fingerprint-line',
+        centerContent: true,
+        rows,
+        columns: [
+          { label: 'Employee ID', keys: ['reference_no'] },
+          { label: 'Attendance ID', keys: ['attendanceId'] },
+          { label: 'Employee', keys: ['employeeName'] },
+          // { label: 'Department', keys: ['departmentName', 'department_name', 'dept_name', 'department'] },
+          { label: 'Thumb Time', keys: ['alltime'] },
+          // { label: 'Thumb Status', keys: ['statusemp', 'thump_status', 'thumb_status', 'thumbStatus'] },
+          // { label: 'Status', keys: ['status', 'leave_status', 'attendance_status', 'attendanceStatus', 'status_name'], type: 'status' }
+        ]
+      },
+      width: '96vw',
+      height: '75vh',
+      maxWidth: '1180px',
+      panelClass: 'project-status-report-dialog-panel'
+    });
+  }
+
+  private loadAttendanceForSelectedDate(): void {
+    if (!this.attendanceDate || Number.isNaN(this.attendanceDate.getTime())) return;
+
+    this.attendanceSubscription?.unsubscribe();
+    this.attendanceLoading = true;
+    this.attendanceErrorMessage = '';
+    this.attendancePresentCount = 0;
+    this.attendanceAbsentCount = 0;
+    this.attendanceLateCount = 0;
+    this.attendanceImproperThumbCount = 0;
+    this.attendanceRows = [];
+    this.cdr.markForCheck();
+
+    this.attendanceSubscription = this.authService
+      .getAttendanceDetailsByDate(this.formatDateToYMD(this.attendanceDate))
+      .pipe(finalize(() => {
+        this.attendanceLoading = false;
+        this.cdr.markForCheck();
+      }))
+      .subscribe({
+        next: response => {
+          const rows = this.extractAttendanceRows(response);
+          this.attendanceRows = rows;
+          this.attendancePresentCount = rows.filter(row => this.getAttendanceCardStatuses(row).includes('present')).length;
+          this.attendanceAbsentCount = rows.filter(row => this.getAttendanceCardStatuses(row).includes('absent')).length;
+          this.attendanceLateCount = rows.filter(row => this.getAttendanceCardStatuses(row).includes('late')).length;
+          this.attendanceImproperThumbCount = rows.filter(row => this.getAttendanceCardStatuses(row).includes('improper-thumb')).length;
+          this.cdr.markForCheck();
+        },
+        error: error => {
+          console.error('Overall attendance load error:', error);
+          this.attendancePresentCount = 0;
+          this.attendanceAbsentCount = 0;
+          this.attendanceLateCount = 0;
+          this.attendanceImproperThumbCount = 0;
+          this.attendanceRows = [];
+          this.attendanceErrorMessage = 'Unable to load attendance for this date.';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  private extractAttendanceRows(response: any): any[] {
+    if (Array.isArray(response)) return response;
+    const candidates = [
+      response?.data,
+      response?.attendance,
+      response?.attendance_details,
+      response?.attendanceDetails,
+      response?.records,
+      response?.result
+    ];
+    return candidates.find(value => Array.isArray(value)) || [];
+  }
+
+  private getAttendanceCardStatuses(row: any): Array<'present' | 'absent' | 'late' | 'improper-thumb'> {
+    const status = row?.leave_status ?? row?.status ?? row?.attendance_status ?? row?.attendanceStatus ?? row?.status_name;
+    const statuses: Array<'present' | 'absent' | 'late' | 'improper-thumb'> = [];
+    const thumbStatus = row?.statusemp ?? row?.thump_status ?? row?.thumb_status ?? row?.thumbStatus;
+    [status, thumbStatus].forEach(value => {
+      const tone = attendanceStatusTone(value);
+      if (tone === 'present' && !statuses.includes('present')) statuses.push('present');
+      if (tone === 'absent' && !statuses.includes('absent')) statuses.push('absent');
+      if (tone === 'warning' && !statuses.includes('late')) statuses.push('late');
+      if (tone === 'improper-thumb' && !statuses.includes('improper-thumb')) statuses.push('improper-thumb');
+    });
+    return statuses;
   }
 
   refresh(): void {
@@ -358,7 +484,6 @@ export class OverallComponent implements AfterViewInit, OnInit, OnDestroy {
         return false;
     }
   }
-
   getMetricError(type: OverallMetricDialogType): string {
     return type === 'employees' ? this.employeesErrorMessage : this.dashboardErrorMessage;
   }
@@ -1610,7 +1735,7 @@ export class OverallComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private buildPerformancePageNumbers(): number[] {
-    return buildTablePageNumbers(this.performanceTotalPages);
+    return buildTablePageNumbers(this.performanceTotalPages, this.performancePageIndex + 1);
   }
 
   private getRowsForCompany(rows: any[]): any[] {

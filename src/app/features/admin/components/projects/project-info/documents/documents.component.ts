@@ -77,8 +77,16 @@ export class DocumentsComponent implements AfterViewInit {
     const freezeColumns = !this.isCompactViewport();
     this.table = new Tabulator(this.tableDiv.nativeElement, {
       data: this.tableData,
-      layout: "fitDataStretch",
+      layout: "fitColumns",
       responsiveLayout: false,
+      autoResize: true,
+      columnDefaults: {
+        headerHozAlign: 'center',
+        headerWordWrap: true,
+        widthShrink: 1,
+        resizable: true,
+        tooltip: true
+      },
       pagination: "local",
       paginationSize: 10,
       paginationCounter: "rows",
@@ -93,39 +101,85 @@ export class DocumentsComponent implements AfterViewInit {
         return '<i class="ri-arrow-up-down-line text-xs ml-1"></i>';
       },
 
-      initialSort: [
-        { column: "title", dir: "asc" },
-      ],
-
-      columns: [
-
-      { title: "Title", field: "title" },
-        {
-          title: "File",
-          field: "filepath",
-          formatter: (cell: any) => {
-            const path = cell.getValue();  
-            return path.split('/').pop();  
-          }
-        },
-
-        { title: "Uploaded by", field: "employee_name" },
-        {
-          title: "Actions",
-          field: "file_url",
-          width: 100,
-          hozAlign: "center",
-          headerSort: false,
-          frozen: freezeColumns,
-          formatter: (cell: any) => this.actionFormatter(cell),
-          cellClick: (e: any, cell: any) => this.handleActionClick(e, cell),
-          cssClass: "sticky-col-right",
-        }
-      ],
+      columns: this.getDocumentColumns(freezeColumns),
     });
     attachTabulatorPaginationPersistence(this.table, buildTabulatorPaginationKey('project-documents-table'));
 
   }
+
+  private getDocumentColumns(freezeColumns: boolean): any[] {
+    const compact = this.isCompactViewport();
+    return [
+      {
+        title: "File", widthGrow: 3, hozAlign: "center", headerHozAlign: "center",
+        formatter: (cell: any) => this.titleFormatter(cell.getRow()?.getData?.() || {})
+      },
+      {
+        title: "Title", field: "title", widthGrow: 3,
+        minWidth: compact ? 40 : 120,
+      },
+      {
+        title: "File",
+        field: "filepath",
+        widthGrow: 3,
+        minWidth: compact ? 40 : 130,
+        formatter: (cell: any) => {
+          return this.getDisplayFileName(cell.getValue()) || '-';
+        }
+      },
+
+      {
+        title: "Uploaded by", field: "employee_name", widthGrow: 2,
+        minWidth: compact ? 52 : 105
+      },
+      {
+        title: "Create Date", field: "createddate", widthGrow: 2,
+        minWidth: compact ? 48 : 115,
+        formatter: (cell: any) => this.dateFormatter(cell.getValue())
+      },
+
+      {
+        title: "Actions",
+        field: "file_url",
+        width: compact ? 56 : 96,
+        minWidth: compact ? 56 : 96,
+        widthGrow: 0,
+        hozAlign: "center",
+        headerSort: false,
+        frozen: freezeColumns,
+        formatter: (cell: any) => this.actionFormatter(cell),
+        cellClick: (e: any, cell: any) => this.handleActionClick(e, cell),
+        cssClass: "sticky-col-right",
+      }
+    ];
+  }
+
+  private getDisplayFileName(value: unknown): string {
+    return `${value ?? ''}`.split(/[\\/]/).pop() ?? '';
+  }
+
+  private titleFormatter(rowData: any): string {
+    const fileUrl = `${rowData?.file_url ?? ''}`.trim();
+    const fileName = this.getDisplayFileName(fileUrl.split('?')[0]);
+    const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
+    let preview: string;
+
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(extension) && fileUrl) {
+      const imageUrl = this.buildDownloadUrlCandidates(fileUrl)[0] ?? '';
+      preview = `<img src="${this.escapeHtml(imageUrl)}" alt="Image preview" loading="lazy" style="width:32px;height:32px;object-fit:cover;border-radius:6px;flex:none;">`;
+    } else if (extension === 'pdf') {
+      preview = '<i class="ri-file-pdf-2-fill" aria-label="PDF file" style="font-size:22px;color:#dc2626;flex:none;"></i>';
+    } else if (['xls', 'xlsx', 'csv'].includes(extension)) {
+      preview = '<i class="ri-file-excel-2-fill" aria-label="Excel file" style="font-size:22px;color:#16a34a;flex:none;"></i>';
+    } else if (['doc', 'docx'].includes(extension)) {
+      preview = '<i class="ri-file-word-2-fill" aria-label="Word file" style="font-size:22px;color:#2563eb;flex:none;"></i>';
+    } else {
+      preview = '<i class="ri-file-line" aria-label="File" style="font-size:22px;color:#64748b;flex:none;"></i>';
+    }
+
+    return `<div style="display:flex;align-items:center;justify-content:center;text-align:center;gap:8px;width:100%;flex:1 1 100%;min-width:0;white-space:normal;overflow-wrap:anywhere;">${preview}</div>`;
+  }
+
 
   actionFormatter(cell: any) {
     const rowData = cell?.getRow?.().getData?.() || {};
@@ -165,7 +219,7 @@ export class DocumentsComponent implements AfterViewInit {
 
     }
   }
-  
+
 
   downloadFile(fileUrl: string, title: string, documentId?: number | string) {
     const normalizedFileUrl = `${fileUrl ?? ''}`.trim();
@@ -285,7 +339,13 @@ export class DocumentsComponent implements AfterViewInit {
   private safeReplaceData(table: any, data: any): void {
     const normalized = Array.isArray(data) ? data : [];
     try {
-      table?.replaceData?.(normalized);
+      if (typeof table?.replaceData === 'function') {
+        table.replaceData(normalized);
+        return;
+      }
+      if (typeof table?.setData === 'function') {
+        table.setData(normalized);
+      }
     } catch {
       try {
         table?.setData?.(normalized);
@@ -305,5 +365,35 @@ export class DocumentsComponent implements AfterViewInit {
 
   private isCompactViewport(): boolean {
     return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  private dateFormatter(value: string): string {
+    if (!value) {
+      return '<span>-</span>';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return `<span>${this.escapeHtml(value)}</span>`;
+    }
+
+    const formattedDate = date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    return `<span>${formattedDate}</span>`;
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }

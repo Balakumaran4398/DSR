@@ -9,6 +9,11 @@ import { ThemeService } from '../_core/services/theme.service';
 import { Subscription } from 'rxjs';
 import { NotificationDateRangeService } from '../_core/services/notification-date-range.service';
 import { URL } from '../api.base';
+import {
+  extractNotificationEmployeeDirectory,
+  filterNotificationRecordsForViewer,
+  isNotificationRecordInDepartments
+} from '../_core/utils/notification-department.util';
 
 @Component({
   selector: 'app-sidebar',
@@ -28,13 +33,16 @@ export class SidebarComponent implements OnInit, OnDestroy {
     mom: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     'task-overview': ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     notsenddsr: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
+    attendance: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     hierarchy: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     'theme-settings': ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     hardware: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     'my-profile': ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
     'admin-documents': ['ROLE_ADMIN'],
     performance: ['ROLE_ADMIN', 'ROLE_MANAGER'],
-    'google-sheet': ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE']
+    'google-sheet': ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
+    'holiday-calendar': ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'],
+    reports: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE']
   };
 
   isOpen = false;
@@ -47,6 +55,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   private submenuMap: { [key: string]: string[] } = {
     'leads': ['new-leads', 'qualified', 'junk'],
     'contacts': ['all-contacts', 'my-contacts', 'companies'],
+    'attendance-holidays': ['attendance', 'holiday-calendar'],
     'settings': ['theme-settings', 'hardware']
   };
   total: number = 0;
@@ -55,6 +64,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
   initials = '';
   private notificationDataSubscription?: Subscription;
   private notificationLoadingSubscription?: Subscription;
+  private employeeDirectorySubscription?: Subscription;
+  private employeeDirectory: any[] = [];
+  private notificationData: any = null;
   constructor(
     private authService: AuthService,
     private toasterService: ToasterService,
@@ -87,11 +99,17 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
     this.profilePic();
     this.notificationDataSubscription = this.authService.notificationData$.subscribe(data => {
-      this.total = this.toNumber(data?.ticket_count)
-        + this.toNumber(data?.total_issue_count)
-        + this.toNumber(data?.total_release_count)
-        + this.toNumber(data?.not_send_dsr_count)
-        + this.toNumber(data?.not_send_dsr_request_count);
+      this.notificationData = data;
+      this.updateNotificationTotal();
+    });
+    this.employeeDirectorySubscription = this.authService.getEmployeeList().subscribe({
+      next: response => {
+        this.employeeDirectory = extractNotificationEmployeeDirectory(response);
+        this.updateNotificationTotal();
+      },
+      error: () => {
+        this.employeeDirectory = [];
+      }
     });
     this.notificationLoadingSubscription = this.authService.notificationLoading$.subscribe(isLoading => {
       this.notificationLoading = isLoading;
@@ -102,7 +120,135 @@ export class SidebarComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.notificationDataSubscription?.unsubscribe();
     this.notificationLoadingSubscription?.unsubscribe();
+    this.employeeDirectorySubscription?.unsubscribe();
   }
+
+  private updateNotificationTotal(): void {
+    const data = this.notificationData;
+    const isAdmin = this.storageService.roles.isAdmin;
+    const viewerRole = isAdmin
+      ? 'admin'
+      : this.storageService.roles.isManager
+        ? 'manager'
+        : this.storageService.roles.isEmployee
+          ? 'employee'
+          : 'other';
+    const currentUser = this.getLoggedInEmployeeRecord();
+    const employeeId = this.storageService.getEmpId();
+    const ticketDepartmentIds = [4, 6, 11];
+    const ticketDepartmentNames = ['Hardware', 'Headend', 'Head end', 'Account', 'Accounts'];
+    const dsrDepartmentIds = [1, 2, 3, 8, 11];
+    const dsrDepartmentNames = ['Ridapps', 'Software Development Team', 'SQA', 'Accounts'];
+    const visibleTicketDepartmentIds = [...ticketDepartmentIds, ...dsrDepartmentIds];
+    const visibleTicketDepartmentNames = [...ticketDepartmentNames, ...dsrDepartmentNames];
+    const isManager = viewerRole === 'manager';
+    const canSeeNotSentTickets = isAdmin || isManager || isNotificationRecordInDepartments(
+      currentUser,
+      this.employeeDirectory,
+      ticketDepartmentIds,
+      ticketDepartmentNames
+    );
+    const canSeeNotSentDsr = isAdmin || isManager || isNotificationRecordInDepartments(
+      currentUser,
+      this.employeeDirectory,
+      dsrDepartmentIds,
+      dsrDepartmentNames
+    );
+    const canSeeIssueAndReleaseNotifications = canSeeNotSentDsr;
+    const canSeeTickets = isAdmin || isManager || isNotificationRecordInDepartments(
+      currentUser,
+      this.employeeDirectory,
+      visibleTicketDepartmentIds,
+      visibleTicketDepartmentNames
+    );
+    const visibleTickets = filterNotificationRecordsForViewer(
+      Array.isArray(data?.tickets) ? data.tickets : [],
+      viewerRole,
+      employeeId,
+      currentUser,
+      this.employeeDirectory,
+      visibleTicketDepartmentIds,
+      visibleTicketDepartmentNames
+    );
+    const visibleNotSentTickets = filterNotificationRecordsForViewer(
+      Array.isArray(data?.not_send_ticket) ? data.not_send_ticket : [],
+      viewerRole,
+      employeeId,
+      currentUser,
+      this.employeeDirectory,
+      ticketDepartmentIds,
+      ticketDepartmentNames
+    );
+    const visibleNotSentDsr = filterNotificationRecordsForViewer(
+      Array.isArray(data?.not_send_dsr) ? data.not_send_dsr : [],
+      viewerRole,
+      employeeId,
+      currentUser,
+      this.employeeDirectory,
+      dsrDepartmentIds,
+      dsrDepartmentNames
+    );
+    const ticketCount = !canSeeTickets
+      ? 0
+      : isManager
+        ? visibleTickets.length
+        : this.toNumber(data?.ticket_count ?? visibleTickets.length);
+    const notSentTicketCount = !canSeeNotSentTickets
+      ? 0
+      : isManager
+        ? visibleNotSentTickets.length
+        : this.toNumber(data?.not_send_ticket_count ?? visibleNotSentTickets.length);
+    const notSentDsrCount = !canSeeNotSentDsr
+      ? 0
+      : isManager
+        ? visibleNotSentDsr.length
+        : this.toNumber(data?.not_send_dsr_count ?? visibleNotSentDsr.length);
+    const visibleProjects = filterNotificationRecordsForViewer(
+      Array.isArray(data?.project_counts) ? data.project_counts : [],
+      viewerRole,
+      employeeId,
+      currentUser,
+      this.employeeDirectory,
+      [],
+      []
+    );
+    const issueCount = isManager
+      ? visibleProjects.reduce((sum: number, project: any) => sum + this.toNumber(project?.issue_count), 0)
+      : this.toNumber(data?.total_issue_count);
+    const releaseCount = isManager
+      ? visibleProjects.reduce((sum: number, project: any) => sum + this.toNumber(project?.release_count), 0)
+      : this.toNumber(data?.total_release_count);
+    const dsrRequestRows = Array.isArray(data?.not_send_dsr_requests) ? data.not_send_dsr_requests : [];
+    const visibleDsrRequests = filterNotificationRecordsForViewer(
+      dsrRequestRows, viewerRole, employeeId, currentUser, this.employeeDirectory,
+      dsrDepartmentIds, dsrDepartmentNames
+    );
+    const dsrRequestCount = isManager
+      ? visibleDsrRequests.length
+      : this.toNumber(data?.not_send_dsr_request_count ?? visibleDsrRequests.length);
+    this.total = ticketCount
+      + notSentTicketCount
+      + (canSeeIssueAndReleaseNotifications
+        ? issueCount
+          + releaseCount
+          + notSentDsrCount
+          + dsrRequestCount
+        : 0);
+  }
+
+  private getLoggedInEmployeeRecord(): any {
+    const user = this.storageService.getUser() || {};
+    return {
+      ...user,
+      department_name: user?.department_name
+        ?? user?.departmentName
+        ?? user?.dept_name
+        ?? user?.deptName
+        ?? this.storageService.getDept()
+        ?? user?.department
+    };
+  }
+
   closeSidebar() {
     // Mobile
     this.isMobileOpen = false;

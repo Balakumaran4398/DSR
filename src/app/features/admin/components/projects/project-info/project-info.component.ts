@@ -2,6 +2,7 @@ import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, 
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from 'src/app/_core/services/auth.service';
+import { NotificationNavigationService } from 'src/app/_core/services/notification-navigation.service';
 
 @Component({
   selector: 'app-project-info',
@@ -13,6 +14,7 @@ export class ProjectInfoComponent implements AfterViewInit {
 
   activeProjectTab = 'dashboard';
   showMoreMenu = false;
+  notificationReleaseHighlight = false;
 
  projectDetails: any;
   projectId: string | null = null;
@@ -37,7 +39,8 @@ export class ProjectInfoComponent implements AfterViewInit {
   constructor(private cdr: ChangeDetectorRef,
      private route: ActivatedRoute,
     private router: Router,
-     private authService: AuthService
+     private authService: AuthService,
+     private notificationNavigationService: NotificationNavigationService
 
   ) {
     let projectDetails: any = localStorage.getItem("projectDetails");
@@ -51,6 +54,13 @@ export class ProjectInfoComponent implements AfterViewInit {
       this.projectId = params.get('projectid') || params.get('projectId') || params.get('id');
 
       if (this.projectId) {
+        const releaseContext = this.notificationNavigationService.resolve('release', undefined, this.projectId);
+        if (releaseContext) {
+          this.activeProjectTab = 'release';
+          sessionStorage.setItem('activeProjectTab', 'release');
+          this.notificationReleaseHighlight = true;
+          setTimeout(() => this.notificationReleaseHighlight = false, 2500);
+        }
         this.fetchProjectDetails(this.projectId);
       }
     });

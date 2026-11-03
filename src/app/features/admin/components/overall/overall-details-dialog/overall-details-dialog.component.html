@@ -22,7 +22,7 @@
       [class.app-table-scroll--ten-row-viewport]="pageSize > tableVisibleRowCount"
       
       (scroll)="showTableScrollbar()">
-      <table class="overall-details-table">
+      <table class="overall-details-table" [class.overall-details-table--centered]="data.centerContent">
         <thead>
           <tr>
             <th *ngFor="let column of columns; trackBy: trackByColumn">
@@ -76,10 +76,10 @@
         <button type="button" [disabled]="pageIndex === 0" (click)="goToPage(0)">First</button>
         <button
           type="button"
-          title="Previous page"
-          aria-label="Previous page"
-          [disabled]="pageIndex === 0"
-          (click)="goToPage(pageIndex - 1)">
+          title="Show the previous five pages"
+          aria-label="Show the previous five pages"
+          [disabled]="!pageNumbers.length || pageNumbers[0] === 1"
+          (click)="goToPreviousPageGroup()">
           Prev
         </button>
         <span class="app-pagination-pages">
@@ -93,10 +93,10 @@
         </span>
         <button
           type="button"
-          title="Next page"
-          aria-label="Next page"
-          [disabled]="pageIndex >= totalPages - 1"
-          (click)="goToPage(pageIndex + 1)">
+          title="Show the next five pages"
+          aria-label="Show the next five pages"
+          [disabled]="!pageNumbers.length || pageNumbers[pageNumbers.length - 1] >= totalPages"
+          (click)="goToNextPageGroup()">
           Next
         </button>
         <button type="button" [disabled]="pageIndex >= totalPages - 1" (click)="goToPage(totalPages - 1)">Last</button>

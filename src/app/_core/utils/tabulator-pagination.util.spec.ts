@@ -5,6 +5,8 @@ import {
   APP_TABLE_VISIBLE_ROW_COUNT,
   attachStandardTabulatorPagination,
   buildTablePageNumbers,
+  getNextTablePageGroupPage,
+  getPreviousTablePageGroupPage,
   normalizeTablePageSize
 } from './tabulator-pagination.util';
 
@@ -18,10 +20,40 @@ describe('standard table pagination', () => {
     expect(normalizeTablePageSize(undefined)).toBe(10);
   });
 
-  it('builds every page number and always supplies page one', () => {
+  it('builds five page numbers at a time and always supplies page one', () => {
     expect(buildTablePageNumbers(0)).toEqual([1]);
     expect(buildTablePageNumbers(4)).toEqual([1, 2, 3, 4]);
+    expect(buildTablePageNumbers(14, 5)).toEqual([1, 2, 3, 4, 5]);
+    expect(buildTablePageNumbers(14, 6)).toEqual([6, 7, 8, 9, 10]);
+    expect(buildTablePageNumbers(14, 14)).toEqual([11, 12, 13, 14]);
+    expect(getNextTablePageGroupPage(2, 14)).toBe(6);
+    expect(getPreviousTablePageGroupPage(8, 14)).toBe(5);
   });
+
+  it('makes Next jump to the next five-page group', fakeAsync(() => {
+    const element = document.createElement('div');
+    element.className = 'tabulator';
+    element.innerHTML = `
+      <div class="tabulator-footer">
+        <button class="tabulator-page" data-page="prev">Prev</button>
+        <span class="tabulator-pages"></span>
+        <button class="tabulator-page" data-page="next">Next</button>
+      </div>`;
+    const table = {
+      element,
+      on: () => undefined,
+      getPage: () => 2,
+      getPageMax: () => 14,
+      getPageSize: () => 10,
+      getDataCount: () => 140,
+      setPage: jasmine.createSpy('setPage')
+    };
+
+    attachStandardTabulatorPagination(table);
+    tick();
+    element.querySelector<HTMLButtonElement>('[data-page-group="next"]')!.click();
+    expect(table.setPage).toHaveBeenCalledWith(6);
+  }));
 
   it('keeps the size selector in the footer and renders every page number', fakeAsync(() => {
     const element = document.createElement('div');

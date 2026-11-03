@@ -55,8 +55,8 @@
         <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Custom Date Filter</div>
         <mat-form-field appearance="outline" class="text-sm custom-date-range w-full" subscriptSizing="dynamic">
           <mat-date-range-input [rangePicker]="picker">
-            <input matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate" class="text-xs" />
-            <input matEndDate placeholder="End Date" [(ngModel)]="filterEndDate" class="text-xs" />
+            <input appDatePickerOnly matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate" class="text-xs" />
+            <input appDatePickerOnly matEndDate placeholder="End Date" [(ngModel)]="filterEndDate" class="text-xs" />
           </mat-date-range-input>
           <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
           <mat-date-range-picker #picker></mat-date-range-picker>
@@ -75,7 +75,7 @@
     <!-- Main Accordion/Sections Container -->
     <div class="grid grid-cols-1 gap-3">
 
-      <div
+      <div *ngIf="canSeeIssueAndReleaseNotifications"
         class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden transition-all shadow-xs hover:border-orange-200">
         <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
           (click)="toggleExpand()">
@@ -159,7 +159,7 @@
       </div>
 
       <!-- 2. Release Card Group -->
-      <div
+      <div *ngIf="canSeeIssueAndReleaseNotifications"
         class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden transition-all shadow-xs hover:border-indigo-200">
         <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
           (click)="toggleReleaseExpand()">
@@ -194,7 +194,7 @@
                 class="rounded-xl border border-slate-100 bg-slate-50/40 overflow-hidden">
                 <div
                   class="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-100/60 transition-colors"
-                  (click)="navigateToProject(proj.project_id, 'release')">
+                  (click)="navigateToRelease(proj)">
                   <span class="text-xs font-bold text-slate-800">{{ proj.project_title }}</span>
                   <span class="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-bold text-[10px]">
                     {{ proj.release_count }}
@@ -207,7 +207,7 @@
       </div>
 
       <!-- Ticket Card Group -->
-      <div
+      <div *ngIf="canSeeTickets"
         class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden transition-all shadow-xs hover:border-rose-200">
         <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
           (click)="toggleTicketExpand()">
@@ -218,7 +218,7 @@
             </div>
             <div>
               <h3 class="text-sm font-bold text-slate-900">Tickets</h3>
-              <p class="text-xs text-slate-600">Assigned tickets</p>
+              <p class="text-xs text-slate-600">Assigned tickets · {{ loadedTicketCount }} shown</p>
             </div>
           </div>
           <div
@@ -236,7 +236,7 @@
           <div class="overflow-hidden">
             <div class="px-4 pb-4 pt-1 border-t border-slate-100">
               <div *ngIf="tickets.length === 0" class="text-xs text-slate-400 py-4 text-center">
-                No tickets available.
+                {{ ticket_count > 0 ? 'No matching ticket rows are loaded.' : 'No tickets available.' }}
               </div>
               <div class="max-h-[250px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
                 <div *ngFor="let ticket of tickets"
@@ -253,9 +253,56 @@
         </div>
       </div>
 
+      <!-- Not sent tickets -->
+      <div *ngIf="canSeeNotSentTickets"
+        class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden transition-all shadow-xs hover:border-orange-200">
+        <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
+          (click)="toggleNotSentTicketExpand()">
+          <div class="flex items-center gap-3">
+            <div
+              class="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold text-sm border border-orange-100">
+              {{ notSentTicketCount }}
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Not sent tickets</h3>
+              <p class="text-xs text-slate-600">Tickets awaiting submission · {{ loadedNotSentTicketCount }} shown</p>
+            </div>
+          </div>
+          <div
+            class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 transition-transform duration-300"
+            [class.rotate-180]="isNotSentTicketExpanded">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
 
-      <!-- 4. Not sent DSR Card Group -->
-      <!-- <div
+        <div class="grid transition-all duration-300 ease-in-out"
+          [style.grid-template-rows]="isNotSentTicketExpanded ? '1fr' : '0fr'">
+          <div class="overflow-hidden">
+            <div class="px-4 pb-4 pt-1 border-t border-slate-100">
+              <div *ngIf="notSentTickets.length === 0" class="text-xs text-slate-400 py-4 text-center">
+                {{ notSentTicketCount > 0 ? 'No matching not sent ticket rows are loaded.' : 'No not sent tickets available.' }}
+              </div>
+              <div *ngIf="notSentTickets.length > 0" class="max-h-[250px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                <div *ngFor="let ticket of notSentTickets"
+                  class="rounded-xl border border-slate-100 bg-slate-50/40 overflow-hidden">
+                  <div
+                    class="flex items-center justify-between gap-3 p-3 cursor-pointer hover:bg-slate-100/60 transition-colors"
+                    (click)="navigateToNotSentTicket(ticket, $event)">
+                    <span class="text-xs font-bold text-slate-800">{{ ticket.employee_name }}</span>
+                    <span class="text-xs font-bold text-slate-800">{{ ticket.date }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- DSR request notifications -->
+      <div *ngIf="canSeeNotSentDsr && (dsrRequestCount > 0 || dsrRequests.length > 0)"
         class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden transition-all shadow-xs hover:border-blue-200">
         <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
           (click)="toggleDsrRequestExpand()">
@@ -301,10 +348,10 @@
             </div>
           </div>
         </div>
-      </div> -->
+      </div>
 
       <!-- 5. Not sent DSR Card Group -->
-      <div
+      <div *ngIf="canSeeNotSentDsr"
         class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden transition-all shadow-xs hover:border-emerald-200">
         <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
           (click)="toggleDsrExpand()">
@@ -315,7 +362,7 @@
             </div>
             <div>
               <h3 class="text-sm font-bold text-slate-900">Not sent DSR</h3>
-              <p class="text-xs text-slate-600">Missing daily status update</p>
+              <p class="text-xs text-slate-600">Missing daily status update · {{ loadedDsrCount }} shown</p>
             </div>
           </div>
           <div
@@ -332,13 +379,13 @@
           <div class="overflow-hidden">
             <div class="px-4 pb-4 pt-1 border-t border-slate-100">
               <div *ngIf="dsr.length === 0" class="text-xs text-slate-400 py-4 text-center">
-                Everyone submitted their daily report.
+                {{ dsrCount > 0 ? 'No matching DSR rows are loaded.' : 'Everyone submitted their daily report.' }}
               </div>
               <div class="max-h-[250px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
                 <div *ngFor="let d of dsr" class="rounded-xl border border-slate-100 bg-slate-50/40 overflow-hidden">
                   <div
                     class="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-100/60 transition-colors"
-                    (click)="navigateTodsr()">
+                    (click)="navigateTodsr(d, $event)">
                     <span class="text-xs font-bold text-slate-800">{{ d.employee_name }}</span>
                     <span class="text-xs font-bold text-slate-800">{{ d.date }}</span>
                   </div>

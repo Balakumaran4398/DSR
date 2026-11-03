@@ -40,35 +40,45 @@
                 <div class="flex flex-col gap-1.5">
                     <label class="text-sm font-medium text-slate-700 ml-1">Attachment <span class="text-red-500">*</span></label>
                     <div class="relative border-2 border-dashed border-slate-300 rounded-xl p-6 transition-all duration-200 flex flex-col items-center justify-center gap-3 bg-white hover:border-[var(--text-active)] hover:bg-indigo-50/30"
-                        [class.border-indigo-500]="fileName" [class.bg-indigo-50]="fileName">
-                        <input type="file" #fileInput (change)="onFileSelected($event)" class="hidden"
-                            accept=".pdf,.doc,.docx,.png,.jpg">
+                        [class.border-indigo-500]="selectedFiles.length" [class.bg-indigo-50]="selectedFiles.length">
+                        <input type="file" #fileInput (change)="onFileSelected($event)" class="hidden" multiple
+                            [attr.accept]="acceptedDocumentFileTypes">
 
-                        <mat-icon class="text-4xl !h-12 !w-12 text-slate-400" [class.text-indigo-500]="fileName">
-                            {{ fileName ? 'check_circle' : 'cloud_upload' }}
+                        <mat-icon class="text-4xl !h-12 !w-12 text-slate-400" [class.text-indigo-500]="selectedFiles.length">
+                            {{ selectedFiles.length ? 'check_circle' : 'cloud_upload' }}
                         </mat-icon>
 
                         <div class="text-center">
-                            <ng-container *ngIf="fileName; else noFileSelected">
-                                <span class="text-indigo-700 font-semibold block">{{ fileName }}</span>
-                                <button type="button" mat-button class="mt-2 bg-[var(--text-active)]"
-                                    (click)="clearFile($event)">
-                                    Remove file
+                            <ng-container *ngIf="selectedFiles.length; else noFileSelected">
+                                <div class="space-y-2">
+                                    <div *ngFor="let file of selectedFiles; let i = index"
+                                        class="flex items-center justify-between gap-3 text-left">
+                                        <span class="text-indigo-700 font-semibold break-all">{{ file.name }}</span>
+                                        <button type="button" mat-icon-button aria-label="Remove file"
+                                            (click)="removeFile(i)" [disabled]="isSubmitting">
+                                            <mat-icon>close</mat-icon>
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="button" mat-button class="mt-2" (click)="clearFile($event)"
+                                    [disabled]="isSubmitting">
+                                    Remove all files
                                 </button>
                             </ng-container>
                             <ng-template #noFileSelected>
                                 <span class="text-slate-600 block">Click to browse and upload</span>
-                                <span class="text-xs text-slate-400 block mt-1">PDF, Word, or Images (Max 5MB)</span>
+                                <span class="text-xs text-slate-400 block mt-1">PDF, Excel, Word, and image files</span>
                             </ng-template>
                         </div>
 
-                        <button type="button" mat-flat-button color="primary" class="mt-2" (click)="fileInput.click()">
-                            {{ fileName ? 'Change File' : 'Choose File' }}
+                        <button type="button" mat-flat-button color="primary" class="mt-2" (click)="fileInput.click()"
+                            [disabled]="isSubmitting">
+                            {{ selectedFiles.length ? 'Add more files' : 'Choose files' }}
                         </button>
                     </div>
                     <span *ngIf="uploadForm.get('file')?.hasError('required') && uploadForm.get('file')?.touched"
                         class="text-red-500 text-xs mt-1 ml-1">
-                        Please select a file to upload.
+                        Please select at least one file to upload.
                     </span>
                 </div>
 

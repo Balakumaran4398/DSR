@@ -38,7 +38,7 @@
         <div class="bg-slate-50 rounded-xl border border-slate-100 p-2 sm:p-3">
           <ng-container [ngSwitch]="activeProjectTab">
             <div *ngSwitchCase="'raisedtickets'" class="h-full">
-              <app-tickets [isRaisedTickets]="true"></app-tickets>
+              <app-tickets [isRaisedTickets]="true" [notificationTicketId]="notificationTicketId"></app-tickets>
             </div>
             <div *ngSwitchCase="'overalltickets'" class="h-full">
               <app-tickets [isRaisedTickets]="false"></app-tickets>

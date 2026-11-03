@@ -1,9 +1,7 @@
-import { ChangeDetectorRef, Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatDialogRef } from '@angular/material/dialog';
 import { AuthService } from 'src/app/_core/services/auth.service';
-import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
 
 @Component({
@@ -12,79 +10,114 @@ import { ToasterService } from 'src/app/_core/services/toaster.service';
   styleUrls: ['./attendance-doc.component.scss']
 })
 export class AttendanceDocComponent {
-  private fb = inject(FormBuilder);
-  private snackBar = inject(MatSnackBar);
-  private cdr = inject(ChangeDetectorRef);
-
   fileName: string | null = null;
-  isSubmitting: boolean = false;
+  isSubmitting = false;
+  isDragOver = false;
+  fileError = '';
+  uploadError = '';
+  uploadForm: FormGroup;
+  private readonly acceptedExtensions = ['pdf', 'xls', 'xlsx', 'els', 'doc', 'docx', 'dat'];
 
-  uploadForm: FormGroup = this.fb.group({
-    // title: ['', [Validators.required, Validators.minLength(3)]],
-    file: [null, [Validators.required]],
-    // projectId: [null, [Validators.required]],
-    // userId: [null, [Validators.required]]
-  });
-
-  get formValueString(): string {
-    const val = this.uploadForm.value;
-    return JSON.stringify({
-      // title: val.title,
-      hasFile: !!val.fileSource,
-      fileName: this.fileName
-    }, null, 2);
-  }
-  projectid: any = 0;
-  projectDetails: any;
-  constructor(private storageService: StorageService, private toasterService: ToasterService, private authService: AuthService, private matDialog: MatDialog) {
-    const stored = localStorage.getItem('projectDetails');
-    this.projectDetails = stored ? JSON.parse(stored) : null;
-    this.projectid = this.projectDetails?.id;
-    // this.uploadForm.get('projectId')?.setValue(this.projectid)
-    // this.uploadForm.get('userId')?.setValue(storageService.getEmpId())
-  }
-  onFileSelected(event: any): void {
-    const file: File = event.target.files[0];
-    if (file) {
-      this.fileName = file.name;
-      this.uploadForm.patchValue({ file: file });
-      this.uploadForm.get('file')?.markAsTouched();
-    }
+  constructor(
+    private formBuilder: FormBuilder,
+    private authService: AuthService,
+    private toasterService: ToasterService,
+    private dialogRef: MatDialogRef<AttendanceDocComponent>
+  ) {
+    this.uploadForm = this.formBuilder.group({
+      file: [null, Validators.required]
+    });
   }
 
-  clearFile(event: Event): void {
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.setFile(file);
+    input.value = '';
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
     event.stopPropagation();
+    this.isDragOver = true;
+  }
+
+  onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDragOver = false;
+  }
+
+  onFileDropped(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDragOver = false;
+    const file = event.dataTransfer?.files?.[0];
+    if (file) this.setFile(file);
+  }
+
+  private setFile(file: File): void {
+    const extension = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!this.acceptedExtensions.includes(extension)) {
+      this.fileName = null;
+      this.fileError = 'Unsupported file format. Choose a PDF, Excel, Word or DAT file.';
+      this.uploadForm.patchValue({ file: null });
+      this.uploadForm.get('file')?.markAsTouched();
+      return;
+    }
+
+    this.fileError = '';
+    this.uploadError = '';
+    this.fileName = file.name;
+    this.uploadForm.patchValue({ file });
+    this.uploadForm.get('file')?.markAsTouched();
+  }
+
+  clearFile(input: HTMLInputElement): void {
+    input.value = '';
     this.fileName = null;
+    this.fileError = '';
+    this.uploadError = '';
     this.uploadForm.patchValue({ file: null });
+    this.uploadForm.get('file')?.markAsTouched();
   }
 
   onReset(): void {
     this.uploadForm.reset();
     this.fileName = null;
+    this.fileError = '';
+    this.uploadError = '';
+    this.isDragOver = false;
   }
 
-  onSubmit() {
-    if (this.uploadForm.valid) {
-      this.isSubmitting = true;
-      console.log(this.uploadForm);
-      const formData = new FormData();
-      Object.keys(this.uploadForm.value).forEach(key => {
-        formData.append(key, this.uploadForm.value[key]);
-      });
-      this.authService.LoadAttendance(formData).subscribe((res: any) => {
-        this.toasterService.success(res?.message)
-        this.onReset();
-        this.isSubmitting = false;
-      }, err => {
-        this.toasterService.error(err?.error?.message);
-        this.isSubmitting = false;
-      })
-
+  onSubmit(): void {
+    if (this.uploadForm.invalid || this.isSubmitting) {
+      this.uploadForm.markAllAsTouched();
+      return;
     }
+
+    this.isSubmitting = true;
+    const formData = new FormData();
+    formData.append('file', this.uploadForm.get('file')?.value);
+
+    this.authService.LoadAttendance(formData).subscribe({
+      next: (response: any) => {
+        this.toasterService.success(response?.message || 'Attendance file uploaded successfully.');
+        this.isSubmitting = false;
+        this.dialogRef.close({ uploaded: true });
+      },
+      error: (error: any) => {
+        this.uploadError = error?.error?.message || (error?.status === 0
+          ? 'The browser could not reach the attendance API. Check the API connection and CORS settings.'
+          : `Upload failed${error?.status ? ` (HTTP ${error.status})` : ''}. Please try again.`);
+        this.toasterService.error(this.uploadError);
+        this.isSubmitting = false;
+      }
+    });
   }
 
-  close() {
-    this.matDialog.closeAll()
+  close(): void {
+    this.dialogRef.close();
   }
-
 }

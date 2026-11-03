@@ -1,7 +1,7 @@
 import { Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { getStatusPillClass } from 'src/app/_core/utils/status-pill.util';
-import { APP_TABLE_DEFAULT_PAGE_SIZE, APP_TABLE_PAGE_SIZE_OPTIONS, APP_TABLE_VISIBLE_ROW_COUNT, buildTablePageNumbers, normalizeTablePageSize } from 'src/app/_core/utils/tabulator-pagination.util';
+import { APP_TABLE_DEFAULT_PAGE_SIZE, APP_TABLE_PAGE_SIZE_OPTIONS, APP_TABLE_VISIBLE_ROW_COUNT, buildTablePageNumbers, getNextTablePageGroupPage, getPreviousTablePageGroupPage, normalizeTablePageSize } from 'src/app/_core/utils/tabulator-pagination.util';
 
 interface OverallDetailsColumn {
   label: string;
@@ -17,6 +17,7 @@ interface OverallDetailsDialogData {
   pageSize?: number;
   useReleaseStylePagination?: boolean;
   alwaysShowTableScrollbars?: Boolean;
+  centerContent?: boolean;
 }
 
 type OverallDetailsSortDirection = 'asc' | 'desc';
@@ -119,6 +120,14 @@ export class OverallDetailsDialogComponent {
     this.rebuildPagination();
   }
 
+  goToNextPageGroup(): void {
+    this.goToPage(getNextTablePageGroupPage(this.pageIndex + 1, this.totalPages) - 1);
+  }
+
+  goToPreviousPageGroup(): void {
+    this.goToPage(getPreviousTablePageGroupPage(this.pageIndex + 1, this.totalPages) - 1);
+  }
+
   onPageSizeChange(event: Event): void {
     this.pageSize = normalizeTablePageSize((event.target as HTMLSelectElement).value);
     this.pageIndex = 0;
@@ -214,7 +223,7 @@ export class OverallDetailsDialogComponent {
   }
 
   private buildPageNumbers(): number[] {
-    return buildTablePageNumbers(this.totalPages);
+    return buildTablePageNumbers(this.totalPages, this.pageIndex + 1);
   }
 
   private normalizePageSize(value: any): number {

@@ -80,13 +80,13 @@
             <div class="grid grid-cols-2 gap-3">
                 <div class="space-y-1.5">
                     <span class="text-sm text-slate-500 block ml-1">From</span>
-                    <input type="date" [ngModel]="tempStart | date:'yyyy-MM-dd'"
+                    <input appDatePickerOnly type="date" [ngModel]="tempStart | date:'yyyy-MM-dd'"
                         (ngModelChange)="updateTempDate('start', $event)"
                         class="w-full text-xs p-2.5 bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-[var(--text-active)] focus:border-[var(--text-active)] outline-none text-slate-700 transition-shadow" />
                 </div>
                 <div class="space-y-1.5">
                     <span class="text-sm text-slate-500 block ml-1">To</span>
-                    <input type="date" [ngModel]="tempEnd | date:'yyyy-MM-dd'"
+                    <input appDatePickerOnly type="date" [ngModel]="tempEnd | date:'yyyy-MM-dd'"
                         (ngModelChange)="updateTempDate('end', $event)" [min]="tempStart | date:'yyyy-MM-dd'"
                         class="w-full text-xs p-2.5 bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-[var(--text-active)] focus:border-[var(--text-active)] outline-none text-slate-700 transition-shadow" />
                 </div>

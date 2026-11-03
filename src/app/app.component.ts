@@ -65,8 +65,10 @@ export class AppComponent implements OnInit, OnDestroy {
     // const encodedUsername = encodeURIComponent(this.username ?? '');
     this.chatUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
       `http://192.168.1.113:8082/chat.html?username="${this.username}"`
+      // `http://192.168.70.100:8885/chat.html?username="${this.username}"`
       // `http://103.183.47.213:8585/chat.html?username="${this.username}"`
       // `https://crm.ridsys.in:8080/websocket/chat.html?username="${this.username}"`
+      // `http://dsr.ridsys.in:8282/websocket/chat.html?username="${this.username}"`
     );
   }
 }

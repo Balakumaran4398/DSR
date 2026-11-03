@@ -105,7 +105,7 @@ describe('PerformanceComponent not eligible employee details', () => {
     });
   });
 
-  it('loads the initial admin report but keeps later filter changes manual', () => {
+  it('automatically reloads the admin report when department or date range changes', () => {
     const getBestEmployee = jasmine.createSpy('getBestEmployee').and.returnValue(of({}));
     const authService = {
       getAllDepartments: () => of({ data: [
@@ -131,21 +131,58 @@ describe('PerformanceComponent not eligible employee details', () => {
     expect(component.selectedDepartmentId).toBe(8);
     expect(getBestEmployee).toHaveBeenCalledTimes(1);
 
+    component.selectedPerformanceEmployee = {} as any;
     component.selectedDepartmentId = 7;
     component.onDepartmentChanged();
+
+    expect(component.selectedPerformanceEmployee).toBeNull();
+    expect(getBestEmployee).toHaveBeenCalledTimes(2);
+    expect(getBestEmployee.calls.mostRecent().args[0]).toEqual(jasmine.objectContaining({
+      department_id: 7
+    }));
+
     component.fromDate = new Date(2026, 0, 1);
     component.toDate = new Date(2026, 0, 31);
     component.onDateRangeChanged();
 
-    expect(getBestEmployee).toHaveBeenCalledTimes(1);
-
-    component.loadBestEmployees(true);
-    expect(getBestEmployee).toHaveBeenCalledTimes(2);
+    expect(getBestEmployee).toHaveBeenCalledTimes(3);
     expect(getBestEmployee.calls.mostRecent().args[0]).toEqual(jasmine.objectContaining({
       department_id: 7,
       fromdate: '2026-01-01',
       todate: '2026-01-31'
     }));
+
+    component.onDateRangeChanged();
+    expect(getBestEmployee).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not reload for incomplete or invalid date ranges', () => {
+    const getBestEmployee = jasmine.createSpy('getBestEmployee').and.returnValue(of({}));
+    const storageService = {
+      getEmpId: () => 'EMP-1',
+      roles: { isAdmin: true, isManager: false, isEmployee: false }
+    } as unknown as StorageService;
+    component = new PerformanceComponent(
+      { getBestEmployee } as unknown as AuthService,
+      {} as ExcelService,
+      storageService,
+      { error: jasmine.createSpy('error') } as unknown as ToasterService
+    );
+    component.selectedDepartmentId = 7;
+
+    component.fromDate = new Date(2026, 0, 1);
+    component.toDate = null;
+    component.onDateRangeChanged();
+
+    component.fromDate = new Date(2026, 1, 1);
+    component.toDate = new Date(2026, 0, 31);
+    component.onDateRangeChanged();
+
+    component.fromDate = new Date(Number.NaN);
+    component.toDate = new Date(2026, 0, 31);
+    component.onDateRangeChanged();
+
+    expect(getBestEmployee).not.toHaveBeenCalled();
   });
 
   function mapEmployee(value: any = notEligibleEmployee, index = 0): any {
@@ -174,6 +211,302 @@ describe('PerformanceComponent not eligible employee details', () => {
       'Final score below 85',
       'Release target not met'
     ]);
+  });
+
+  it('maps department dialog metrics from the API and preserves zero values', () => {
+    const software = mapEmployee({
+      employee_id: 'SW-1',
+      employee_name: 'Software',
+      department_name: 'Software',
+      metrics: {
+        assigned_issues: 2, closed_issues: 0,
+        assigned_tasks: 1, closed_tasks: 0,
+        total_working_days: 3,
+        dsr_on_time_days: 0, dsr_late_days: 0, dsr_missing_days: 3, dsr_submitted_days: 0,
+        absent_days: 1, present_days: 2
+      }
+    });
+    expect(software.metrics).toEqual(jasmine.objectContaining({
+      assigned_issues: 2, closed_issues: 0, assigned_tasks: 1, closed_tasks: 0,
+      total_working_days: 3, dsr_on_time_days: 0, dsr_late_days: 0, dsr_missing_days: 3,
+      dsr_days_submitted: 0, absent_days: 1, present_days: 2
+    }));
+    expect(component.hasIssueDetails(software)).toBeTrue();
+    expect(component.hasTaskDetails(software)).toBeTrue();
+    expect(component.hasDsrDetails(software)).toBeTrue();
+
+    const hardware = mapEmployee({
+      employee_id: 'HW-1', employee_name: 'Hardware', department_name: 'Hardware',
+      metrics: {
+        closed_tickets_in_range: 0, model_count: 0, department_max_model_count: 100,
+        self_tickets: 0, total_working_days: 3
+      }
+    });
+    expect(hardware.metrics).toEqual(jasmine.objectContaining({
+      closed_tickets_in_range: 0, model_count: 0, department_max_model_count: 100,
+      self_tickets: 0, total_working_days: 3
+    }));
+    expect(component.hasTicketClientDetails(hardware)).toBeTrue();
+    expect(component.hasDsrDetails(hardware)).toBeTrue();
+    expect(component.shouldShowTicketClientMetric(hardware, 'closedTicketsInRange')).toBeTrue();
+    expect(component.shouldShowTicketClientMetric(hardware, 'departmentMaxModelCount')).toBeTrue();
+    expect(component.shouldShowTicketClientMetric(hardware, 'totalWorkingDays')).toBeTrue();
+
+    const headend = mapEmployee({
+      employee_id: 'HE-1', employee_name: 'Headend', department_name: 'Headend',
+      metrics: {
+        self_tickets: 0, closed_self_tickets: 0, handled_clients: 0,
+        department_max_self_tickets: 0, department_max_handled_clients: 0, total_working_days: 3
+      }
+    });
+    expect(headend.metrics).toEqual(jasmine.objectContaining({
+      self_tickets: 0, closed_self_tickets: 0, handled_clients: 0,
+      department_max_self_tickets: 0, department_max_handled_clients: 0, total_working_days: 3
+    }));
+    expect(component.hasTicketClientDetails(headend)).toBeTrue();
+    expect(component.hasDsrDetails(headend)).toBeTrue();
+    expect(component.shouldShowTicketClientMetric(headend, 'closedSelfTickets')).toBeTrue();
+    expect(component.shouldShowTicketClientMetric(headend, 'departmentMaxSelfTickets')).toBeTrue();
+    expect(component.shouldShowTicketClientMetric(headend, 'departmentMaxHandledClients')).toBeTrue();
+
+    const accounts = mapEmployee({
+      employee_id: 'AC-1', employee_name: 'Accounts', department_name: 'Accounts',
+      metrics: { dsr_on_time_days: 0, dsr_late_days: 0, dsr_missing_days: 3, dsr_submitted_days: 0, closed_dsr: 0, total_working_days: 3 }
+    });
+    const fiber = mapEmployee({
+      employee_id: 'FB-1', employee_name: 'Fiber', department_name: 'Fiber',
+      metrics: { total_working_days: 3, present_days: 0, absent_days: 3, closed_dsr: 0, dsr_missing_days: 3 }
+    });
+    expect(accounts.metrics.closed_dsr).toBe(0);
+    expect(component.hasDsrDetails(accounts)).toBeTrue();
+    expect(fiber.metrics).toEqual(jasmine.objectContaining({
+      total_working_days: 3, present_days: 0, absent_days: 3, closed_dsr: 0, dsr_missing_days: 3
+    }));
+    expect(component.hasDsrDetails(fiber)).toBeTrue();
+    expect(mapEmployee({ employee_id: 'EMPTY', employee_name: 'Empty', department_name: 'Software' }).metrics.closed_tasks).toBeNull();
+  });
+
+  it('maps nested DSR attendance for department IDs 4 and 6 and leaves absent values null', () => {
+    [4, 6].forEach((departmentId, index) => {
+      const row = mapEmployee({
+        employee_id: `DEPT-${departmentId}`,
+        employee_name: `Department ${departmentId}`,
+        department_id: departmentId,
+        department_name: departmentId === 4 ? 'Hardware' : 'Headend',
+        metrics: {
+          dsr_attendance: {
+            submitted_days: 18,
+            on_time_days: 16,
+            late_days: 2,
+            missing_days: 0,
+            closed_dsr: index === 0 ? 0 : 18
+          }
+        }
+      }, index);
+
+      expect(row.metrics).toEqual(jasmine.objectContaining({
+        dsr_days_submitted: 18,
+        dsr_on_time_days: 16,
+        dsr_late_days: 2,
+        dsr_missing_days: 0,
+        closed_dsr: index === 0 ? 0 : 18
+      }));
+      expect(component.hasDsrDetails(row)).toBeFalse();
+      expect(component.shouldHideDsrSubmissionMetrics(row)).toBeTrue();
+    });
+
+    const withoutAttendance = mapEmployee({
+      employee_id: 'EMPTY',
+      employee_name: 'No DSR values',
+      department_name: 'Software',
+      metrics: {}
+    });
+    expect(withoutAttendance.metrics).toEqual(jasmine.objectContaining({
+      dsr_days_submitted: null,
+      dsr_on_time_days: null,
+      dsr_late_days: null,
+      dsr_missing_days: null,
+      closed_dsr: null
+    }));
+    expect(component.hasDsrDetails(withoutAttendance)).toBeFalse();
+  });
+
+  it('hides DSR submission metrics for Hardware and Headend while retaining other attendance metrics', () => {
+    [4, 6].forEach((departmentId, index) => {
+      const row = mapEmployee({
+        employee_id: `DEPT-${departmentId}`,
+        employee_name: `Department ${departmentId}`,
+        department_id: departmentId,
+        department_name: departmentId === 4 ? 'Hardware' : 'Headend',
+        metrics: {
+          present_days: 10,
+          absent_days: 0,
+          half_days: 0,
+          holiday_days: 1,
+          dsr_submitted_days: 0,
+          dsr_on_time_days: 0,
+          dsr_late_days: 0,
+          dsr_missing_days: 10,
+          assigned_tickets: 55,
+          closed_tickets: 55,
+          pending_tickets: 0,
+          closed_tickets_in_range: 0,
+          model_count: 3065,
+          department_max_model_count: 3065,
+          self_tickets: 55,
+          total_working_days: 10
+        }
+      }, index);
+
+      expect(row.metrics).toEqual(jasmine.objectContaining({
+        dsr_days_submitted: 0,
+        dsr_on_time_days: 0,
+        dsr_late_days: 0,
+        dsr_missing_days: 10,
+        closed_dsr: null
+      }));
+      expect(component.hasDsrDetails(row)).toBeTrue();
+      expect(component.shouldHideDsrSubmissionMetrics(row)).toBeTrue();
+    });
+
+    const noDsrValues = mapEmployee({
+      employee_id: 'HW-EMPTY',
+      employee_name: 'Hardware without DSR metrics',
+      department_name: 'Hardware',
+      metrics: {}
+    });
+    expect(component.hasDsrDetails(noDsrValues)).toBeFalse();
+    expect(component.shouldHideDsrSubmissionMetrics(noDsrValues)).toBeTrue();
+    expect(noDsrValues.metrics.closed_dsr).toBeNull();
+  });
+
+  it('does not infer eligibility reasons or weightages when the API omits them', () => {
+    const row = mapEmployee({
+      employee_id: 35,
+      employee_name: 'NO REASON',
+      department_name: 'RidApps',
+      eligible: false,
+      scores: { dsr_score: 20 },
+      metrics: { required_working_days: 10, dsr_submitted_days: 2 }
+    });
+
+    expect(component.getEligibilityReason(row)).toBe('-');
+    expect(component.getEligibilityReasonLabels(row)).toEqual([]);
+    expect(component.getEligibilityReasonTone(row)).toBe('neutral');
+
+    const report = (component as any).mapPerformanceReport({
+      not_eligible_employees: [{
+        employee_id: 35,
+        employee_name: 'NO WEIGHTS',
+        eligible: false
+      }]
+    }, '2026-09-01', '2026-09-30');
+    expect(report.weightageRows).toEqual([]);
+    component['applyReportState'](report);
+    expect(component.weightageRows).toEqual([]);
+  });
+
+  it('uses the selected department API weights to choose not-eligible table columns', () => {
+    component.departments = [{ id: 10, department_name: 'RidApps/Software' }];
+    component.selectedDepartmentId = 10;
+    component.weightageRows = (component as any).extractWeightageRows({
+      weights: {
+        'RidApps/Software': { task: 25, issue: 25, ticket: 25, dsr: 25 },
+        Accounts: { dsr: 100 },
+        default: { release: 40, dsr: 40, release_status: 20 },
+        SQA: { release: 40, dsr: 40, on_time_release: 20 },
+        Fiber: { ticket: 10, dsr: 90 },
+        Hardware: { ticket: 100 },
+        Headend: { ticket: 50, client: 50 }
+      }
+    });
+
+    const ridappsWeights = component.weightageRows.find(row => row.department === 'RidApps/Software');
+    expect(ridappsWeights).toEqual(jasmine.objectContaining({ task: 25, issue: 25, ticket: 25, dsr: 25 }));
+    expect(component.weightageRows.some(row => row.department === 'Accounts' && row.dsr === 100)).toBeTrue();
+
+    expect(component.displayedNotEligibleColumns.map(column => column.key)).toEqual([
+      'index', 'employee', 'final', 'task', 'issue', 'ticket', 'dsr', 'reason'
+    ]);
+    const row = mapEmployee({
+      ...notEligibleEmployee,
+      scores: { task_score: 0, issue_score: 75, ticket_score: 50, dsr_score: 88 }
+    });
+    expect(component.getNotEligibleCellValue(row, 'task')).toBe('0');
+    expect(component.getNotEligibleCellValue(row, 'issue')).toBe('75');
+
+    component.departments = [{ id: 13, department_name: 'Software development team' }];
+    component.selectedDepartmentId = 13;
+    expect(component.displayedNotEligibleColumns.map(column => column.key)).toEqual([
+      'index', 'employee', 'final', 'task', 'issue', 'ticket', 'dsr', 'reason'
+    ]);
+
+    component.departments = [{ id: 11, department_name: 'SQA' }];
+    component.selectedDepartmentId = 11;
+    expect(component.displayedNotEligibleColumns.map(column => column.key)).toEqual([
+      'index', 'employee', 'final', 'release', 'onTimeRelease', 'dsr', 'reason'
+    ]);
+
+    component.departments = [{ id: 12, department_name: 'Hardware' }];
+    component.selectedDepartmentId = 12;
+    expect(component.displayedNotEligibleColumns.map(column => column.key)).toEqual([
+      'index', 'employee', 'final', 'ticket', 'reason'
+    ]);
+
+    component.departments = [{ id: 13, department_name: 'Headend' }];
+    component.selectedDepartmentId = 13;
+    expect(component.displayedNotEligibleColumns.map(column => column.key)).toEqual([
+      'index', 'employee', 'final', 'ticket', 'client', 'reason'
+    ]);
+
+    component.departments = [{ id: 14, department_name: 'Accounts' }];
+    component.selectedDepartmentId = 14;
+    expect(component.displayedNotEligibleColumns.map(column => column.key)).toEqual(
+      component.notEligibleColumns.map(column => column.key)
+    );
+  });
+
+  it('limits detail cards and score metrics to each configured department group', () => {
+    const row = mapEmployee({
+      ...notEligibleEmployee,
+      department_name: 'RidApps/Software',
+      scores: {
+        task_score: 80,
+        release_score: 70,
+        issue_score: 60,
+        ticket_score: 50,
+        dsr_score: 90,
+        client_score: 40,
+        weights: { task: 25, release: 25, issue: 25, ticket: 25, dsr: 25, client: 20 }
+      },
+      metrics: { assigned_tasks: 4, completed_tasks: 3, assigned_issues: 2, assigned_tickets: 1 }
+    });
+
+    expect(component.shouldShowDetailMetric(row, 'task')).toBeTrue();
+    expect(component.shouldShowDetailMetric(row, 'issue')).toBeTrue();
+    expect(component.shouldShowDetailMetric(row, 'ticket')).toBeTrue();
+    expect(component.shouldShowDetailMetric(row, 'release')).toBeFalse();
+    expect(component.hasTaskDetails(row)).toBeTrue();
+    expect(component.hasIssueDetails(row)).toBeTrue();
+    expect(component.hasGeneralWorkDetails(row)).toBeFalse();
+
+    row.department_name = 'Hardware';
+    expect(component.shouldShowDetailMetric(row, 'ticket')).toBeTrue();
+    expect(component.shouldShowDetailMetric(row, 'client')).toBeFalse();
+    row.dsr_score = null;
+    row.metrics.total_working_days = 3;
+    expect(component.hasDsrDetails(row)).toBeTrue();
+
+    row.department_name = 'Headend';
+    expect(component.shouldShowDetailMetric(row, 'client')).toBeTrue();
+    expect(component.isHeadendPerformanceRow(row)).toBeTrue();
+    component.weightageRows = [{
+      department: 'Headend', task: null, release: null, releasePass: null, releaseStatus: null,
+      onTimeRelease: null, sqaProject: null, qcTimeline: null, issue: null, ticket: 50,
+      client: 50, dsr: null, modelCount: null, quality: null, specialRule: '-', icon: ''
+    }];
+    row.score_weights.ticket = null;
+    expect(component.getDetailScoreWeight(row, 'ticket')).toBe(50);
   });
 
   it('opens one employee modal and clears it when the employee leaves the page', () => {
@@ -257,11 +590,11 @@ describe('PerformanceComponent not eligible employee details', () => {
     expect(report.notEligibleRows[0].final_score).toBe(42.25);
   });
 
-  it('maps API weightages and applies the required SQA 40/40/20 configuration', () => {
+  it('maps API weightages without replacing supplied department weights', () => {
     const weightageRows = (component as any).extractWeightageRows({
       weights: {
         'Ridapps/Software/default': { release: 40, dsr: 40, release_status: 20 },
-        SQA: { release: 50, dsr: 50 },
+        SQA: { release: 40, dsr: 40, on_time_release: 20 },
         default: { task: 25, release: 20, dsr: 25 },
         Fiber: { ticket: 10, dsr: 90 },
         Hardware: { ticket: 100 },
@@ -299,6 +632,44 @@ describe('PerformanceComponent not eligible employee details', () => {
     expect(onTimeReleaseColumn?.label).toBe('On-time release');
     expect(component.displayedWeightageColumns.map(column => column.key)).not.toContain('sqaProject');
     expect(component.displayedWeightageColumns.map(column => column.key)).not.toContain('qcTimeline');
+  });
+
+  it('shows RidApps Task and Issues weights and matching Software employee columns', () => {
+    component.weightageRows = (component as any).extractWeightageRows({
+      weights: {
+        'RidApps/Software': { task: 25, issue: 25, ticket: 25, dsr: 25 }
+      }
+    });
+
+    const ridapps = component.weightageRows[0];
+    expect(ridapps).toEqual(jasmine.objectContaining({
+      department: 'RidApps/Software', task: 25, issue: 25, ticket: 25, dsr: 25
+    }));
+    expect(component.displayedWeightageColumns.map(column => column.key)).toEqual([
+      'department', 'task', 'issue', 'ticket', 'dsr'
+    ]);
+    expect(component.getWeightageValue(ridapps, 'task')).toBe('25%');
+    expect(component.getWeightageValue(ridapps, 'issue')).toBe('25%');
+
+    component.departments = [{ id: 21, department_name: 'Software' }];
+    component.selectedDepartmentId = 21;
+    expect(component.displayedNotEligibleColumns.map(column => column.key)).toEqual([
+      'index', 'employee', 'final', 'task', 'issue', 'ticket', 'dsr', 'reason'
+    ]);
+    expect(component.displayedNotEligibleColumns.find(column => column.key === 'task')?.label).toBe('Task');
+    expect(component.displayedNotEligibleColumns.find(column => column.key === 'issue')?.label).toBe('Issues');
+
+    const softwareEmployee = mapEmployee({
+      employee_id: 'SW-1',
+      employee_name: 'Software Employee',
+      department_name: 'Software',
+      final_score: 65,
+      scores: { task_score: 10, issue_score: 20, ticket_score: 30, dsr_score: 40 }
+    });
+    expect(component.getNotEligibleCellValue(softwareEmployee, 'task')).toBe('10');
+    expect(component.getNotEligibleCellValue(softwareEmployee, 'issue')).toBe('20');
+    expect(component.getNotEligibleCellValue(softwareEmployee, 'ticket')).toBe('30');
+    expect(component.getNotEligibleCellValue(softwareEmployee, 'dsr')).toBe('40');
   });
 
   it('accepts on-time release API aliases in weightage rows', () => {

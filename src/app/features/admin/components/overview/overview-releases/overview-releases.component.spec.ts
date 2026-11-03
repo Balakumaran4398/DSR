@@ -104,72 +104,53 @@ describe('OverviewReleasesComponent weekly release range', () => {
     component.applySelectedReleaseTypeFilter = (releases: any[]) => releases;
   });
 
-  it('shows a release in every week touched by its planned-to-release interval', () => {
-    const release = { planned_date: '2026-09-01', released_date: '2026-09-18' };
-    component.releaseList = [release];
+  it('keeps every API-returned release without applying a second client-side date filter', () => {
+    const currentWeekRelease = {
+      id: 'current-week',
+      planned_date: '2026-11-02',
+      released_date: '2026-11-03'
+    };
+    const olderReleaseUpdatedThisWeek = {
+      id: 'updated-this-week',
+      planned_date: '2026-10-13',
+      released_date: '2026-10-17',
+      updateddate: '2026-11-02'
+    };
+    component.startDate = '2026-11-02';
+    component.endDate = '2026-11-08';
+    component.releaseList = [currentWeekRelease, olderReleaseUpdatedThisWeek];
 
-    component.startDate = '2026-08-31';
-    component.endDate = '2026-09-06';
     component.filterData();
-    expect(component.filteredReleases).toEqual([release]);
 
-    component.startDate = '2026-09-07';
-    component.endDate = '2026-09-13';
-    component.filterData();
-    expect(component.filteredReleases).toEqual([release]);
-
-    component.startDate = '2026-09-14';
-    component.endDate = '2026-09-20';
-    component.filterData();
-    expect(component.filteredReleases).toEqual([release]);
-
-    component.startDate = '2026-09-21';
-    component.endDate = '2026-09-27';
-    component.filterData();
-    expect(component.filteredReleases).toEqual([]);
+    expect(component.filteredReleases).toEqual([currentWeekRelease, olderReleaseUpdatedThisWeek]);
   });
 
-  it('includes both boundary days and excludes releases outside the selected week', () => {
-    component.releaseList = [
-      { id: 'starts-on-sunday', planned_date: '2026-09-13', released_date: '2026-09-18' },
-      { id: 'ends-on-monday', planned_date: '2026-09-01', released_date: '2026-09-07' },
-      { id: 'before', planned_date: '2026-09-01', released_date: '2026-09-06' },
-      { id: 'after', planned_date: '2026-09-14', released_date: '2026-09-18' }
-    ];
+  it('preserves project, employee, and release type filtering on API-returned rows', () => {
+    const matchingRelease = { id: 'match', projectid: 1, assigned_to: 4, release_type: 'Internal' };
+    const otherProjectRelease = { id: 'other-project', projectid: 2, assigned_to: 4, release_type: 'Internal' };
+    component.releaseList = [matchingRelease, otherProjectRelease];
+    component.applySelectedProjectFilter = (releases: any[]) => releases.filter(release => release.projectid === 1);
+    component.applySelectedEmployeeFilter = (releases: any[]) => releases.filter(release => release.assigned_to === 4);
+    component.applySelectedReleaseTypeFilter = (releases: any[]) => releases.filter(release => release.release_type === 'Internal');
 
     component.filterData();
 
-    expect(component.filteredReleases.map((release: any) => release.id)).toEqual([
-      'starts-on-sunday', 'ends-on-monday'
-    ]);
+    expect(component.filteredReleases).toEqual([matchingRelease]);
   });
 
-  it('shows Pass and Failed releases only in the range containing closed_date', () => {
-    component.releaseList = [
-      { id: 'pass-inside', status: 'Pass', planned_date: '2026-08-01', released_date: '2026-08-10', closed_date: '2026-09-07' },
-      { id: 'failed-inside', status: 'Failed', planned_date: '2026-08-01', released_date: '2026-08-10', closedDate: '2026-09-13' },
-      { id: 'pass-outside', status: 'Pass', planned_date: '2026-09-08', released_date: '2026-09-10', closed_date: '2026-09-14' },
-      { id: 'failed-missing', status: 'Failed', planned_date: '2026-09-08', released_date: '2026-09-10' }
-    ];
-
-    component.filterData();
-
-    expect(component.filteredReleases.map((release: any) => release.id)).toEqual([
-      'pass-inside', 'failed-inside'
-    ]);
-  });
-
-  it('requests the full timeline so adjacent weeks can see spanning releases', () => {
+  it('sends the selected date range to the API', () => {
     component.empid = 42;
     component.projectid = 0;
+    component.startDate = '2026-09-07';
+    component.endDate = '2026-09-13';
     component.getSelectedEmployeeIdParam = () => 0;
     component.getSelectedDepartmentApiId = () => '';
     component.getSelectedManagerNameParam = () => '';
 
     const payload = component.getReleaseOverviewPayload();
 
-    expect(payload.fromdate).toBe('1900-01-01');
-    expect(payload.todate).toBe('9999-12-31');
+    expect(payload.fromdate).toBe('2026-09-07');
+    expect(payload.todate).toBe('2026-09-13');
   });
 });
 

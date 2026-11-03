@@ -1195,6 +1195,15 @@ body.dark-mode .app-status-pill--muted {
     overflow: hidden !important;
 }
 
+.dsr-request-dialog-panel .mat-mdc-dialog-container,
+.dsr-request-dialog-panel .mdc-dialog__surface,
+.dsr-request-dialog-panel .mat-mdc-dialog-surface {
+    padding: 0 !important;
+    border-radius: 10px !important;
+    background: transparent !important;
+    overflow: hidden !important;
+}
+
 // .tabulator {
 //     overflow-x: auto;
 //   }
@@ -1286,4 +1295,18 @@ body.dark-mode .app-status-pill--muted {
     to {
         transform: rotate(360deg);
     }
+}
+
+.attendance-upload-dialog-panel .mat-mdc-dialog-surface {
+    overflow: hidden !important;
+    padding: 0 !important;
+    border: 1px solid var(--border-card, #e5e7eb);
+    border-radius: 18px !important;
+    background: var(--bg-card, #ffffff) !important;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24) !important;
+}
+
+.attendance-upload-dialog-backdrop {
+    background: rgba(15, 23, 42, 0.42);
+    backdrop-filter: blur(3px);
 }

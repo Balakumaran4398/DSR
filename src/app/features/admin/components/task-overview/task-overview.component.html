@@ -51,6 +51,16 @@
                             [class]="pdfExporting ? 'ri-loader-4-line app-button-spinner !text-2xl' : 'ri-file-pdf-2-fill !text-2xl'"></i>
                     </button>
 
+                    <button [disabled]="!canDownloadPdf || excelExporting"
+                        [title]="excelExporting ? 'Generating Excel...' : 'Excel Download'" (click)="generateDSRExcel()"
+                        class="cursor-pointer transition-all duration-200 rounded" [ngClass]="{
+                              'pdf-enabled': canDownloadPdf && !excelExporting,
+                              'pdf-disabled': !canDownloadPdf || excelExporting
+                            }">
+                        <i
+                            [class]="excelExporting ? 'ri-loader-4-line app-button-spinner !text-2xl' : 'ri-file-excel-2-fill !text-2xl'"></i>
+                    </button>
+
                 </div>
 
 
@@ -108,9 +118,9 @@
                 <div class="relative transition-all duration-300 rounded-xl">
                     <mat-form-field appearance="outline" class="w-full text-sm" subscriptSizing="dynamic">
                         <mat-date-range-input [rangePicker]="picker">
-                            <input matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate"
+                            <input appDatePickerOnly matStartDate placeholder="Start Date" [(ngModel)]="filterStartDate"
                                 class=" placeholder:font-medium">
-                            <input matEndDate placeholder="End Date" [(ngModel)]="filterEndDate"
+                            <input appDatePickerOnly matEndDate placeholder="End Date" [(ngModel)]="filterEndDate"
                                 (dateChange)="filterTask()" class=" placeholder:font-medium">
                         </mat-date-range-input>
                         <mat-datepicker-toggle matIconSuffix [for]="picker"

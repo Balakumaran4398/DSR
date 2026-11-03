@@ -23,6 +23,7 @@ import { AssignTicketFormComponent } from './components/drawer/assign-ticket-for
 import { ClientFormComponent } from './components/drawer/client-form/client-form.component';
 import { ProductFormComponent } from './components/drawer/product-form/product-form.component';
 import { NotificationsComponent } from './components/drawer/notifications/notifications.component';
+import { DatePickerOnlyDirective } from './directives/date-picker-only.directive';
 @NgModule({
   declarations: [
     LoaderComponent,
@@ -44,6 +45,7 @@ import { NotificationsComponent } from './components/drawer/notifications/notifi
     ClientFormComponent,
     ProductFormComponent,
     NotificationsComponent,
+    DatePickerOnlyDirective,
   ],
   imports: [
     CommonModule,
@@ -51,6 +53,6 @@ import { NotificationsComponent } from './components/drawer/notifications/notifi
     ObserversModule,
     OverlayModule
 ],
-  exports: [LoaderComponent, ConfirmAlertComponent,DrawerComponent,DateRangeFilterComponent]
+  exports: [LoaderComponent, ConfirmAlertComponent,DrawerComponent,DateRangeFilterComponent,DatePickerOnlyDirective]
 })
 export class SharedModule { }

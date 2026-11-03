@@ -50,6 +50,20 @@ describe('AuthService dashboard endpoints', () => {
     expect(url).not.toContain('manager_name=');
   });
 
+  it('loads active project tasks by project, employee, and date', () => {
+    service.getProjectActiveTaskList(7, 42, '2026-09-17').subscribe();
+
+    const url = http.get.calls.mostRecent().args[0] as string;
+    expect(url).toContain('/task/project_activeTasklist?');
+    expect(url).toContain('project_id=7');
+    expect(url).toContain('employee_id=42');
+    expect(url).toContain('date=2026-09-17');
+    expect(url).not.toContain('phase_id=');
+    expect(url).not.toContain('task_type=');
+    expect(url).not.toContain('fromdate=');
+    expect(url).not.toContain('todate=');
+  });
+
   it('uses one comma-separated department value for a grouped dashboard request', () => {
     service.getDashboardDetailsByEmployeeIdDeptwise(
       987655,
@@ -98,7 +112,7 @@ describe('AuthService dashboard endpoints', () => {
   });
 
   it('creates a Not Send DSR request with the workflow payload', () => {
-    const payload = { employee_id: 42, date: '2026-09-17', reason: 'Missed task entry' };
+    const payload = { employee_id: 42, date: '2026-09-17', reason: 'Missed task entry', work_type: 'TASK' as const };
 
     service.createNotSendDsrRequest(payload).subscribe();
 

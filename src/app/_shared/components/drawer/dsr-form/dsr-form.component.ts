@@ -15,6 +15,8 @@ interface DsrDrawerTask {
   projectid?: number | string;
   project_id?: number | string;
   projectId?: number | string;
+  projectTitle?: string;
+  project_title?: string;
   completion_percentage?: number;
   entryMode?: 'sub-task' | 'dsr-entries';
   editMode?: boolean;
@@ -26,12 +28,22 @@ interface DsrDrawerTask {
   request_id?: string | number | null;
   requestId?: string | number | null;
   generatedTaskId?: string | number | null;
+  employeeId?: string | number | null;
+  employeeName?: string | null;
+  dsrDraft?: {
+    formValue?: Record<string, any>;
+    editId?: number | null;
+    selectedDsr?: DsrLogEntry | null;
+  } | null;
 }
 
 interface DsrTaskItem {
-  id: number;
+  id: number | string;
   task: string;
   completion_percentage?: number;
+  projectid?: number | string;
+  project_id?: number | string;
+  [key: string]: any;
 }
 
 interface DsrLogEntry {
@@ -71,6 +83,15 @@ export class DsrFormComponent
   @Input() data: DsrDrawerTask | null = null;
   taskForm: FormGroup;
   taskList: DsrTaskItem[] = [];
+  taskListLoading = false;
+  taskListError = '';
+  projectList: any[] = [];
+  projectsLoading = false;
+  projectsError = '';
+  selectedProjectId: number | string | null = null;
+  private approvedProjectRequestVersion = 0;
+  private approvedTaskRequestVersion = 0;
+  private preserveDsrDraft = false;
   selectedDsr: DsrLogEntry | null = null;
   logEntries: DsrLogEntry[] = [];
   editId: number | null = null;
@@ -137,13 +158,107 @@ export class DsrFormComponent
     return this.isTaskEntryMode ? 'Choose a task' : 'Choose a sub task';
   }
 
+  get isApprovedRequestFlow(): boolean {
+    return this.isTaskEntryMode && !!this.data?.notSendDsrRequestId;
+  }
+
+  get canCreateTaskFromApprovedDsr(): boolean {
+    const projectId = `${this.selectedProjectId ?? ''}`.trim();
+    return !!projectId && projectId !== '0';
+  }
+
+  openNewTask(): void {
+    if (!this.isApprovedRequestFlow || !this.canCreateTaskFromApprovedDsr) return;
+
+    const approvedDate = this.formatDateToYMD(this.getEntryDate());
+    const draftValue = this.taskForm.getRawValue();
+    const selectedTask = this.taskList.find(task => `${task.id}` === `${draftValue.subtaskid ?? ''}`);
+    const returnToDsrContext: Record<string, any> = {
+      entryMode: 'dsr-entries',
+      employeeId: this.data?.employeeId,
+      employeeName: this.data?.employeeName,
+      project_id: this.selectedProjectId,
+      fixedDsrDate: approvedDate,
+      notSendDsrRequestId: this.resolveHistoricalRequestId(),
+      selectedEntryId: draftValue.subtaskid,
+      taskid: draftValue.subtaskid,
+      task: selectedTask?.task ?? this.data?.task,
+      completion_percentage: draftValue.completion_percentage,
+      dsrDraft: {
+        formValue: draftValue,
+        editId: this.editId,
+        selectedDsr: this.selectedDsr
+      }
+    };
+
+    this.drawerService.open('task', {
+      mode: 'create',
+      project_id: this.selectedProjectId,
+      employee_id: this.data?.employeeId,
+      employee_name: this.data?.employeeName,
+      start_date: approvedDate,
+      end_date: approvedDate,
+      locked_fields: ['start_date', 'end_date'],
+      not_send_dsr_request_id: this.resolveHistoricalRequestId(),
+      returnToDsrContext
+    }, 'requirement');
+  }
+
   get isEditMode(): boolean {
     return !!this.data?.editMode;
   }
 
   get isDateLocked(): boolean {
-    return !this.isEditMode && !!this.parseLocalDate(this.data?.fixedDsrDate);
+    return this.hasValidHistoricalTaskContext;
   }
+
+  get isTaskSelectionLocked(): boolean {
+    return this.isDateLocked && this.normalizeRequestId(this.data?.generatedTaskId) !== null;
+  }
+
+  private get hasValidHistoricalTaskContext(): boolean {
+    if (this.isEditMode || !this.isTaskEntryMode) return false;
+
+    const fixedDate = this.normalizeDsrDate(this.data?.fixedDsrDate);
+    const generatedTaskId = this.normalizeRequestId(this.data?.generatedTaskId);
+    if (!fixedDate || this.resolveHistoricalRequestId() === null) return false;
+    if (generatedTaskId === null) return true;
+
+    const taskId = this.normalizeRequestId(this.data?.taskid ?? this.data?.task_id ?? this.data?.id);
+    const selectedTaskId = this.normalizeRequestId(this.data?.selectedEntryId ?? this.taskForm?.get('subtaskid')?.value);
+
+    return taskId !== null
+      && `${generatedTaskId}` === `${taskId}`
+      && (selectedTaskId === null || `${selectedTaskId}` === `${generatedTaskId}`);
+  }
+
+  get isEmployee(): boolean {
+    return !!this.storageService.roles?.isEmployee;
+  }
+
+  readonly dsrDateFilter = (date: Date | null): boolean => {
+    if (!date || !this.isEmployee) return true;
+
+    const candidate = this.normalizeDsrDate(date);
+    if (!candidate) return false;
+
+    if (this.isDateLocked) {
+      const approvedDate = this.normalizeDsrDate(this.data?.fixedDsrDate);
+      return !!approvedDate && candidate.getTime() === approvedDate.getTime();
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (candidate.getTime() >= today.getTime()) return true;
+
+    if (!this.isEditMode) return false;
+
+    const savedEditDate = this.normalizeDsrDate(
+      this.selectedDsr?.date ?? this.data?.dsrRecord?.date
+    );
+
+    return !!savedEditDate && candidate.getTime() === savedEditDate.getTime();
+  };
 
   private resolveProjectId(): number | string {
     return this.data?.projectid
@@ -165,6 +280,10 @@ export class DsrFormComponent
   }
 
   private getInitialSelectionId(): number | string | null {
+    if (this.hasValidHistoricalTaskContext) return this.data?.generatedTaskId ?? null;
+    if (this.isTaskEntryMode && this.data?.notSendDsrRequestId) {
+      return this.data?.selectedEntryId ?? null;
+    }
     return this.data?.selectedEntryId
       ?? (this.isTaskEntryMode ? this.resolveTaskId() : (this.data?.id ?? null));
   }
@@ -184,11 +303,106 @@ export class DsrFormComponent
     }
 
     if (this.isTaskEntryMode) {
-      this.getTasksByProjectIdNdEmployeeId();
+      if (this.isApprovedRequestFlow) {
+        this.approvedTaskRequestVersion = (this.approvedTaskRequestVersion || 0) + 1;
+        const requestedProjectId = this.data?.projectid ?? this.data?.project_id ?? this.data?.projectId;
+        this.selectedProjectId = requestedProjectId !== null
+          && requestedProjectId !== undefined
+          && `${requestedProjectId}`.trim() !== ''
+          && `${requestedProjectId}` !== '0'
+          ? requestedProjectId
+          : null;
+        this.taskList = [];
+        this.taskListError = '';
+        this.logEntries = [];
+        this.projectList = [];
+        this.loadProjectsForApprovedRequest();
+      } else {
+        this.getTasksByProjectIdNdEmployeeId();
+      }
     } else {
       this.getSubtasks();
       this.loadDsrDetails();
     }
+
+    this.restoreDsrDraft();
+  }
+
+  private restoreDsrDraft(): void {
+    const draft = this.data?.dsrDraft;
+    if (!draft) return;
+
+    const formValue = draft.formValue ?? {};
+    const draftDate = this.normalizeDsrDate(formValue['date']);
+    this.taskForm.patchValue({
+      ...formValue,
+      date: draftDate ?? this.getEntryDate(),
+      subtaskid: formValue['subtaskid'] ?? this.data?.selectedEntryId ?? this.getInitialSelectionId()
+    });
+    this.editId = draft.editId ?? null;
+    this.selectedDsr = draft.selectedDsr ?? null;
+    this.selectedProjectId = this.data?.project_id ?? this.selectedProjectId;
+    this.preserveDsrDraft = true;
+  }
+
+  private loadProjectsForApprovedRequest(): void {
+    const requestVersion = this.approvedProjectRequestVersion = (this.approvedProjectRequestVersion || 0) + 1;
+    const employeeId = this.data?.employeeId;
+    if (!employeeId) {
+      this.projectList = [];
+      this.projectsLoading = false;
+      this.projectsError = 'Employee id is missing';
+      return;
+    }
+
+    this.projectsLoading = true;
+    this.projectsError = '';
+    const requestedProjectId = this.data?.projectid ?? this.data?.project_id ?? this.data?.projectId;
+    this.authService.getAllProjectsByEmployeeId(employeeId).subscribe({
+      next: (res: any) => {
+        if (requestVersion !== this.approvedProjectRequestVersion) return;
+        const rows = Array.isArray(res) ? res : (res?.data ?? res?.projects ?? res?.projectList ?? []);
+        this.projectList = rows
+          .map((project: any) => ({
+            ...project,
+            id: project?.id ?? project?.project_id ?? project?.projectid ?? project?.projectId,
+            project_title: project?.project_title ?? project?.project_name ?? project?.projectName ?? project?.name ?? ''
+          }))
+          .filter((project: any) => project.id !== null && project.id !== undefined && `${project.id}`.trim() !== '');
+        this.projectsLoading = false;
+        const matchingProject = requestedProjectId === null || requestedProjectId === undefined
+          ? null
+          : this.projectList.find(project => `${project.id}` === `${requestedProjectId}`);
+        if (matchingProject) {
+          this.selectedProjectId = matchingProject.id;
+        } else if (this.selectedProjectId !== null) {
+          this.projectList = [
+            { id: this.selectedProjectId, project_title: this.data?.projectTitle || this.data?.project_title || 'Request project' },
+            ...this.projectList
+          ];
+        }
+        if (this.selectedProjectId !== null) this.getTasksByProjectIdNdEmployeeId();
+      },
+      error: (err: any) => {
+        if (requestVersion !== this.approvedProjectRequestVersion) return;
+        this.projectsLoading = false;
+        this.projectList = [];
+        this.projectsError = err?.error?.message || 'Unable to load projects for this employee.';
+      }
+    });
+  }
+
+  onProjectSelectionChange(projectId: number | string | null): void {
+    this.approvedTaskRequestVersion = (this.approvedTaskRequestVersion || 0) + 1;
+    this.selectedProjectId = projectId;
+    this.taskList = [];
+    this.taskListError = '';
+    this.taskListLoading = false;
+    this.logEntries = [];
+    this.taskForm.get('subtaskid')?.setValue(null);
+    this.taskForm.get('completion_percentage')?.setValue(0);
+    if (projectId === null || projectId === undefined || `${projectId}`.trim() === '') return;
+    this.getTasksByProjectIdNdEmployeeId();
   }
 
   formatLabel(value: number): string {
@@ -198,8 +412,16 @@ export class DsrFormComponent
   get totalTime(): string {
     let totalMinutes = 0;
     this.logEntries.forEach(entry => {
-      const [h, m] = entry.worked_hours.split(':').map(Number);
-      totalMinutes += (h * 60) + m;
+      const value = entry?.worked_hours;
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        totalMinutes += Math.round(value * 60);
+        return;
+      }
+
+      const parts = `${value ?? ''}`.trim().split(':').map(Number);
+      if (parts.length >= 2 && parts.every(Number.isFinite)) {
+        totalMinutes += (parts[0] * 60) + parts[1];
+      }
     });
 
     const h = Math.floor(totalMinutes / 60);
@@ -225,6 +447,7 @@ export class DsrFormComponent
   }
 
   onSelectionChange(e?: { value?: number | string }): void {
+    this.preserveDsrDraft = false;
     const selectedId = e?.value ?? this.taskForm.get('subtaskid')?.value ?? this.getInitialSelectionId();
     if (!selectedId) {
       this.logEntries = [];
@@ -248,7 +471,10 @@ export class DsrFormComponent
 
     request$.subscribe({
       next: (value: any) => {
-        this.logEntries = Array.isArray(value) ? value as DsrLogEntry[] : [];
+        const entries = Array.isArray(value)
+          ? value
+          : (value?.data ?? value?.dsr ?? value?.details ?? value?.dsr_details ?? []);
+        this.logEntries = Array.isArray(entries) ? entries as DsrLogEntry[] : [];
         if (this.isEditMode && this.data?.dsrRecord?.id) {
           const matchedEntry = this.logEntries.find((item) => item.id === this.data?.dsrRecord?.id);
           if (matchedEntry) {
@@ -260,6 +486,7 @@ export class DsrFormComponent
   }
 
   private updateCompletionFromSelection(selectedId?: number | string | null): void {
+    if (this.preserveDsrDraft) return;
     if (!selectedId) {
       this.taskForm.get('completion_percentage')?.setValue(0);
       return;
@@ -292,8 +519,18 @@ export class DsrFormComponent
   }
   submit(): void {
     if (this.taskForm.invalid) return;
+    const historicalWorkflowRequested = !!this.data?.fixedDsrDate || !!this.data?.generatedTaskId;
+    if (this.isTaskEntryMode && historicalWorkflowRequested && !this.isDateLocked) {
+      this.toasterService.error('The approved DSR task context is invalid. Please reopen the approved request.');
+      return;
+    }
     if (this.isTaskEntryMode && this.isDateLocked && this.resolveHistoricalRequestId() === null) {
       this.toasterService.error('The approved DSR request ID is missing. Please reopen the approved request.');
+      return;
+    }
+    if (this.isDateLocked && this.data?.generatedTaskId
+      && `${this.taskForm.get('subtaskid')?.value ?? ''}` !== `${this.data?.generatedTaskId}`) {
+      this.toasterService.error('The selected task does not match the approved DSR request. Please reopen the approved request.');
       return;
     }
     this.taskForm.get('date')?.setValue(this.storageService.toLocalDate(this.taskForm.get('date')?.value));
@@ -345,8 +582,9 @@ export class DsrFormComponent
     return {
       ...taskPayload,
       subtaskid: 0,
-      taskid,
+      taskid: this.isDateLocked && this.data?.generatedTaskId ? this.data.generatedTaskId : taskid,
       task: payload.task ?? selectedTask?.task ?? this.data?.task ?? '',
+      ...(this.isDateLocked ? { date: this.storageService.toLocalDate(this.getEntryDate()) ?? this.formatDateToYMD(this.getEntryDate()) } : {}),
       ...(requestId !== null ? { request_id: requestId } : {})
     };
   }
@@ -440,7 +678,15 @@ export class DsrFormComponent
     this.drawerService.notifyAction({
       source,
       action,
-      payload: res
+      payload: source === 'dsr' && this.resolveHistoricalRequestId() !== null
+        ? {
+          ...res,
+          request_id: this.resolveHistoricalRequestId(),
+          not_send_dsr_request_id: this.resolveHistoricalRequestId(),
+          employee_id: this.data?.employeeId ?? this.empid,
+          date: this.formatDateToYMD(this.getEntryDate())
+        }
+        : res
     });
     this.drawerService.close();
     this.resetForm();
@@ -450,15 +696,18 @@ export class DsrFormComponent
     const selectedId = this.isTaskEntryMode
       ? (this.taskForm.get('subtaskid')?.value ?? this.getInitialSelectionId() ?? this.taskid)
       : (item.subtaskid ?? this.getInitialSelectionId());
+    const editDate = this.normalizeDsrDate(item.date) ?? this.getEntryDate();
 
     this.selectedDsr = item;
     this.editId = item.id;
+    this.fromdate = this.formatDateToYMD(editDate);
+    this.todate = this.formatDateToYMD(editDate);
     this.taskForm.patchValue({
       subtaskid: selectedId,
       worked_hours: item.worked_hours,
       comments: item.comments,
       completion_percentage: item.completion_percentage,
-      date: item.date ? new Date(item.date) : this.initialDate,
+      date: editDate,
       username: this.storageService.getUsername()
     });
   }
@@ -472,14 +721,37 @@ export class DsrFormComponent
   }
 
   private getEntryDate(): Date {
-    return this.parseLocalDate(this.data?.fixedDsrDate) ?? new Date(this.initialDate);
+    return this.normalizeDsrDate(this.data?.fixedDsrDate) ?? new Date(this.initialDate);
   }
 
-  private parseLocalDate(value: unknown): Date | null {
-    const normalized = `${value ?? ''}`.trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+  private normalizeDsrDate(value: unknown): Date | null {
+    if (value instanceof Date) {
+      if (Number.isNaN(value.getTime())) return null;
+      return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    }
 
-    const [year, month, day] = normalized.split('-').map(Number);
+    const normalized = `${value ?? ''}`.trim();
+    if (!normalized) return null;
+
+    const ymdMatch = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/.exec(normalized);
+    const dmyMatch = /^(\d{2})[-/](\d{2})[-/](\d{4})(?:$|[T\s])/.exec(normalized);
+    let year: number;
+    let month: number;
+    let day: number;
+
+    if (ymdMatch) {
+      [, year, month, day] = ymdMatch.map(Number);
+    } else if (dmyMatch) {
+      const [, parsedDay, parsedMonth, parsedYear] = dmyMatch.map(Number);
+      year = parsedYear;
+      month = parsedMonth;
+      day = parsedDay;
+    } else {
+      const parsedValue = new Date(normalized);
+      if (Number.isNaN(parsedValue.getTime())) return null;
+      return new Date(parsedValue.getFullYear(), parsedValue.getMonth(), parsedValue.getDate());
+    }
+
     const parsed = new Date(year, month - 1, day);
     if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) {
       return null;
@@ -516,6 +788,79 @@ export class DsrFormComponent
   }
 
   getTasksByProjectIdNdEmployeeId(): void {
+    if (this.isTaskEntryMode && this.data?.notSendDsrRequestId) {
+      const targetEmployeeId = this.data?.employeeId;
+      if (!targetEmployeeId) {
+        this.taskList = [];
+        this.toasterService.error('Employee id is missing');
+        return;
+      }
+      const targetProjectId = this.selectedProjectId;
+      if (targetProjectId === null || targetProjectId === undefined || `${targetProjectId}`.trim() === '' || `${targetProjectId}` === '0') {
+        this.taskList = [];
+        return;
+      }
+      if (!this.fromdate || !this.todate) {
+        this.taskList = [];
+        this.taskListError = 'Approved DSR date is missing';
+        return;
+      }
+
+      this.taskList = [];
+      this.taskListError = '';
+      this.taskListLoading = true;
+      const requestVersion = this.approvedTaskRequestVersion = (this.approvedTaskRequestVersion || 0) + 1;
+      this.authService.getProjectActiveTaskList(
+        targetProjectId,
+        targetEmployeeId,
+        this.fromdate
+      ).subscribe({
+        next: (res: any) => {
+          if (requestVersion !== this.approvedTaskRequestVersion) return;
+          this.taskListLoading = false;
+          const rows = Array.isArray(res) ? res : (res?.data ?? res?.tasks ?? []);
+          this.taskList = rows
+            .map((row: any) => ({
+              ...row,
+              id: row?.id ?? row?.taskid ?? row?.task_id,
+              task: row?.task ?? row?.task_name ?? row?.taskname ?? '',
+              completion_percentage: row?.completion_percentage ?? row?.completionPercentage ?? 0,
+              projectid: row?.projectid ?? row?.project_id ?? row?.projectId
+            }))
+            .filter((task: DsrTaskItem) => task.id !== null
+              && task.id !== undefined
+              && `${task.id}`.trim() !== ''
+              && !this.isClosedTask(task))
+            .sort((first: DsrTaskItem, second: DsrTaskItem) =>
+              Number(this.taskIncludesDate(second, this.data?.fixedDsrDate))
+              - Number(this.taskIncludesDate(first, this.data?.fixedDsrDate))
+            );
+          const selectedTaskId = this.taskForm.get('subtaskid')?.value;
+          this.ensureSelectedTaskInList(selectedTaskId);
+          const hasSelectedTask = this.taskList.some((item) => item?.id == selectedTaskId);
+
+          if (!hasSelectedTask && this.taskList.length > 0) {
+            this.taskForm.get('subtaskid')?.setValue(this.taskList[0].id);
+            this.taskForm.get('completion_percentage')?.setValue(this.taskList[0].completion_percentage ?? 0);
+            this.loadDsrDetails(this.taskList[0].id);
+            return;
+          }
+
+          this.updateCompletionFromSelection(selectedTaskId);
+          this.loadDsrDetails(selectedTaskId);
+        },
+        error: (err: any) => {
+          if (requestVersion !== this.approvedTaskRequestVersion) return;
+          this.taskListLoading = false;
+          this.taskList = [];
+          this.logEntries = [];
+          this.taskListError = err?.error?.message || 'Unable to load tasks for the approved DSR date and project.';
+          this.toasterService.error(this.taskListError);
+        }
+      });
+      return;
+    }
+
     if (!this.projectid) {
       this.taskList = [];
       this.toasterService.error('Project id is missing');
@@ -546,6 +891,28 @@ export class DsrFormComponent
         this.loadDsrDetails(selectedTaskId);
       })
     }
+  }
+
+  private isClosedTask(task: DsrTaskItem): boolean {
+    const rawStatus = task?.['status']
+      ?? task?.['task_status']
+      ?? task?.['taskStatus']
+      ?? task?.['status_name'];
+    const status = `${rawStatus?.name ?? rawStatus?.status_name ?? rawStatus ?? ''}`
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, '');
+    return status === 'closed';
+  }
+
+  private taskIncludesDate(task: DsrTaskItem, dateValue: unknown): boolean {
+    const targetDate = this.normalizeDsrDate(dateValue);
+    if (!targetDate) return false;
+    const startDate = this.normalizeDsrDate(task?.['start_date'] ?? task?.['startDate'] ?? task?.['from_date']);
+    const endDate = this.normalizeDsrDate(task?.['end_date'] ?? task?.['endDate'] ?? task?.['to_date']) ?? startDate;
+    if (!startDate || !endDate) return false;
+    const targetTime = targetDate.getTime();
+    return startDate.getTime() <= targetTime && targetTime <= endDate.getTime();
   }
 
   private ensureSelectedTaskInList(selectedTaskId?: number | string | null): void {

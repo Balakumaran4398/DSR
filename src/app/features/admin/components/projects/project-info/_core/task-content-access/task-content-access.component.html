@@ -22,12 +22,12 @@
 
     <!-- Main Content (Scrollable) -->
     <div class="flex-1 overflow-y-auto">
-        <div class=" mx-auto p-6 md:p-8">
+        <div class="mx-auto min-w-0 p-4 sm:p-6 md:p-8">
             <ng-container [ngSwitch]="activeTab">
 
                 <!-- DSR ENTRIES TAB -->
                 <div *ngSwitchCase="'dsr-entries'" class="h-full w-full flex flex-col animate-fade-in">
-                    <div class="flex flex-col sm:flex-row gap-3 justify-between items-center mb-8">
+                    <div class="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center mb-6 sm:mb-8">
                         <div class="flex items-center gap-3 shrink-0">
                             <div class="h-10 w-10 rounded-lg bg-[var(--text-active)]
                                flex items-center justify-center text-white shadow-sm shrink-0">
@@ -71,9 +71,9 @@
                     </div>
 
                     <div
-                        class="dsr-entries-table relative border border-slate-200 rounded-none overflow-x-auto overflow-y-visible shadow-none min-h-[400px]">
+                        class="dsr-entries-table relative min-w-0 border border-slate-200 rounded-xl overflow-x-auto overflow-y-visible shadow-none min-h-[320px] sm:min-h-[400px]">
 
-                        <div #dsrEntriesTableRef class="w-full"></div>
+                        <div #dsrEntriesTableRef class="w-full min-w-0"></div>
                     </div>
                 </div>
                <!-- SUB-TASKS TAB -->

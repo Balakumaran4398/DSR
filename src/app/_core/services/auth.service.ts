@@ -17,6 +17,7 @@ export interface NotSendDsrRequestPayload {
   employee_id: number;
   date: string;
   reason: string;
+  work_type: 'DSR' | 'TICKET';
 }
 
 export type NotSendDsrDecision = 'APPROVED' | 'REJECTED';
@@ -24,6 +25,38 @@ export type NotSendDsrDecision = 'APPROVED' | 'REJECTED';
 export interface NotSendDsrDecisionPayload {
   status: NotSendDsrDecision;
   reason?: string;
+}
+
+export interface TicketCategoryData {
+  id: number | string;
+  name: string;
+}
+
+export interface HolidayCreatePayload {
+  title: string;
+  holiday_date: string;
+  companyid: number;
+  type: string;
+  remarks: string;
+  createdby: string;
+}
+
+export interface HolidayEditPayload extends HolidayCreatePayload {
+  id: number;
+}
+
+export interface WeekendSettingsPayload {
+  companyid: number;
+  id: number;
+  sunday_off: boolean;
+  monday_off: boolean;
+  tuesday_off: boolean;
+  wednesday_off: boolean;
+  thursday_off: boolean;
+  friday_off: boolean;
+  saturday_off: boolean;
+  saturday_type: string;
+  createdby: string;
 }
 @Injectable({
   providedIn: 'root'
@@ -321,6 +354,9 @@ export class AuthService {
   getTasksByProjectIdNdEmployeeId(project_id: any, employee_id: any, phaseid: any, type: any, fromdate: any, todate: any) {
     return this.http.get(`${BASE_URL}/task/tasklist?project_id=${project_id}&employee_id=${employee_id}&phase_id=${phaseid}&task_type=${type}&fromdate=${fromdate}&todate=${todate}`);
   }
+  getProjectActiveTaskList(project_id: any, employee_id: any, date: any) {
+    return this.http.get(`${BASE_URL}/task/project_activeTasklist?project_id=${project_id}&employee_id=${employee_id}&date=${date}`);
+  }
   getTaskOverviewByEmp(payload: any) {
     return this.http.get(`${BASE_URL}/task/taskoverview?employee_id=${payload.employee_id}&selected_emp_id=${payload.selected_emp_id}&fromdate=${payload.fromdate}&todate=${payload.todate}`)
   }
@@ -361,10 +397,29 @@ export class AuthService {
     return this.http.get(`${BASE_URL}/release/releaseoverviewList?employee_id=${payload.employee_id}${selectedEmployeeQuery}&projectid=${payload.projectid}&fromdate=${payload.fromdate}&todate=${payload.todate}${departmentQuery}${managerQuery}`)
   }
 
-  getNotsendTasks(payload: any) {
-    return this.http.get(
-      `${BASE_URL}/common/getnotsenddsr?employee_id=${payload.employee_id}&selected_employee_id=${payload.selected_employee_id}&fromdate=${payload.fromdate}&todate=${payload.todate}`
-    )
+  getNotsendTasks(payload: any, forceRefresh = false): Observable<any> {
+    const selectedEmployeeId = payload?.selected_employee_id ?? 0;
+    const cacheKey = this.createCacheKey('not-send-dsr', [
+      payload?.employee_id,
+      selectedEmployeeId,
+      payload?.fromdate,
+      payload?.todate
+    ]);
+    const url = `${BASE_URL}/common/getnotsenddsr?employee_id=${payload.employee_id}&selected_employee_id=${selectedEmployeeId}&fromdate=${payload.fromdate}&todate=${payload.todate}`;
+
+    if (forceRefresh) {
+      return this.http.get(url).pipe(
+        tap(response => this.writePersistentCache(cacheKey, response))
+      );
+    }
+
+    return this.getCachedAndRefresh(cacheKey, hasCachedResponse => {
+      const options = hasCachedResponse
+        ? { headers: new HttpHeaders({ 'X-Skip-Loader': 'true' }) }
+        : {};
+
+      return this.http.get(url, options);
+    });
   }
 
   createNotSendDsrRequest(payload: NotSendDsrRequestPayload) {
@@ -443,7 +498,18 @@ export class AuthService {
   getDsrOverviewByEmpIdNdFromToDateNdUserId(employee_id: number | 0, from_date: any | null, to_date: any | null, user_id: number) {
     return this.http.get(`${BASE_URL}/subtask/dsroverview?employee_id=${employee_id}&from_date=${from_date}&to_date=${to_date}&user_id=${user_id}`);
   }
-
+  getDsrOverviewListByEmpIdNdFromToDateNdUserId(employee_id: number | 0, from_date: any | null, to_date: any | null, user_id: number) {
+    return this.http.get(`${BASE_URL}/subtask/dsroverviewlist?employee_id=${employee_id}&from_date=${from_date}&to_date=${to_date}&user_id=${user_id}`);
+  }
+  getDsrTicketList(empid: number, userId: number, fromDate: string, toDate: string, employeeId: number): Observable<any> {
+    const params = new HttpParams()
+      .set('empid', empid)
+      .set('userId', userId)
+      .set('from_date', fromDate)
+      .set('to_date', toDate)
+      .set('employee_id', employeeId);
+    return this.http.get(`${BASE_URL}/common/dsr_ticket_list`, { params });
+  }
   createDailyStatus(payload: any) {
     return this.http.post(`${BASE_URL}/subtask/createdailystatus`, payload);
   }
@@ -569,14 +635,58 @@ export class AuthService {
   uploadDocument(payload: any) {
     return this.http.post(`${BASE_URL}/document/upload`, payload);
   }
-  LoadAttendance(formData: any) {
-    return this.http.post(`${BASE_URL}/common/loadattendance`, formData);
+  LoadAttendance(formData: FormData) {
+    return this.http.post(`${BASE_URL}/attendance/loadattendance`, formData);
+  }
+
+  getHolidays(companyId: number) {
+    const params = new HttpParams().set('companyid', `${companyId}`);
+    return this.http.get(`${BASE_URL}/attendance/getholidays`, { params });
+  }
+
+  createHoliday(payload: HolidayCreatePayload) {
+    return this.http.post(`${BASE_URL}/attendance/createholiday`, payload);
+  }
+
+  editHoliday(payload: HolidayEditPayload) {
+    return this.http.post(`${BASE_URL}/attendance/editholiday`, payload);
+  }
+
+  deleteHoliday(id: number, createdby: string) {
+    const params = new HttpParams()
+      .set('id', `${id}`)
+      .set('createdby', createdby);
+    return this.http.delete(`${BASE_URL}/attendance/deleteholiday`, { params });
+  }
+
+  getWeekendSettings(companyId: number) {
+    const params = new HttpParams().set('companyid', `${companyId}`);
+    return this.http.get(`${BASE_URL}/attendance/getweekoffsettings`, { params });
+  }
+
+  updateWeekendSettings(payload: WeekendSettingsPayload) {
+    return this.http.post(`${BASE_URL}/attendance/updateweekendsettings`, payload);
+  }
+
+ // Attendance
+  getattendancedetails(employee_id: string | number, month: string, year: string | number) {
+    const params = new HttpParams()
+      .set('employee_id', `${employee_id}`)
+      .set('month', month)
+      .set('year', `${year}`);
+    return this.http.get(`${BASE_URL}/attendance/getattendancedetails`, { params });
+  } 
+
+  getAttendanceDetailsByDate(date: string) {
+    const params = new HttpParams().set('date', date);
+    return this.http.get(`${BASE_URL}/attendance/attendancedetailsByDate`, { params });
   }
 
   // Hierarchy
   getHierarchydetails(employee_id: any,) {
     return this.http.get(`${BASE_URL}/common/hierarchydetails?employee_id=${employee_id}`);
   }
+  
 
   // MOM
 
@@ -754,8 +864,12 @@ export class AuthService {
   getProjectById(id : any) {
     return this.http.get(`${BASE_URL}/project/getProjectById?project_id=${id}`)
   }
-  getTicketsByCategory(ticketCategoryId: any): Observable<any> {
-    return this.http.get<any>(`${BASE_URL}/ticket/getTicketCategoryData/${ticketCategoryId}`);
+  getTicketsByCategory(ticketCategoryId: number | string): Observable<TicketCategoryData[]> {
+    return this.http.get<TicketCategoryData[]>(`${BASE_URL}/ticket/getTicketCategoryData/${ticketCategoryId}`);
+  }
+
+  getTicketCategory(): Observable<TicketCategoryData[]> {
+    return this.http.get<TicketCategoryData[]>(`${BASE_URL}/ticket/getTicketCategory`);
   }
 
 }

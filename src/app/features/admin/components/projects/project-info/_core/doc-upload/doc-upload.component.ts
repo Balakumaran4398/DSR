@@ -22,10 +22,12 @@ export interface DocUploadDialogResult {
 export class DocUploadComponent {
   private fb = inject(FormBuilder);
 
-  fileName: string | null = null;
+  selectedFiles: File[] = [];
   isSubmitting: boolean = false;
   validationSubmitted = false;
 	readonly maxDocumentTitleLength = 200;
+	readonly acceptedDocumentFileTypes = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg';
+	private readonly allowedDocumentExtensions = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg']);
 
   uploadForm: FormGroup = this.fb.group({
 		title: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(this.maxDocumentTitleLength)]],
@@ -39,7 +41,7 @@ export class DocUploadComponent {
     return JSON.stringify({
       title: val.title,
       hasFile: !!val.fileSource,
-      fileName: this.fileName
+      fileNames: this.selectedFiles.map(file => file.name)
     }, null, 2);
   }
   projectid: any = 0;
@@ -56,24 +58,38 @@ export class DocUploadComponent {
     this.projectid = this.dialogData?.projectId ?? this.projectDetails?.id;
     this.setContextFields();
   }
-  onFileSelected(event: any): void {
-    const file: File = event.target.files[0];
-    if (file) {
-      this.fileName = file.name;
-      this.uploadForm.patchValue({ file: file });
-      this.uploadForm.get('file')?.markAsTouched();
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    if (!files.length) return;
+
+    const allowedFiles = files.filter(file => this.isAllowedDocumentFile(file));
+    const rejectedFiles = files.filter(file => !this.isAllowedDocumentFile(file));
+    this.selectedFiles = [...this.selectedFiles, ...allowedFiles];
+    this.syncFileControl();
+    this.uploadForm.get('file')?.markAsTouched();
+
+    if (rejectedFiles.length) {
+      this.toasterService.error(`Unsupported file type: ${rejectedFiles.map(file => file.name).join(', ')}`);
     }
+    // Allow selecting the same file again after removing it or correcting an invalid selection.
+    input.value = '';
   }
 
   clearFile(event: Event): void {
     event.stopPropagation();
-    this.fileName = null;
-    this.uploadForm.patchValue({ file: null });
+    this.selectedFiles = [];
+    this.syncFileControl();
+  }
+
+  removeFile(index: number): void {
+    this.selectedFiles = this.selectedFiles.filter((_, fileIndex) => fileIndex !== index);
+    this.syncFileControl();
   }
 
   onReset(): void {
     this.validationSubmitted = false;
-    this.fileName = null;
+    this.selectedFiles = [];
     this.uploadForm.reset({
       title: '',
       file: null,
@@ -95,34 +111,27 @@ export class DocUploadComponent {
       return;
     }
 
-    if (this.uploadForm.valid) {
-      this.isSubmitting = true;
-      const formData = new FormData();
-
-      // append normal form fields
-      Object.keys(this.uploadForm.value).forEach(key => {
-        const value = key === 'title'
-          ? `${this.uploadForm.value[key] ?? ''}`.trim()
-          : this.uploadForm.value[key];
-        formData.append(key, value);
-      });
-
-
-      this.authService.uploadDocument(formData)
-        .pipe(finalize(() => {
-          this.isSubmitting = false;
-        }))
-        .subscribe({
-          next: (res: any) => {
-            this.toasterService.success(res?.message)
-            this.dialogRef.close({ uploaded: true } as DocUploadDialogResult);
-          },
-          error: (err) => {
-            this.toasterService.error(err?.error?.message);
-          }
-        })
-
+    if (!this.selectedFiles.length) {
+      this.uploadForm.markAllAsTouched();
+      return;
     }
+
+    this.isSubmitting = true;
+    const title = `${this.uploadForm.get('title')?.value ?? ''}`.trim();
+    const userId = this.storageService.getEmpId();
+    const formData = this.buildUploadFormData(this.selectedFiles, title, userId);
+    this.authService.uploadDocument(formData)
+      .pipe(finalize(() => this.isSubmitting = false))
+      .subscribe({
+        next: (res: any) => {
+          this.toasterService.success(res?.message || `${this.selectedFiles.length} file(s) uploaded successfully.`);
+          this.dialogRef.close({ uploaded: true } as DocUploadDialogResult);
+        },
+        error: (err: any) => {
+          // Keep the entire selection so the user can retry the same batch.
+          this.toasterService.error(err?.error?.message || 'Unable to upload the selected files. Please retry.');
+        }
+      });
   }
 
   close() {
@@ -134,6 +143,27 @@ export class DocUploadComponent {
       projectId: this.projectid,
       userId: this.storageService.getEmpId()
     });
+  }
+
+  private buildUploadFormData(files: File[], title: string, userId: number | string | null): FormData {
+    const formData = new FormData();
+    formData.append('title', title);
+    files.forEach(file => formData.append('file', file));
+    formData.append('projectId', `${this.projectid}`);
+    formData.append('userId', `${userId ?? ''}`);
+    return formData;
+  }
+
+  private isAllowedDocumentFile(file: File): boolean {
+    const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+    return this.allowedDocumentExtensions.has(extension);
+  }
+
+  private syncFileControl(): void {
+    const fileControl = this.uploadForm.get('file');
+    fileControl?.setValue(this.selectedFiles.length ? this.selectedFiles : null);
+    fileControl?.setErrors(null);
+    fileControl?.updateValueAndValidity();
   }
 
 }

@@ -304,6 +304,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
           field: "assigned_to",
           minWidth: 200,
           editor: "list",
+          editable: () => this.canEditAssignmentAndDescription(),
           editorParams: {
             values: this.employeeEditorValues,
             autocomplete: true,
@@ -356,7 +357,7 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
           formatter: (cell: any) => this.taskCategoryFormatter(cell)
         },
         { title: "Start Date", field: "start_date", width: 120 },
-        { title: "End Date", field: "end_date", width: 120, editor: 'date' },
+        { title: "End Date", field: "end_date", width: 120 },
         {
           title: "Timeline",
           field: "end_date",
@@ -430,7 +431,8 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
           field: "description",
           width: 250,
           formatter: this.descriptionFormatter, // Uses the new formatter below
-          editor: "textarea"
+          editor: "textarea",
+          editable: () => this.canEditAssignmentAndDescription()
         },
         {
           title: "Actions",
@@ -457,6 +459,12 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
     this.table.on('cellEdited', (cell: any) => {
       const rowData = cell.getRow().getData();
       console.log(rowData);
+      const field = cell.getField?.();
+      if ((field === 'assigned_to' || field === 'description') && !this.canEditAssignmentAndDescription()) {
+        this.toasterService.error("You are Not Allowed.");
+        cell.restoreOldValue();
+        return;
+      }
       const loggedInEmpId = this.storageService.getEmpId();
       const isEmployee = this.storageService.roles?.isEmployee;
       const isAssignedUser = loggedInEmpId === rowData.assigned_to || loggedInEmpId === rowData.assigned_from;
@@ -577,6 +585,11 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
         </span>
       </div>
     `;
+  }
+
+  private canEditAssignmentAndDescription(): boolean {
+    const roles = this.storageService.roles;
+    return !!(roles?.isAdmin || roles?.isManager);
   }
   priorityFormatter(cell: any) {
     const value = cell.getValue();
@@ -1091,15 +1104,27 @@ export class TasksComponent implements AfterViewInit, OnDestroy {
   private openTaskDetails(rowData: any): void {
     this.saveViewState();
     sessionStorage.setItem('activeProjectTab', 'tasks');
-    this.router.navigate(['/main/projects/project-content', this.projectid, rowData.id], {
-      queryParams: this.buildTaskDetailsQueryParams(rowData)
+    const taskId = rowData?.id ?? rowData?.taskid ?? rowData?.task_id;
+    const task = {
+      ...rowData,
+      projectid: rowData?.projectid ?? rowData?.project_id ?? rowData?.projectId ?? this.projectid,
+      id: taskId
+    };
+    this.router.navigate(['/main/tasks', this.projectid, taskId], {
+      queryParams: this.buildTaskDetailsQueryParams(rowData),
+      state: {
+        clickedTask: task,
+        taskNavigationContext: {
+          ...this.buildTaskDetailsQueryParams(rowData),
+          cleanUrl: true
+        }
+      }
     });
   }
 
   private buildTaskDetailsQueryParams(rowData?: any): Record<string, string | null> {
-    const weekRange = this.getWeekRangeFromDate(rowData?.start_date);
-    const navigationFromDate = weekRange?.fromdate || this.fromdate;
-    const navigationToDate = weekRange?.todate || this.todate;
+    const navigationFromDate = this.fromdate;
+    const navigationToDate = this.todate;
     const navigationTaskType = rowData?.task_type || this.type;
 
     return {

@@ -23,6 +23,8 @@ import { HomeComponent } from './components/home/home.component';
 import { OverallComponent } from './components/overall/overall.component';
 import { PerformanceComponent } from './components/performance/performance.component';
 import { GoogleSheetComponent } from './components/google-sheet/google-sheet.component';
+import { HolidayCalendarComponent } from './components/holiday-calendar/holiday-calendar.component';
+import { ReportsHubComponent } from './components/reports/reports.component';
 
 
 
@@ -42,16 +44,22 @@ const routes: Routes = [
   { path: 'theme-settings', component: SettingsComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] } },
   { path: 'projects/project-content/:projectid', component: ProjectInfoComponent },
   { path: 'projects/project-content/:projectid/:taskid', component: TaskDetailsComponent },
+  { path: 'tasks/:projectid/:taskid', component: TaskDetailsComponent },
   { path: 'attendance', component: AttendanceComponent, },
+  { path: 'holiday-calendar', component: HolidayCalendarComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] } },
   { path: 'hardware', component: HardwareComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] } },
   { path: 'notsenddsr', component: NotSendDsrComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] } },
+  { path: 'notsenddsr/:employeeId', component: NotSendDsrComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] } },
   { path: 'my-profile', component: MyProfileComponent, },
   { path: 'hierarchy', component: HierarchyComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] } },
   { path: 'admin-documents', component: AdminDocumentsComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN'] } },
   { path: 'performance', component: PerformanceComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER'] } },
+  { path: 'reports/:reportType', component: ReportsHubComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] } },
+  { path: 'reports', component: ReportsHubComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] } },
   { path: 'google-sheet', component: GoogleSheetComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] } },
   { path: 'mail', component: MailComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] } },
-  { path: 'ticket-info', component: TicketInfoComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] }}      
+  { path: 'ticket-info', component: TicketInfoComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] }},
+  { path: 'ticket-info/:ticketId', component: TicketInfoComponent, canActivate: [RoleGuard], data: { roles: ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_EMPLOYEE'] }}
 
 ];
 

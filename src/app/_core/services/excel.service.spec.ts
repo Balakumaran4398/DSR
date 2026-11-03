@@ -2,6 +2,122 @@ import * as XLSX from 'xlsx';
 import { ExcelService } from './excel.service';
 
 describe('ExcelService release overview export', () => {
+  it('merges Holiday and Week Off detail columns and applies their event colors', () => {
+    const service = new ExcelService();
+    let downloadedFile: ArrayBuffer | null = null;
+    spyOn<any>(service, 'downloadWorkbook').and.callFake((file: ArrayBuffer) => {
+      downloadedFile = file;
+    });
+
+    service.generateDsrCalendarExcel('Test Employee', new Date(2026, 0, 1), new Date(2026, 0, 2), [
+      { date: '01-01-2026', day: 'Thursday', isHoliday: true, holiday_name: 'New Year', statusText: 'Holiday' },
+      { date: '02-01-2026', day: 'Friday', isWeekOff: true, holiday_name: 'Office Weekly Off', statusText: 'Week Off' }
+    ]);
+
+    const workbook = XLSX.read(new Uint8Array(downloadedFile!), { type: 'array' });
+    const sheet = workbook.Sheets['DSR Calendar'];
+    expect(sheet['!merges']).toContain(jasmine.objectContaining({ s: { r: 5, c: 2 }, e: { r: 5, c: 10 } }));
+    expect(sheet['!merges']).toContain(jasmine.objectContaining({ s: { r: 6, c: 2 }, e: { r: 6, c: 10 } }));
+    expect(sheet['C6'].v).toBe('New Year');
+    expect(sheet['L6'].v).toBe('Holiday');
+    expect(sheet['C7'].v).toBe('Office Weekly Off');
+    expect(sheet['L7'].v).toBe('Week Off');
+  });
+
+  it('shows Sunday in a centered merged detail cell and normalizes its status to Week Off', () => {
+    const service = new ExcelService();
+    let downloadedFile: ArrayBuffer | null = null;
+    spyOn<any>(service, 'downloadWorkbook').and.callFake((file: ArrayBuffer) => {
+      downloadedFile = file;
+    });
+
+    service.generateDsrCalendarExcel('Test Employee', new Date(2026, 0, 4), new Date(2026, 0, 4), [
+      { date: '04-01-2026', day: 'Sunday', isSunday: true, isWeekOff: true, statusText: 'Holiday', holiday_name: 'Sunday' }
+    ]);
+
+    const sheet = XLSX.read(new Uint8Array(downloadedFile!), { type: 'array' }).Sheets['DSR Calendar'];
+    expect(sheet['B6']?.v || '').toBe('');
+    expect(sheet['C6'].v).toBe('Sunday');
+    expect(sheet['L6'].v).toBe('Week Off');
+    expect(sheet['!merges']).toContain(jasmine.objectContaining({ s: { r: 5, c: 2 }, e: { r: 5, c: 10 } }));
+  });
+
+  it('keeps future working-day rows white with only a centered dash in Status', () => {
+    const service = new ExcelService();
+    let downloadedFile: ArrayBuffer | null = null;
+    spyOn<any>(service, 'downloadWorkbook').and.callFake((file: ArrayBuffer) => {
+      downloadedFile = file;
+    });
+
+    service.generateDsrCalendarExcel('Test Employee', new Date(2026, 0, 5), new Date(2026, 0, 5), [
+      { date: '05-01-2026', day: 'Monday', project_title: 'Project A', task: 'Future work', statusText: '-', isFuture: true }
+    ]);
+
+    const file = new Uint8Array(downloadedFile!);
+    const sheet = XLSX.read(file, { type: 'array' }).Sheets['DSR Calendar'];
+    const archive = XLSX.CFB.read(file, { type: 'buffer' });
+    const sheetXml = new TextDecoder().decode(XLSX.CFB.find(archive, 'sheet1.xml')!.content);
+    expect(sheet['A6'].v).toBe('05-01-2026');
+    expect(sheet['B6'].v).toBe('Monday');
+    expect(sheet['C6'].v || '').toBe('');
+    expect(sheet['L6'].v).toBe('-');
+    expect(sheetXml).toContain('<c r="L6" s="32"');
+  });
+
+  it('keeps regular data neutral and uses blue, red, warning, and pink status styles', () => {
+    const service = new ExcelService();
+    let downloadedFile: ArrayBuffer | null = null;
+    spyOn<any>(service, 'downloadWorkbook').and.callFake((file: ArrayBuffer) => {
+      downloadedFile = file;
+    });
+
+    service.generateDsrCalendarExcel('Test Employee', new Date(2026, 0, 1), new Date(2026, 0, 5), [
+      { date: '01-01-2026', day: 'Thursday', statusText: 'Present' },
+      { date: '02-01-2026', day: 'Friday', statusText: 'Absent' },
+      { date: '03-01-2026', day: 'Saturday', statusText: 'Week Off', isWeekOff: true },
+      { date: '05-01-2026', day: 'Monday', statusText: 'Holiday', isHoliday: true }
+    ]);
+
+    const archive = XLSX.CFB.read(new Uint8Array(downloadedFile!), { type: 'buffer' });
+    const sheetXml = new TextDecoder().decode(XLSX.CFB.find(archive, 'sheet1.xml')!.content);
+    expect(sheetXml).toContain('<c r="C6" s="8"');
+    expect(sheetXml).toContain('<c r="L6" s="38"');
+    expect(sheetXml).toContain('<c r="L7" s="20"');
+    expect(sheetXml).toContain('<c r="L8" s="22"');
+    expect(sheetXml).toContain('<c r="L9" s="28"');
+  });
+
+  it('exports a calendar ordered DSR worksheet with distinct Sunday, holiday, and leave fills', () => {
+    const service = new ExcelService();
+    let downloadedFile: ArrayBuffer | null = null;
+    let downloadedName = '';
+    spyOn<any>(service, 'downloadWorkbook').and.callFake((file: ArrayBuffer, filename: string) => {
+      downloadedFile = file;
+      downloadedName = filename;
+    });
+
+    service.generateDsrCalendarExcel('Test Employee', new Date(2026, 0, 1), new Date(2026, 0, 4), [
+      { date: '02-01-2026', day: 'Friday', task: 'Holiday - Pongal', statusText: 'Holiday' },
+      { date: '03-01-2026', day: 'Saturday', task: 'Leave - Casual Leave', statusText: 'Leave' },
+      { date: '04-01-2026', day: 'Sunday', task: 'Sunday - Weekly Off', statusText: 'Sunday' }
+    ]);
+
+    expect(downloadedName).toBe('RIDSYS_DSR_Test_Employee_2026-01-01_to_2026-01-04.xlsx');
+    const workbook = XLSX.read(new Uint8Array(downloadedFile!), { type: 'array' });
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets['DSR Calendar'], { header: 1, defval: '' }) as any[][];
+    expect(rows[4]).not.toContain('HOLIDAY / LEAVE NAME');
+    expect(rows[5][0]).toBe('02-01-2026');
+    expect(rows[6][11]).toBe('Leave');
+    expect(rows[6][6]).toBe('Leave - Casual Leave');
+
+    const archive = XLSX.CFB.read(new Uint8Array(downloadedFile!), { type: 'buffer' });
+    const sheetXml = new TextDecoder().decode(XLSX.CFB.find(archive, 'sheet1.xml')!.content);
+    expect(sheetXml).toContain('<c r="A5" s="5"');
+    expect(sheetXml).toContain('<c r="A6" s="28"');
+    expect(sheetXml).toContain('<c r="A7" s="26"');
+    expect(sheetXml).toContain('<c r="A8" s="22"');
+  });
+
   it('creates the fifteen-column all-departments workbook shown in the release report', () => {
     const service = new ExcelService();
     let downloadedFile: ArrayBuffer | null = null;

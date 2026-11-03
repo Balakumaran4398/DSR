@@ -11,31 +11,12 @@
       </div>
     </div>
 
-    <form class="filters" (ngSubmit)="loadBestEmployees(true)">
+    <div class="filters">
       <div class="filter-control filter-control--date-range">
-        <label class="filter-label" for="performanceFromDate">Date range</label>
-        <mat-form-field appearance="outline" class="field report-field report-date-field" subscriptSizing="dynamic">
-          <mat-date-range-input [rangePicker]="performanceRangePicker" (click)="performanceRangePicker.open()">
-            <input
-              id="performanceFromDate"
-              matStartDate
-              [(ngModel)]="fromDate"
-              name="fromDate"
-              placeholder="From date"
-              readonly
-              (dateChange)="onDateRangeChanged()">
-            <input
-              matEndDate
-              [(ngModel)]="toDate"
-              name="toDate"
-              placeholder="To date"
-              aria-label="To date"
-              readonly
-              (dateChange)="onDateRangeChanged()">
-          </mat-date-range-input>
-          <mat-datepicker-toggle matIconSuffix [for]="performanceRangePicker"></mat-datepicker-toggle>
-          <mat-date-range-picker #performanceRangePicker panelClass="performance-datepicker-panel"></mat-date-range-picker>
-        </mat-form-field>
+        <span class="filter-label">Date range</span>
+        <app-date-range-filter class="field report-field"
+          [initialStartDate]="fromDate" [initialEndDate]="toDate" navigationStep="week"
+          (rangeChange)="onDateRangeChanged($event)"></app-date-range-filter>
       </div>
 
       <div class="filter-control filter-control--department">
@@ -76,14 +57,6 @@
       </div>
 
       <button
-        type="submit"
-        class="btn btn-primary"
-        [disabled]="!canLoad || tableLoading">
-        <i [class]="tableLoading ? 'ri-loader-4-line app-spin' : 'ri-refresh-line'"></i>
-        <span>Apply</span>
-      </button>
-
-      <button
         type="button"
         class="btn btn-ghost"
         [disabled]="!canExport || excelExporting"
@@ -102,7 +75,7 @@
         <i [class]="pdfExporting ? 'ri-loader-4-line app-spin' : 'ri-file-pdf-2-line'"></i>
         <span>PDF</span>
       </button> -->
-    </form>
+    </div>
   </header>
 
   <div class="performance-scroll-content">
@@ -229,10 +202,10 @@
               <button type="button" [disabled]="weightagePageIndex === 0" (click)="goToWeightagePage(0)">First</button>
               <button
                 type="button"
-                title="Previous page"
-                aria-label="Previous page"
-                [disabled]="weightagePageIndex === 0"
-                (click)="goToWeightagePage(weightagePageIndex - 1)">
+                title="Show the previous five pages"
+                aria-label="Show the previous five pages"
+                [disabled]="!weightagePageNumbers.length || weightagePageNumbers[0] === 1"
+                (click)="goToWeightagePage(getPreviousWeightagePageGroup())">
                 Prev
               </button>
               <span class="app-pagination-pages">
@@ -246,10 +219,10 @@
               </span>
               <button
                 type="button"
-                title="Next page"
-                aria-label="Next page"
-                [disabled]="weightagePageIndex >= weightageTotalPages - 1"
-                (click)="goToWeightagePage(weightagePageIndex + 1)">
+                title="Show the next five pages"
+                aria-label="Show the next five pages"
+                [disabled]="!weightagePageNumbers.length || weightagePageNumbers[weightagePageNumbers.length - 1] >= weightageTotalPages"
+                (click)="goToWeightagePage(getNextWeightagePageGroup())">
                 Next
               </button>
               <button type="button" [disabled]="weightagePageIndex >= weightageTotalPages - 1" (click)="goToWeightagePage(weightageTotalPages - 1)">Last</button>
@@ -424,7 +397,9 @@
               <tr *ngFor="let row of pagedNotEligibleRows; let rowIndex = index; trackBy: trackByRow">
                 <td
                   *ngFor="let column of displayedNotEligibleColumns; trackBy: trackByNotEligibleColumn"
-                  [class.app-data-table__cell--numeric]="column.align === 'right'">
+                  [class.app-data-table__cell--numeric]="column.align === 'right'"
+                  [class.reason-cell]="column.key === 'reason'"
+                  [ngClass]="column.key === 'reason' ? 'reason-cell--' + getEligibilityReasonTone(row) : ''">
                   <ng-container [ngSwitch]="column.key">
                     <span *ngSwitchCase="'index'" class="mono">{{ notEligibleShowingFrom + rowIndex }}</span>
                     <button
@@ -465,10 +440,10 @@
             <button type="button" [disabled]="notEligiblePageIndex === 0" (click)="goToNotEligiblePage(0)">First</button>
             <button
               type="button"
-              title="Previous page"
-              aria-label="Previous page"
-              [disabled]="notEligiblePageIndex === 0"
-              (click)="goToNotEligiblePage(notEligiblePageIndex - 1)">
+              title="Show the previous five pages"
+              aria-label="Show the previous five pages"
+              [disabled]="!notEligiblePageNumbers.length || notEligiblePageNumbers[0] === 1"
+              (click)="goToNotEligiblePage(getPreviousNotEligiblePageGroup())">
               Prev
             </button>
             <span class="app-pagination-pages">
@@ -482,10 +457,10 @@
             </span>
             <button
               type="button"
-              title="Next page"
-              aria-label="Next page"
-              [disabled]="notEligiblePageIndex >= notEligibleTotalPages - 1"
-              (click)="goToNotEligiblePage(notEligiblePageIndex + 1)">
+              title="Show the next five pages"
+              aria-label="Show the next five pages"
+              [disabled]="!notEligiblePageNumbers.length || notEligiblePageNumbers[notEligiblePageNumbers.length - 1] >= notEligibleTotalPages"
+              (click)="goToNotEligiblePage(getNextNotEligiblePageGroup())">
               Next
             </button>
             <button type="button" [disabled]="notEligiblePageIndex >= notEligibleTotalPages - 1" (click)="goToNotEligiblePage(notEligibleTotalPages - 1)">Last</button>
@@ -541,8 +516,8 @@
               </strong>
             </article>
             <article>
-              <span>Employee ID</span>
-              <strong>{{ employee.employee_id || '-' }}</strong>
+              <span>Attendance ID</span>
+              <strong>{{ employee.attendance_id || '-' }}</strong>
             </article>
             <article>
               <span>Date range</span>
@@ -554,65 +529,95 @@
             <section class="performance-detail-card">
               <h3><i class="ri-bar-chart-grouped-line"></i> Scores and weights</h3>
               <dl>
-                <div *ngIf="employee.release_score !== null || employee.score_weights.release !== null"><dt>Release score</dt><dd>{{ formatScore(employee.release_score) }}</dd></div>
-                <div *ngIf="employee.release_score !== null || employee.score_weights.release !== null"><dt>Release weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'release')) }}</dd></div>
-                <div *ngIf="isSqaPerformanceRow(employee) && (employee.metrics.on_time_releases !== null || employee.metrics.total_releases !== null)"><dt>On-time release score</dt><dd>{{ formatScore(getOnTimeReleaseScore(employee)) }}</dd></div>
-                <div *ngIf="isSqaPerformanceRow(employee)"><dt>On-time release weight</dt><dd>{{ formatWeightWithPercent(20) }}</dd></div>
-                <div *ngIf="employee.dsr_score !== null || employee.score_weights.dsr !== null"><dt>DSR score</dt><dd>{{ formatScore(employee.dsr_score) }}</dd></div>
-                <div *ngIf="employee.dsr_score !== null || employee.score_weights.dsr !== null"><dt>DSR weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'dsr')) }}</dd></div>
-                <div *ngIf="employee.release_status_score !== null || employee.score_weights.release_status !== null"><dt>Release status score</dt><dd>{{ formatScore(employee.release_status_score) }}</dd></div>
-                <div *ngIf="employee.release_status_score !== null || employee.score_weights.release_status !== null"><dt>Release status weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.release_status) }}</dd></div>
-                <div *ngIf="employee.task_score !== null || employee.score_weights.task !== null"><dt>Task score</dt><dd>{{ formatScore(employee.task_score) }}</dd></div>
-                <div *ngIf="employee.task_score !== null || employee.score_weights.task !== null"><dt>Task weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.task) }}</dd></div>
-                <div *ngIf="employee.release_pass_score !== null || employee.score_weights.release_pass !== null"><dt>Release pass score</dt><dd>{{ formatScore(employee.release_pass_score) }}</dd></div>
-                <div *ngIf="employee.release_pass_score !== null || employee.score_weights.release_pass !== null"><dt>Release pass weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.release_pass) }}</dd></div>
-                <div *ngIf="employee.issue_score !== null || employee.score_weights.issue !== null"><dt>Issue score</dt><dd>{{ formatScore(employee.issue_score) }}</dd></div>
-                <div *ngIf="employee.issue_score !== null || employee.score_weights.issue !== null"><dt>Issue weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.issue) }}</dd></div>
-                <div *ngIf="employee.ticket_score !== null || employee.score_weights.ticket !== null"><dt>Ticket score</dt><dd>{{ formatScore(employee.ticket_score) }}</dd></div>
-                <div *ngIf="employee.ticket_score !== null || employee.score_weights.ticket !== null"><dt>Ticket weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.ticket) }}</dd></div>
-                <div *ngIf="employee.client_score !== null || employee.score_weights.client !== null"><dt>Client score</dt><dd>{{ formatScore(employee.client_score) }}</dd></div>
-                <div *ngIf="employee.client_score !== null || employee.score_weights.client !== null"><dt>Client weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.client) }}</dd></div>
-                <div *ngIf="employee.quality_score !== null || employee.score_weights.quality !== null"><dt>Quality score</dt><dd>{{ formatScore(employee.quality_score) }}</dd></div>
-                <div *ngIf="employee.quality_score !== null || employee.score_weights.quality !== null"><dt>Quality weight</dt><dd>{{ formatWeightWithPercent(employee.score_weights.quality) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'release') && (employee.release_score !== null || getDetailScoreWeight(employee, 'release') !== null)"><dt>Release score</dt><dd>{{ formatScore(employee.release_score) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'release') && (employee.release_score !== null || getDetailScoreWeight(employee, 'release') !== null)"><dt>Release weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'release')) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'dsr') && (employee.dsr_score !== null || getDetailScoreWeight(employee, 'dsr') !== null)"><dt>DSR score</dt><dd>{{ formatScore(employee.dsr_score) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'dsr') && (employee.dsr_score !== null || getDetailScoreWeight(employee, 'dsr') !== null)"><dt>DSR weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'dsr')) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'releaseStatus') && (employee.release_status_score !== null || getDetailScoreWeight(employee, 'releaseStatus') !== null)"><dt>Release status score</dt><dd>{{ formatScore(employee.release_status_score) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'releaseStatus') && (employee.release_status_score !== null || getDetailScoreWeight(employee, 'releaseStatus') !== null)"><dt>Release status weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'releaseStatus')) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'onTimeRelease') && (employee.on_time_release_score !== null || employee.metrics.on_time_releases !== null)"><dt>On-time release score</dt><dd>{{ formatScore(getOnTimeReleaseScore(employee)) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'onTimeRelease') && getDetailScoreWeight(employee, 'onTimeRelease') !== null"><dt>On-time release weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'onTimeRelease')) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'task') && (employee.task_score !== null || getDetailScoreWeight(employee, 'task') !== null)"><dt>Task score</dt><dd>{{ formatScore(employee.task_score) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'task') && (employee.task_score !== null || getDetailScoreWeight(employee, 'task') !== null)"><dt>Task weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'task')) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'releasePass') && (employee.release_pass_score !== null || getDetailScoreWeight(employee, 'releasePass') !== null)"><dt>Release pass score</dt><dd>{{ formatScore(employee.release_pass_score) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'releasePass') && (employee.release_pass_score !== null || getDetailScoreWeight(employee, 'releasePass') !== null)"><dt>Release pass weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'releasePass')) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'issue') && (employee.issue_score !== null || getDetailScoreWeight(employee, 'issue') !== null)"><dt>Issue score</dt><dd>{{ formatScore(employee.issue_score) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'issue') && (employee.issue_score !== null || getDetailScoreWeight(employee, 'issue') !== null)"><dt>Issue weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'issue')) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'ticket') && (employee.ticket_score !== null || getDetailScoreWeight(employee, 'ticket') !== null)"><dt>Ticket score</dt><dd>{{ formatScore(employee.ticket_score) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'ticket') && (employee.ticket_score !== null || getDetailScoreWeight(employee, 'ticket') !== null)"><dt>Ticket weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'ticket')) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'client') && (employee.client_score !== null || getDetailScoreWeight(employee, 'client') !== null)"><dt>Client score</dt><dd>{{ formatScore(employee.client_score) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'client') && (employee.client_score !== null || getDetailScoreWeight(employee, 'client') !== null)"><dt>Client weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'client')) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'quality') && (employee.quality_score !== null || getDetailScoreWeight(employee, 'quality') !== null)"><dt>Quality score</dt><dd>{{ formatScore(employee.quality_score) }}</dd></div>
+                <div *ngIf="shouldShowDetailMetric(employee, 'quality') && (employee.quality_score !== null || getDetailScoreWeight(employee, 'quality') !== null)"><dt>Quality weight</dt><dd>{{ formatWeightWithPercent(getDetailScoreWeight(employee, 'quality')) }}</dd></div>
               </dl>
             </section>
 
             <section *ngIf="hasTicketClientDetails(employee)" class="performance-detail-card performance-detail-card--ticket">
-              <h3><i class="ri-customer-service-2-line"></i> Ticket and client metrics</h3>
+              <h3><i class="ri-customer-service-2-line"></i> {{ getTicketMetricsTitle(employee) }}</h3>
               <dl>
-                <div><dt>Total work volume</dt><dd>{{ formatMetricNumber(employee.metrics.total_work_volume) }}</dd></div>
-                <div><dt>Self tickets</dt><dd>{{ formatMetricNumber(employee.metrics.self_tickets) }}</dd></div>
-                <div><dt>Handled clients</dt><dd>{{ formatMetricNumber(employee.metrics.handled_clients) }}</dd></div>
-                <div><dt>Assigned tickets</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_tickets) }}</dd></div>
-                <div><dt>Closed tickets</dt><dd>{{ formatMetricNumber(employee.metrics.closed_tickets) }}</dd></div>
-                <div><dt>Pending tickets</dt><dd>{{ formatMetricNumber(employee.metrics.pending_tickets) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'workVolume') && employee.metrics.total_work_volume !== null"><dt>Total work volume</dt><dd>{{ formatMetricNumber(employee.metrics.total_work_volume) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'selfTickets') && employee.metrics.self_tickets !== null"><dt>Self tickets</dt><dd>{{ formatMetricNumber(employee.metrics.self_tickets) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'handledClients') && employee.metrics.handled_clients !== null"><dt>Handled clients</dt><dd>{{ formatMetricNumber(employee.metrics.handled_clients) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'assignedTickets') && employee.metrics.assigned_tickets !== null"><dt>Assigned tickets</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_tickets) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'supportTickets') && employee.metrics.support_ticket_count !== null"><dt>Support tickets</dt><dd>{{ formatMetricNumber(employee.metrics.support_ticket_count) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'closedTickets') && employee.metrics.closed_tickets !== null"><dt>Closed tickets</dt><dd>{{ formatMetricNumber(employee.metrics.closed_tickets) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'pendingTickets') && employee.metrics.pending_tickets !== null"><dt>Pending tickets</dt><dd>{{ formatMetricNumber(employee.metrics.pending_tickets) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'models') && employee.metrics.model_count !== null"><dt>Models</dt><dd>{{ formatMetricNumber(employee.metrics.model_count) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'closedTicketsInRange') && employee.metrics.closed_tickets_in_range !== null"><dt>Closed tickets in range</dt><dd>{{ formatMetricNumber(employee.metrics.closed_tickets_in_range) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'departmentMaxModelCount') && employee.metrics.department_max_model_count !== null"><dt>Department maximum model count</dt><dd>{{ formatMetricNumber(employee.metrics.department_max_model_count) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'closedSelfTickets') && employee.metrics.closed_self_tickets !== null"><dt>Closed self tickets</dt><dd>{{ formatMetricNumber(employee.metrics.closed_self_tickets) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'departmentMaxSelfTickets') && employee.metrics.department_max_self_tickets !== null"><dt>Department maximum self tickets</dt><dd>{{ formatMetricNumber(employee.metrics.department_max_self_tickets) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'departmentMaxHandledClients') && employee.metrics.department_max_handled_clients !== null"><dt>Department maximum handled clients</dt><dd>{{ formatMetricNumber(employee.metrics.department_max_handled_clients) }}</dd></div>
+                <div *ngIf="shouldShowTicketClientMetric(employee, 'totalWorkingDays') && employee.metrics.total_working_days !== null"><dt>Total working days</dt><dd>{{ formatMetricNumber(employee.metrics.total_working_days) }}</dd></div>
               </dl>
             </section>
 
-            <section *ngIf="hasGeneralWorkDetails(employee) || hasReleaseDetails(employee)" class="performance-detail-card">
+            <section *ngIf="hasIssueDetails(employee)" class="performance-detail-card">
+              <h3><i class="ri-bug-line"></i> Issues</h3>
+              <dl>
+                <div *ngIf="employee.metrics.assigned_issues !== null"><dt>Assigned issues</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_issues) }}</dd></div>
+                <div *ngIf="employee.metrics.closed_issues !== null"><dt>Closed issues</dt><dd>{{ formatMetricNumber(employee.metrics.closed_issues) }}</dd></div>
+              </dl>
+            </section>
+
+            <section *ngIf="hasTaskDetails(employee)" class="performance-detail-card">
+              <h3><i class="ri-task-line"></i> Tasks</h3>
+              <dl>
+                <div *ngIf="employee.metrics.assigned_tasks !== null"><dt>Assigned tasks</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_tasks) }}</dd></div>
+                <div *ngIf="employee.metrics.completed_tasks !== null"><dt>Completed tasks</dt><dd>{{ formatMetricNumber(employee.metrics.completed_tasks) }}</dd></div>
+                <div *ngIf="employee.metrics.closed_tasks !== null"><dt>Closed tasks</dt><dd>{{ formatMetricNumber(employee.metrics.closed_tasks) }}</dd></div>
+              </dl>
+            </section>
+
+            <section *ngIf="hasGeneralWorkDetails(employee) || (!isSqaPerformanceRow(employee) && hasReleaseDetails(employee))" class="performance-detail-card">
               <h3><i class="ri-rocket-line"></i> Release and work metrics</h3>
               <dl>
-                <div><dt>Total work volume</dt><dd>{{ formatMetricNumber(employee.metrics.total_work_volume) }}</dd></div>
-                <div><dt>Total releases</dt><dd>{{ formatMetricNumber(employee.metrics.total_releases) }}</dd></div>
-                <div><dt>Passed releases</dt><dd>{{ formatMetricNumber(employee.metrics.passed_releases) }}</dd></div>
-                <div><dt>Failed releases</dt><dd>{{ formatMetricNumber(employee.metrics.failed_releases) }}</dd></div>
-                <div><dt>On-time releases</dt><dd>{{ formatMetricNumber(employee.metrics.on_time_releases) }}</dd></div>
-                <div><dt>Tasks assigned</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_tasks) }}</dd></div>
-                <div><dt>Tasks completed</dt><dd>{{ formatMetricNumber(employee.metrics.completed_tasks) }}</dd></div>
-                <div><dt>Issues assigned</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_issues) }}</dd></div>
-                <div><dt>Tickets assigned</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_tickets) }}</dd></div>
-                <div><dt>Support tickets</dt><dd>{{ formatMetricNumber(employee.metrics.support_ticket_count) }}</dd></div>
-                <div><dt>Models</dt><dd>{{ formatMetricNumber(employee.metrics.model_count) }}</dd></div>
+                <div *ngIf="shouldShowReleaseWorkMetric(employee, 'workVolume') && employee.metrics.total_work_volume !== null"><dt>Total work volume</dt><dd>{{ formatMetricNumber(employee.metrics.total_work_volume) }}</dd></div>
+                <div *ngIf="shouldShowReleaseWorkMetric(employee, 'totalReleases') && employee.metrics.total_releases !== null"><dt>Total releases</dt><dd>{{ formatMetricNumber(employee.metrics.total_releases) }}</dd></div>
+                <div *ngIf="shouldShowReleaseWorkMetric(employee, 'passedReleases') && employee.metrics.passed_releases !== null"><dt>Passed releases</dt><dd>{{ formatMetricNumber(employee.metrics.passed_releases) }}</dd></div>
+                <div *ngIf="shouldShowReleaseWorkMetric(employee, 'failedReleases') && employee.metrics.failed_releases !== null"><dt>Failed releases</dt><dd>{{ formatMetricNumber(employee.metrics.failed_releases) }}</dd></div>
+                <div *ngIf="shouldShowReleaseWorkMetric(employee, 'onTimeReleases') && employee.metrics.on_time_releases !== null"><dt>On-time releases</dt><dd>{{ formatMetricNumber(employee.metrics.on_time_releases) }}</dd></div>
+                <div *ngIf="shouldShowReleaseWorkMetric(employee, 'tasks') && employee.metrics.assigned_tasks !== null"><dt>Tasks assigned</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_tasks) }}</dd></div>
+                <div *ngIf="shouldShowReleaseWorkMetric(employee, 'tasks') && employee.metrics.completed_tasks !== null"><dt>Tasks completed</dt><dd>{{ formatMetricNumber(employee.metrics.completed_tasks) }}</dd></div>
+                <div *ngIf="shouldShowReleaseWorkMetric(employee, 'issues') && employee.metrics.assigned_issues !== null"><dt>Issues assigned</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_issues) }}</dd></div>
+                <div *ngIf="shouldShowReleaseWorkMetric(employee, 'tickets') && employee.metrics.assigned_tickets !== null"><dt>Tickets assigned</dt><dd>{{ formatMetricNumber(employee.metrics.assigned_tickets) }}</dd></div>
+                <div *ngIf="shouldShowReleaseWorkMetric(employee, 'supportTickets') && employee.metrics.support_ticket_count !== null"><dt>Support tickets</dt><dd>{{ formatMetricNumber(employee.metrics.support_ticket_count) }}</dd></div>
+                <div *ngIf="shouldShowReleaseWorkMetric(employee, 'models') && employee.metrics.model_count !== null"><dt>Models</dt><dd>{{ formatMetricNumber(employee.metrics.model_count) }}</dd></div>
               </dl>
             </section>
 
             <section *ngIf="hasDsrDetails(employee)" class="performance-detail-card">
               <h3><i class="ri-calendar-check-line"></i> DSR attendance</h3>
               <dl>
-                <div><dt>Required working days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_days_required) }}</dd></div>
-                <div><dt>Submitted days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_days_submitted) }}</dd></div>
-                <div><dt>On-time days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_on_time_days) }}</dd></div>
-                <div><dt>Late days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_late_days) }}</dd></div>
+                <div *ngIf="employee.metrics.dsr_days_required !== null"><dt>Required working days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_days_required) }}</dd></div>
+                <div *ngIf="employee.metrics.total_working_days !== null"><dt>Total working days</dt><dd>{{ formatMetricNumber(employee.metrics.total_working_days) }}</dd></div>
+                <div *ngIf="employee.metrics.dsr_days_submitted !== null && !shouldHideDsrSubmissionMetrics(employee)"><dt>Submitted days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_days_submitted) }}</dd></div>
+                <div *ngIf="employee.metrics.dsr_on_time_days !== null && !shouldHideDsrSubmissionMetrics(employee)"><dt>On-time days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_on_time_days) }}</dd></div>
+                <div *ngIf="employee.metrics.dsr_late_days !== null && !shouldHideDsrSubmissionMetrics(employee)"><dt>Late days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_late_days) }}</dd></div>
+                <div *ngIf="employee.metrics.dsr_missing_days !== null && !shouldHideDsrSubmissionMetrics(employee)"><dt>Missing DSR days</dt><dd>{{ formatMetricNumber(employee.metrics.dsr_missing_days) }}</dd></div>
+                <div *ngIf="employee.metrics.present_days !== null"><dt>Present days</dt><dd>{{ formatMetricNumber(employee.metrics.present_days) }}</dd></div>
+                <div *ngIf="employee.metrics.absent_days !== null"><dt>Absent days</dt><dd>{{ formatMetricNumber(employee.metrics.absent_days) }}</dd></div>
+                <div *ngIf="employee.metrics.closed_dsr !== null && !shouldHideDsrSubmissionMetrics(employee)"><dt>Closed DSR</dt><dd>{{ formatMetricNumber(employee.metrics.closed_dsr) }}</dd></div>
               </dl>
             </section>
 

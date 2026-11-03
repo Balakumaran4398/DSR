@@ -1,0 +1,178 @@
+<main class="reports-page" [class.reports-page--detail]="!!reportType">
+  <ng-container *ngIf="!reportType; else reportDetail">
+    <header class="reports-heading">
+      <div>
+        <h1>Reports</h1>
+        <p>Choose a report to explore, search, and export your data.</p>
+      </div>
+      <div class="reports-heading-icon"><i class="ri-bar-chart-grouped-line"></i></div>
+    </header>
+
+    <section class="report-cards" aria-label="Available reports">
+      <button *ngFor="let card of cards" type="button" class="report-card" (click)="openReport(card)">
+        <span class="report-card-icon"><i [class]="card.icon"></i></span>
+        <span class="report-card-copy">
+          <strong>{{ card.title }}</strong>
+          <small>{{ card.description }}</small>
+        </span>
+        <i class="ri-arrow-right-line report-card-arrow"></i>
+      </button>
+    </section>
+  </ng-container>
+
+  <ng-template #reportDetail>
+    <header class="report-detail-heading">
+      <button type="button" class="back-button" (click)="backToReports()" aria-label="Back to reports">
+        <i class="ri-arrow-left-line"></i>
+      </button>
+      <div class="report-detail-title">
+        <span class="eyebrow">REPORTS</span>
+        <h1>{{ reportTitle }}</h1>
+        <p *ngIf="reportType === 'attendance'; else matchingCount">{{ attendanceHeading }} · {{ filteredRows.length }} matching records</p>
+        <ng-template #matchingCount><p>{{ filteredRows.length }} matching records</p></ng-template>
+      </div>
+      <div class="report-export-actions">
+        <button type="button" class="export-button excel" [disabled]="loading || excelExporting || pdfExporting"
+          (click)="exportExcel()">
+          <i [class]="excelExporting ? 'ri-loader-4-line spinning' : 'ri-file-excel-2-line'"></i>
+          {{ excelExporting ? 'Generating…' : 'Excel' }}
+        </button>
+        <button type="button" class="export-button pdf" [disabled]="loading || excelExporting || pdfExporting"
+          (click)="exportPdf()">
+          <i [class]="pdfExporting ? 'ri-loader-4-line spinning' : 'ri-file-pdf-2-line'"></i>
+          {{ pdfExporting ? 'Generating…' : 'PDF' }}
+        </button>
+      </div>
+    </header>
+
+    <section class="report-panel">
+      <div class="report-controls-row">
+        <div class="report-controls-left" [class.report-controls-left--attendance]="reportType === 'attendance'">
+          <mat-form-field *ngIf="showEmployeeFilter"
+            appearance="outline" class="report-employee-filter"
+            [class.report-employee-filter--attendance]="reportType === 'attendance'"
+            subscriptSizing="dynamic">
+            <mat-select [value]="selectedEmployeeId" aria-label="Filter by employee" placeholder="Select Employee"
+              panelClass="report-employee-select-panel"
+              (selectionChange)="onReportEmployeeSelection($event.value)"
+              (openedChange)="onReportEmployeeSelectOpened($event)">
+              <mat-select-trigger>
+                {{ selectedEmployeeName }}
+              </mat-select-trigger>
+              <div class="report-employee-search" (click)="$event.stopPropagation()"
+                (keydown)="$event.stopPropagation()">
+                <input type="search" placeholder="Search employee..." [value]="employeeSearchTerm"
+                  (input)="employeeSearchTerm = $any($event.target).value" aria-label="Search employees">
+              </div>
+              <mat-option *ngIf="showAllEmployeesOption" [value]="allEmployeesValue">All Employees</mat-option>
+              <mat-option *ngFor="let employee of filteredReportEmployees" [value]="reportEmployeeId(employee)">
+                {{ employeeName(employee) || reportEmployeeId(employee) }}
+              </mat-option>
+              <mat-option *ngIf="employeeOptionsLoading" disabled>Loading employees…</mat-option>
+              <mat-option *ngIf="!employeeOptionsLoading && employeeOptionsLoaded && !filteredReportEmployees.length" disabled>No employees found</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field *ngIf="reportType === 'release'" appearance="outline"
+            class="report-project-filter" subscriptSizing="dynamic">
+            <mat-select [value]="selectedProjectId" aria-label="Filter by project"
+              panelClass="report-employee-select-panel"
+              (selectionChange)="onReportProjectSelection($event.value)"
+              (openedChange)="onReportProjectSelectOpened($event)">
+              <mat-select-trigger>{{ selectedReleaseProjectName }}</mat-select-trigger>
+              <div class="report-employee-search" (click)="$event.stopPropagation()"
+                (keydown)="$event.stopPropagation()">
+                <input type="search" placeholder="Search project..." [value]="projectSearchTerm"
+                  (input)="projectSearchTerm = $any($event.target).value" aria-label="Search projects">
+              </div>
+              <mat-option value="0">All Projects</mat-option>
+              <mat-option *ngFor="let project of filteredReleaseProjects" [value]="releaseProjectId(project)">
+                {{ releaseProjectName(project) }}
+              </mat-option>
+              <mat-option *ngIf="!filteredReleaseProjects.length" disabled>No projects found</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+        <div *ngIf="showAttendancePeriodFilters" class="report-attendance-period-controls">
+          <label class="report-attendance-period-item">
+            <!-- <span>Month</span> -->
+            <mat-form-field appearance="outline" class="report-attendance-month" subscriptSizing="dynamic">
+              <mat-select [value]="attendanceMonth" placeholder="Select month" aria-label="Attendance month"
+                panelWidth="auto" panelClass="report-attendance-period-select-panel"
+                (openedChange)="onAttendanceMonthSelectOpened($event)"
+                (selectionChange)="onAttendanceMonthSelection($event.value)">
+                <div class="report-employee-search" (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()">
+                  <input type="search" placeholder="Search months..." [value]="attendanceMonthSearchTerm"
+                    (input)="attendanceMonthSearchTerm = $any($event.target).value" aria-label="Search months">
+                </div>
+                <mat-option *ngFor="let month of filteredAttendanceMonths" [value]="month">{{ month }}</mat-option>
+                <mat-option *ngIf="!filteredAttendanceMonths.length" disabled>No months found</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </label>
+
+          <label class="report-attendance-period-item">
+            <!-- <span>Year</span> -->
+            <mat-form-field appearance="outline" class="report-attendance-year" subscriptSizing="dynamic">
+              <mat-select [value]="attendanceYear" placeholder="Select year" aria-label="Attendance year"
+                panelWidth="auto" panelClass="report-attendance-period-select-panel"
+                (openedChange)="onAttendanceYearSelectOpened($event)"
+                (selectionChange)="onAttendanceYearSelection($event.value)">
+                <div class="report-employee-search" (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()">
+                  <input type="search" placeholder="Search years..." [value]="attendanceYearSearchTerm"
+                    (input)="attendanceYearSearchTerm = $any($event.target).value" aria-label="Search years">
+                </div>
+                <mat-option *ngFor="let year of filteredAttendanceYears" [value]="year">{{ year }}</mat-option>
+                <mat-option *ngIf="!filteredAttendanceYears.length" disabled>No years found</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </label>
+        </div>
+
+        <app-date-range-filter *ngIf="reportType !== 'employee' && reportType !== 'attendance'" class="report-date-field"
+          [initialStartDate]="dateRangeStart" [initialEndDate]="dateRangeEnd" navigationStep="week"
+          (rangeChange)="onDateRangeChange($event)"></app-date-range-filter>
+        </div>
+        <div *ngIf="reportType === 'employee'" class="report-employee-status-filter" role="group" aria-label="Filter employees by status">
+          <button type="button" (click)="setEmployeeStatusFilter('all')"
+            [attr.aria-pressed]="employeeStatusFilter === 'all'"
+            [class.report-employee-status-filter__button--selected]="employeeStatusFilter === 'all'">
+            All
+          </button>
+          <button type="button" (click)="setEmployeeStatusFilter('active')"
+            [attr.aria-pressed]="employeeStatusFilter === 'active'"
+            [class.report-employee-status-filter__button--selected]="employeeStatusFilter === 'active'">
+            Active
+          </button>
+          <button type="button" (click)="setEmployeeStatusFilter('inactive')"
+            [attr.aria-pressed]="employeeStatusFilter === 'inactive'"
+            [class.report-employee-status-filter__button--selected]="employeeStatusFilter === 'inactive'">
+            Inactive
+          </button>
+        </div>
+        <label class="report-search-field">
+          <i class="ri-search-line" aria-hidden="true"></i>
+          <input type="search" [value]="searchTerm" (input)="changeSearch($any($event.target).value)"
+            placeholder="Search all report fields..." aria-label="Search all report fields">
+        </label>
+      </div>
+
+      <div class="report-error" *ngIf="!loading && errorMessage" role="alert">{{ errorMessage }}</div>
+      <div class="report-state" *ngIf="loading && !columns.length" aria-live="polite">
+        <i class="ri-loader-4-line spinning"></i><span>Loading report data…</span>
+      </div>
+      <div class="report-table-wrap" *ngIf="columns.length" [attr.aria-busy]="loading">
+        <div #tableDiv class="report-tabulator" [attr.aria-label]="reportTitle + ' results'"></div>
+        <div class="report-loading-overlay" *ngIf="loading" aria-live="polite">
+          <i class="ri-loader-4-line spinning"></i><span>Updating report data…</span>
+        </div>
+      </div>
+      <div class="empty-state" *ngIf="!loading && !errorMessage && !columns.length">
+        <i class="ri-inbox-line"></i><strong>No report data</strong>
+        <span>There are no records for the selected report and period.</span>
+      </div>
+    </section>
+  </ng-template>
+</main>

@@ -54,6 +54,8 @@ import { OverallPerformanceReportComponent } from './components/overview/overall
 import { PerformanceComponent } from './components/performance/performance.component';
 import { GoogleSheetComponent } from './components/google-sheet/google-sheet.component';
 import { NotSendDsrRequestDialogComponent } from './components/projects/project-info/_core/not-send-dsr/not-send-dsr-request-dialog.component';
+import { HolidayCalendarComponent } from './components/holiday-calendar/holiday-calendar.component';
+import { ReportsHubComponent } from './components/reports/reports.component';
 @NgModule({
   declarations: [
     DashboardComponent,
@@ -73,6 +75,7 @@ import { NotSendDsrRequestDialogComponent } from './components/projects/project-
     TaskDetailsComponent,
     TaskContentAccessComponent,
     ReportsComponent,
+    ReportsHubComponent,
     OverviewComponent,
     OverviewTaskComponent,
     OverviewReleasesComponent,
@@ -82,6 +85,7 @@ import { NotSendDsrRequestDialogComponent } from './components/projects/project-
     DocUploadComponent,
     ReleaseMailsListComponent,
     AttendanceComponent,
+    HolidayCalendarComponent,
     AttendanceDocComponent,
     HardwareComponent,
     NotSendDsrComponent,

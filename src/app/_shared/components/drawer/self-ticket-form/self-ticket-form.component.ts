@@ -1,7 +1,7 @@
 import { Component, inject, Input, SimpleChanges } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { finalize } from 'rxjs/operators';
-import { AuthService } from 'src/app/_core/services/auth.service';
+import { AuthService, TicketCategoryData } from 'src/app/_core/services/auth.service';
 import { DrawerService } from 'src/app/_core/services/drawer.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
@@ -30,6 +30,17 @@ export class SelfTicketFormComponent {
   filteredVersions: string[] = [];
   submitted = false;
   isSubmitting = false;
+  readonly todayDate = this.getLocalToday();
+  readonly assignedDateFilter = (date: Date | null): boolean => {
+    if (!date) return false;
+    const selectedDate = this.ticketForm?.get('assigned_date')?.value;
+    const selectedTime = selectedDate instanceof Date ? this.localDateTimestamp(selectedDate) : null;
+    const dateTime = this.localDateTimestamp(date);
+    // Keep a historical date already on an edited ticket visible/selectable so
+    // leaving it unchanged does not invalidate the form.
+    return dateTime >= this.localDateTimestamp(this.todayDate)
+      || (selectedTime !== null && dateTime === selectedTime);
+  };
   types = [
     'Support',
     'Requirement',
@@ -60,15 +71,11 @@ export class SelfTicketFormComponent {
   selectSearch: Record<string, string> = {};
 
   isHardware = false;
-  categories: any[] = [
-    { id: 1, type: 'Production' },
-    { id: 2, type: 'Service' },
-    { id: 3, type: 'Others/Client Support' }
-  ];
-  filteredCategories: any[] = [];
-  tickets: any[] = [];
+  categories: TicketCategoryData[] = [];
+  filteredCategories: TicketCategoryData[] = [];
+  tickets: TicketCategoryData[] = [];
   ticketSearchText = '';
-  filteredTickets: any[] = [];
+  filteredTickets: TicketCategoryData[] = [];
   categorySearchText = '';
   hardwareEmployeeName: string | null = '';
   modelNameList: any[] = [];
@@ -78,6 +85,7 @@ export class SelfTicketFormComponent {
   filteredModelCodes: any[] = [];
   modelCodeSearchText = '';
   private modelCodeRequestSequence = 0;
+  private ticketCategoryRequestSequence = 0;
 
   constructor(
     private authService: AuthService,
@@ -129,6 +137,8 @@ export class SelfTicketFormComponent {
       priority: [2, Validators.required],
       worked_hours: ['08:00', this.isHardware ? null : this.workedHoursValidator()],
       ticketCategoryId: [null, this.isHardware ? Validators.required : null],
+      ticketCategoryDataId: [null, this.isHardware ? Validators.required : null],
+      assigned_date: [this.todayDate],
       modelName: [],
       modelCode: [],
       // modelName: [null, this.isHardware ? Validators.required : null],
@@ -145,11 +155,11 @@ export class SelfTicketFormComponent {
     this.getAllproducts();
     this.getStatus();
     if (this.isHardware) {
+      this.getTicketCategory();
       this.getModelMaster();
     }
 
     this.hardwareEmployeeName = this.storageService.getEmpName();
-    this.filteredCategories = [...this.categories];
   }
 
   getAllproducts(): void {
@@ -160,7 +170,7 @@ export class SelfTicketFormComponent {
         this.filteredProducts = products;
 
         // Once products are fetched, if we have input data, run patchFormData
-        if (this.data) {
+        if (this.hasTicketEditData()) {
           this.isEditMode = true;
           this.patchFormData();
         }
@@ -170,6 +180,54 @@ export class SelfTicketFormComponent {
       }
     });
   }
+  getTicketCategory(): void {
+    this.authService.getTicketCategory().subscribe({
+      next: (res: any) => {
+        const categories = this.normalizeTicketCategoryResponse(res);
+        this.categories = categories;
+        this.filteredCategories = [...categories];
+      },
+      error: (err: any) => {
+        console.error('getTicketCategory error', err);
+        this.categories = [];
+        this.filteredCategories = [];
+        this.toasterService.error('Failed to load ticket categories');
+      }
+    });
+  }
+
+  private normalizeTicketCategoryResponse(res: any): TicketCategoryData[] {
+    const list = Array.isArray(res)
+      ? res
+      : (res?.data
+        ?? res?.details
+        ?? res?.categories
+        ?? res?.ticketCategories
+        ?? res?.ticketCategoryData
+        ?? res?.tickets
+        ?? []);
+
+    if (!Array.isArray(list)) return [];
+
+    return list
+      .map(category => ({
+        id: category?.id
+          ?? category?.ticket_category_data_id
+          ?? category?.ticketCategoryDataId
+          ?? category?.ticket_category_id
+          ?? category?.ticketCategoryId,
+        name: String(
+          category?.name
+          ?? category?.ticket_name
+          ?? category?.ticketName
+          ?? category?.type
+          ?? category?.category_name
+          ?? category?.categoryName
+          ?? ''
+        ).trim()
+      }))
+      .filter(category => category.id !== null && category.id !== undefined && !!category.name);
+  }
 
   getModelMaster(): void {
     this.authService.getModelMaster().subscribe({
@@ -178,7 +236,7 @@ export class SelfTicketFormComponent {
         this.modelNameList = modelNames;
         this.filteredModelNames = modelNames;
 
-        if (this.data) {
+        if (this.hasTicketEditData()) {
           this.patchModelFieldsFromData();
         }
       },
@@ -190,7 +248,7 @@ export class SelfTicketFormComponent {
   }
 
   private patchFormData(): void {
-    if (!this.data) return;
+    if (!this.hasTicketEditData()) return;
 
     this.isEditMode = true;
 
@@ -215,7 +273,9 @@ export class SelfTicketFormComponent {
       product_version: selectedVersion && this.availableVersions.includes(selectedVersion) ? selectedVersion : null,
       type: this.data.type || '',
       ticketCategoryId: this.data.ticket_category_id,
+      ticketCategoryDataId: this.data.ticketCategoryDataId ?? this.data.ticket_category_data_id ?? null,
       count: this.getCountFromData(this.data),
+      assigned_date: this.parseLocalDate(this.data.assigned_date ?? this.data.assignedDate) || this.todayDate,
       ticket_name: this.data.ticket_name || this.data.ticketName || '',
       ticketDescription: this.data.description || '',
       client_comments: this.data.reason_f_issue || this.data.reasonFIssue || '',
@@ -231,13 +291,19 @@ export class SelfTicketFormComponent {
     this.patchModelFieldsFromData();
 
     if (this.isHardware && this.data.ticket_category_id) {
-      this.getTicketsByCategory(this.data.ticket_category_id);
+      this.getTicketsByCategory(this.data.ticket_category_id, true);
     }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['data'] && this.data) {
-      this.isEditMode = true;
+    if (changes['data']) {
+      this.isEditMode = this.hasTicketEditData();
+      if (!this.isEditMode) {
+        this.ticketForm?.patchValue({
+          assigned_date: this.parseLocalDate(this.data?.assigned_date ?? this.data?.assignedDate) || this.todayDate
+        });
+        return;
+      }
       if (this.productList.length > 0) {
         this.patchFormData();
       }
@@ -290,7 +356,7 @@ export class SelfTicketFormComponent {
           .filter(status => this.isVisibleStatus(status.name, status.id));
         this.filteredStatusList = [...this.statusList];
 
-        if (this.data) {
+        if (this.hasTicketEditData()) {
           this.isEditMode = true;
           this.patchFormData();
         }
@@ -492,7 +558,7 @@ export class SelfTicketFormComponent {
         this.modelCodeList = modelCodes;
         this.filteredModelCodes = modelCodes;
 
-        if (!resetModelCode && this.data) {
+        if (!resetModelCode && this.hasTicketEditData()) {
           const modelCodeValue = this.getModelCodeControlValueFromData(this.data);
 
           if (modelCodeValue !== null) {
@@ -565,6 +631,8 @@ export class SelfTicketFormComponent {
       status: this.ticketForm.get('status'),
       worked_hours: this.ticketForm.get('worked_hours'),
       ticketCategoryId: this.ticketForm.get('ticketCategoryId'),
+      ticketCategoryDataId: this.ticketForm.get('ticketCategoryDataId'),
+      assigned_date: this.ticketForm.get('assigned_date'),
       modelName: this.ticketForm.get('modelName'),
       modelCode: this.ticketForm.get('modelCode'),
       count: this.ticketForm.get('count')
@@ -600,14 +668,20 @@ export class SelfTicketFormComponent {
       stbModel: '',
       stbVersion: '',
       ticketCategoryId: '',
+      ticketCategoryDataId: null,
+      assigned_date: this.todayDate,
       modelName: null,
       modelCode: null,
       count: null
     });
     this.modelCodeRequestSequence++;
+    this.ticketCategoryRequestSequence++;
     this.modelCodeList = [];
     this.filteredModelCodes = [];
     this.modelCodeSearchText = '';
+    this.tickets = [];
+    this.filteredTickets = [];
+    this.ticketSearchText = '';
     this.ticketForm.markAsPristine();
     this.ticketForm.markAsUntouched();
   }
@@ -633,6 +707,7 @@ export class SelfTicketFormComponent {
     const hardwarePayload = this.isHardware
       ? {
         count: Number(formValue.count),
+        ticketCategoryDataId: formValue.ticketCategoryDataId,
         stbModel: selectedModelName || formValue.stbModel || '',
         stbVersion: selectedModelCode || formValue.stbVersion || '',
         stb_model: selectedModelName || formValue.stbModel || '',
@@ -663,6 +738,10 @@ export class SelfTicketFormComponent {
       updatedBy: currentEmpId,
       path: '',
       assignedFrom: empId,
+      assigned_date: this.formatDateForApi(formValue.assigned_date),
+      ...(this.data?.source === 'not-send-dsr' && this.data?.not_send_dsr_request_id
+        ? { not_send_dsr_request_id: this.data.not_send_dsr_request_id }
+        : {}),
       ...hardwarePayload
     };
 
@@ -705,12 +784,19 @@ export class SelfTicketFormComponent {
         })
       ).subscribe({
         next: (res: any) => {
-          this.toasterService.success(res?.message || 'Ticket created successfully');
+          this.toasterService.success(
+            res?.message || res?.data?.message || res?.response?.message || 'Ticket created successfully'
+          );
           this.refreshNotificationsWhenClosed(formValue.status);
           this.drawerService.notifyAction({
             source: 'ticket',
             action: 'created',
-            payload: res
+            payload: {
+              response: res,
+              ...(this.data?.source === 'not-send-dsr' && this.data?.not_send_dsr_request_id
+                ? { not_send_dsr_request_id: this.data.not_send_dsr_request_id }
+                : {})
+            }
           });
           this.onCancel();
         },
@@ -886,7 +972,7 @@ export class SelfTicketFormComponent {
   }
 
   private patchModelFieldsFromData(): void {
-    if (!this.data) return;
+    if (!this.hasTicketEditData()) return;
 
     const modelMasterId = this.getModelMasterControlValueFromData(this.data);
     const modelCodeValue = this.getModelCodeControlValueFromData(this.data);
@@ -900,6 +986,45 @@ export class SelfTicketFormComponent {
     if (modelMasterId !== null) {
       this.onModelNameChange(modelMasterId, false);
     }
+  }
+
+  private hasTicketEditData(): boolean {
+    return !!this.data && this.data.mode !== 'create';
+  }
+
+  private getLocalToday(): Date {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
+  private localDateTimestamp(date: Date): number {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  }
+
+  private parseLocalDate(value: any): Date | null {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    }
+    if (value === null || value === undefined || String(value).trim() === '') return null;
+    const text = String(value).trim();
+    const datePart = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (datePart) {
+      const [, year, month, day] = datePart;
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+    const parsed = new Date(text);
+    return Number.isNaN(parsed.getTime())
+      ? null
+      : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  }
+
+  private formatDateForApi(value: any): string | null {
+    const date = this.parseLocalDate(value);
+    if (!date) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private getModelMasterControlValueFromData(data: any): any {
@@ -988,7 +1113,7 @@ export class SelfTicketFormComponent {
     const value = this.categorySearchText.toLowerCase().trim();
     this.filteredCategories = value
       ? this.categories.filter(category =>
-        category.type?.toLowerCase().includes(value)
+        category.name.toLowerCase().includes(value)
       )
       : [...this.categories];
   }
@@ -1003,29 +1128,96 @@ export class SelfTicketFormComponent {
       : [...this.tickets];
   }
 
-  getTicketsByCategory(id: number): void {
+  onTicketCategoryChange(id: number | string | null): void {
+    this.ticketForm.patchValue({
+      ticketCategoryDataId: null,
+      ticket_name: ''
+    });
+    this.ticketSearchText = '';
+    this.tickets = [];
+    this.filteredTickets = [];
+
+    this.getTicketsByCategory(id);
+  }
+
+  onTicketSelectionChange(id: number | string | null): void {
+    const selectedTicket = this.tickets.find(ticket => String(ticket.id) === String(id));
+
+    this.ticketForm.patchValue({
+      ticketCategoryDataId: selectedTicket?.id ?? null,
+      ticket_name: selectedTicket?.name ?? ''
+    });
+  }
+
+  getSelectedTicketName(): string {
+    const selectedTicketId = this.ticketForm.get('ticketCategoryDataId')?.value;
+    const selectedTicket = this.tickets.find(ticket => String(ticket.id) === String(selectedTicketId));
+
+    return selectedTicket?.name || this.ticketForm.get('ticket_name')?.value || 'Select Ticket';
+  }
+
+  getTicketsByCategory(id: number | string | null, preserveSelection = false): void {
+    const requestSequence = ++this.ticketCategoryRequestSequence;
+
     if (!id) {
       this.tickets = [];
       this.filteredTickets = [];
       return;
     }
+
+    const selectedTicketId = preserveSelection
+      ? this.data?.ticketCategoryDataId
+        ?? this.data?.ticket_category_data_id
+        ?? this.ticketForm.get('ticketCategoryDataId')?.value
+      : null;
+    const selectedTicketName = preserveSelection
+      ? this.data?.ticket_name
+        ?? this.data?.ticketName
+        ?? this.ticketForm.get('ticket_name')?.value
+      : '';
+
     this.authService.getTicketsByCategory(id).subscribe({
-      next: (res: any[]) => {
-        this.tickets = Array.isArray(res) ? res : [];
+      next: (res: TicketCategoryData[]) => {
+        if (requestSequence !== this.ticketCategoryRequestSequence) return;
+
+        this.tickets = this.normalizeTicketCategoryResponse(res);
         this.filteredTickets = [...this.tickets];
 
         this.ticketSearchText = '';
 
-        const ticketName = this.data?.ticket_name || this.data?.ticketName;
+        if (!preserveSelection) return;
 
-        if (ticketName) {
+        const selectedTicket = this.tickets.find(ticket =>
+          selectedTicketId !== null
+          && selectedTicketId !== undefined
+          && String(ticket.id) === String(selectedTicketId)
+        ) ?? this.tickets.find(ticket =>
+          this.normalizeComparableString(ticket.name) === this.normalizeComparableString(selectedTicketName)
+        );
+
+        if (selectedTicket) {
           this.ticketForm.patchValue({
-            ticket_name: ticketName
+            ticketCategoryDataId: selectedTicket.id,
+            ticket_name: selectedTicket.name
+          });
+        } else {
+          this.ticketForm.patchValue({
+            ticketCategoryDataId: null,
+            ticket_name: ''
           });
         }
       },
       error: (err: any) => {
+        if (requestSequence !== this.ticketCategoryRequestSequence) return;
+
+        this.tickets = [];
+        this.filteredTickets = [];
+        this.ticketForm.patchValue({
+          ticketCategoryDataId: null,
+          ticket_name: ''
+        });
         console.error('getTicketsByCategory', err);
+        this.toasterService.error('Failed to load tickets');
       }
     });
   }
@@ -1035,7 +1227,7 @@ export class SelfTicketFormComponent {
 
     return this.categories.find(
       category => Number(category.id) === Number(categoryId)
-    )?.type || 'Select Category';
+    )?.name || 'Select Category';
   }
   onCategorySelectOpened(opened: boolean): void {
     if (!opened) return;

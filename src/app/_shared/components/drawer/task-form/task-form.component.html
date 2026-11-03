@@ -76,7 +76,7 @@
           
 
             <div class="md:col-span-1" >
-              <label class="block text-sm font-medium text-slate-700 mb-1"> Version <span class="text-red-500">*</span></label>
+              <label class="block text-sm font-medium text-slate-700 mb-1"> Version <span *ngIf="isVersionRequired" class="text-red-500">*</span></label>
                 <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
                    <mat-select formControlName="version" placeholder="Select version" (openedChange)="resetSelectFilter($event, 'version')">
                      <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-slate-100" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
@@ -87,7 +87,7 @@
                      <mat-option *ngFor="let v of filteredVersionList" [value]="v">{{ v }}</mat-option>
                      <mat-option *ngIf="!filteredVersionList.length" disabled>No versions found</mat-option>
                    </mat-select>
-                   <mat-error *ngIf="rf.version?.invalid && (rf.version?.touched || rf.version?.dirty)">Version is required.</mat-error>
+                   <mat-error *ngIf="isVersionRequired && rf.version?.invalid && (rf.version?.touched || rf.version?.dirty)">Version is required.</mat-error>
                 </mat-form-field>
              </div>
              <div class="md:col-span-1" >
@@ -198,7 +198,7 @@
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-slate-700 mb-1">Assign To <span class="text-red-500">*</span></label>
               <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                <mat-select formControlName="assigned_to" placeholder="Select Owner" (openedChange)="onAssignToOpenedChange($event)">
+                <mat-select formControlName="assigned_to" placeholder="Select Owner" multiple (openedChange)="onAssignToOpenedChange($event)">
                   <mat-select-trigger>
                     {{ getSelectedEmployeeName() }}
                   </mat-select-trigger>
@@ -288,7 +288,7 @@
     <!-- 3. Footer -->
     <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
       <button mat-stroked-button color="warn" (click)="onCancel()" class="!px-6">
-        Cancel
+        {{ data?.returnToDsrContext ? 'Back to DSR' : 'Cancel' }}
       </button>
       <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="taskForm.invalid || submitting" class="!px-6">
         <span class="app-button-loading">

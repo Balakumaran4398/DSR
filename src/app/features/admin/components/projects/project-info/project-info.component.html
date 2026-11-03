@@ -32,7 +32,7 @@
                     class="flex flex-1 flex-wrap gap-x-6 gap-y-2 text-m font-medium text-gray-500 min-h-12 items-center">
 
                     <button *ngFor="let tab of visibleTabs"
-                        class="h-full border-b-2 whitespace-nowrap px-1" [ngClass]="activeProjectTab === tab.id
+                        class="h-full border-b-2 whitespace-nowrap px-1" [class.notification-release-highlight]="tab.id === 'release' && notificationReleaseHighlight" [ngClass]="activeProjectTab === tab.id
                 ? 'border-[var(--text-active)] text-[var(--text-active)] font-semibold'
                 : 'border-transparent hover:text-[var(--text-active)] hover:border-gray-300'"
                         (click)="setActiveTab(tab.id)">

@@ -6,6 +6,7 @@ interface TabulatorPaginationState {
 export const APP_TABLE_DEFAULT_PAGE_SIZE = 10;
 export const APP_TABLE_VISIBLE_ROW_COUNT = 10;
 export const APP_TABLE_PAGE_SIZE_OPTIONS: readonly number[] = [10, 25, 50, 100];
+export const APP_TABLE_VISIBLE_PAGE_COUNT = 5;
 
 const TABULATOR_PAGINATION_PREFIX = 'tabulator-pagination-state';
 
@@ -16,9 +17,42 @@ export function normalizeTablePageSize(value: unknown): number {
     : APP_TABLE_DEFAULT_PAGE_SIZE;
 }
 
-export function buildTablePageNumbers(totalPages: number): number[] {
+export function buildTablePageNumbers(
+  totalPages: number,
+  currentPage = 1,
+  visiblePageCount = APP_TABLE_VISIBLE_PAGE_COUNT
+): number[] {
   const normalizedTotal = Math.max(1, Math.floor(Number(totalPages) || 1));
-  return Array.from({ length: normalizedTotal }, (_value, index) => index + 1);
+  const normalizedWindow = Math.max(1, Math.floor(Number(visiblePageCount) || APP_TABLE_VISIBLE_PAGE_COUNT));
+  const normalizedCurrent = Math.max(1, Math.min(normalizedTotal, Math.floor(Number(currentPage) || 1)));
+  const firstPage = Math.floor((normalizedCurrent - 1) / normalizedWindow) * normalizedWindow + 1;
+  const lastPage = Math.min(normalizedTotal, firstPage + normalizedWindow - 1);
+  return Array.from({ length: lastPage - firstPage + 1 }, (_value, index) => firstPage + index);
+}
+
+export function getNextTablePageGroupPage(
+  currentPage: number,
+  totalPages: number,
+  visiblePageCount = APP_TABLE_VISIBLE_PAGE_COUNT
+): number {
+  const normalizedTotal = Math.max(1, Math.floor(Number(totalPages) || 1));
+  const normalizedWindow = Math.max(1, Math.floor(Number(visiblePageCount) || APP_TABLE_VISIBLE_PAGE_COUNT));
+  const normalizedCurrent = Math.max(1, Math.min(normalizedTotal, Math.floor(Number(currentPage) || 1)));
+  const currentGroupStart = Math.floor((normalizedCurrent - 1) / normalizedWindow) * normalizedWindow + 1;
+  const nextGroupStart = currentGroupStart + normalizedWindow;
+  return nextGroupStart <= normalizedTotal ? nextGroupStart : normalizedCurrent;
+}
+
+export function getPreviousTablePageGroupPage(
+  currentPage: number,
+  totalPages: number,
+  visiblePageCount = APP_TABLE_VISIBLE_PAGE_COUNT
+): number {
+  const normalizedTotal = Math.max(1, Math.floor(Number(totalPages) || 1));
+  const normalizedWindow = Math.max(1, Math.floor(Number(visiblePageCount) || APP_TABLE_VISIBLE_PAGE_COUNT));
+  const normalizedCurrent = Math.max(1, Math.min(normalizedTotal, Math.floor(Number(currentPage) || 1)));
+  const currentGroupStart = Math.floor((normalizedCurrent - 1) / normalizedWindow) * normalizedWindow + 1;
+  return currentGroupStart > 1 ? currentGroupStart - 1 : normalizedCurrent;
 }
 
 function getStorage(): Storage | null {
@@ -65,14 +99,18 @@ function getTableRoot(table: any): HTMLElement | null {
     : element.querySelector<HTMLElement>('.tabulator');
 }
 
-function renderTabulatorPagination(table: any, resetBodyScroll = false): void {
-  const root = getTableRoot(table);
-  if (!root) {
+function renderTabulatorPagination(table: any, resetBodyScroll = false, paginationElement?: HTMLElement): void {
+  const tableRoot = getTableRoot(table);
+  if (!tableRoot) {
     return;
   }
+  const configuredPaginationElement = paginationElement || table?.options?.paginationElement;
+  const paginationRoot = configuredPaginationElement instanceof HTMLElement
+    ? configuredPaginationElement
+    : tableRoot;
 
   const setNavigationLabel = (page: 'first' | 'prev' | 'next' | 'last', label: string) => {
-    const button = root.querySelector<HTMLButtonElement>(`.tabulator-page[data-page="${page}"]`);
+    const button = paginationRoot.querySelector<HTMLButtonElement>(`.tabulator-page[data-page="${page}"]`);
     if (!button) {
       return;
     }
@@ -81,39 +119,61 @@ function renderTabulatorPagination(table: any, resetBodyScroll = false): void {
     button.setAttribute('aria-label', label);
   };
 
+  const totalPages = Math.max(1, Number(table.getPageMax?.()) || 1);
+  const currentPage = Math.max(1, Math.min(totalPages, Number(table.getPage?.()) || 1));
   setNavigationLabel('first', 'First');
-  setNavigationLabel('prev', 'Prev');
-  setNavigationLabel('next', 'Next');
   setNavigationLabel('last', 'Last');
 
-  const select = root.querySelector<HTMLSelectElement>('.tabulator-page-size');
+  const bindPageGroupNavigation = (page: 'prev' | 'next', label: string, targetPage: number) => {
+    const button = paginationRoot.querySelector<HTMLButtonElement>(
+      `.tabulator-page[data-page="${page}"], .tabulator-page[data-page-group="${page}"]`
+    );
+    if (!button) return;
+    const replacement = button.cloneNode(true) as HTMLButtonElement;
+    replacement.removeAttribute('data-page');
+    replacement.dataset['pageGroup'] = page;
+    replacement.textContent = label;
+    replacement.title = label === 'Next' ? 'Show the next five pages' : 'Show the previous five pages';
+    replacement.setAttribute('aria-label', replacement.title);
+    replacement.disabled = targetPage === currentPage;
+    replacement.setAttribute('aria-disabled', `${replacement.disabled}`);
+    replacement.addEventListener('click', () => {
+      if (!replacement.disabled && typeof table.setPage === 'function') {
+        void Promise.resolve(table.setPage(targetPage)).catch(() => undefined);
+      }
+    });
+    button.replaceWith(replacement);
+  };
+
+  bindPageGroupNavigation('prev', 'Prev', getPreviousTablePageGroupPage(currentPage, totalPages));
+  bindPageGroupNavigation('next', 'Next', getNextTablePageGroupPage(currentPage, totalPages));
+
+  const select = paginationRoot.querySelector<HTMLSelectElement>('.tabulator-page-size');
   if (select) {
     select.setAttribute('aria-label', 'Page size');
   }
 
-  root.querySelectorAll('.app-table-page-size-label').forEach(label => label.remove());
+  paginationRoot.querySelectorAll('.app-table-page-size-label').forEach(label => label.remove());
 
-  const pages = root.querySelector<HTMLElement>('.tabulator-pages');
-  const counter = root.querySelector<HTMLElement>('.tabulator-page-counter');
-  const totalPages = Math.max(1, Number(table.getPageMax?.()) || 1);
-  const currentPage = Math.max(1, Math.min(totalPages, Number(table.getPage?.()) || 1));
+  const pages = paginationRoot.querySelector<HTMLElement>('.tabulator-pages');
+  const counter = paginationRoot.querySelector<HTMLElement>('.tabulator-page-counter');
   const pageSize = normalizeTablePageSize(table.getPageSize?.());
   const totalRows = Math.max(0, Number(table.getDataCount?.('active')) || 0);
 
-  root.classList.toggle(
+  tableRoot.classList.toggle(
     'app-tabulator--ten-row-viewport',
     pageSize > APP_TABLE_VISIBLE_ROW_COUNT
   );
 
   if (resetBodyScroll) {
-    const tableHolder = root.querySelector<HTMLElement>('.tabulator-tableholder');
+    const tableHolder = tableRoot.querySelector<HTMLElement>('.tabulator-tableholder');
     if (tableHolder) {
       tableHolder.scrollTop = 0;
     }
   }
 
   if (pages) {
-    pages.replaceChildren(...buildTablePageNumbers(totalPages).map(page => {
+    pages.replaceChildren(...buildTablePageNumbers(totalPages, currentPage).map(page => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = `tabulator-page${page === currentPage ? ' active' : ''}`;
@@ -145,7 +205,7 @@ export function buildTabulatorPaginationKey(scope: string): string {
   return `${TABULATOR_PAGINATION_PREFIX}:${path}:${scope}`;
 }
 
-export function attachStandardTabulatorPagination(table: any, key?: string): void {
+export function attachStandardTabulatorPagination(table: any, key?: string, paginationElement?: HTMLElement): void {
   if (!table?.on) {
     return;
   }
@@ -160,7 +220,7 @@ export function attachStandardTabulatorPagination(table: any, key?: string): voi
       clearTimeout(renderTimer);
     }
     renderTimer = setTimeout(() => {
-      renderTabulatorPagination(table, shouldResetBodyScroll);
+      renderTabulatorPagination(table, shouldResetBodyScroll, paginationElement);
       shouldResetBodyScroll = false;
     }, 0);
   };

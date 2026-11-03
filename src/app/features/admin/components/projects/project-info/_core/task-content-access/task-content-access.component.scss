@@ -16,3 +16,53 @@
     max-height: none !important;
     overflow-y: visible !important;
 }
+
+:host ::ng-deep .dsr-entries-table .tabulator {
+    width: 100%;
+    min-width: 0;
+}
+
+:host ::ng-deep .dsr-entries-table .tabulator-responsive-collapse {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.5rem 0.75rem 0.75rem;
+    white-space: normal;
+}
+
+:host ::ng-deep .dsr-entries-table .tabulator-responsive-collapse table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+:host ::ng-deep .dsr-entries-table .tabulator-responsive-collapse td {
+    padding: 0.35rem 0.25rem;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+:host ::ng-deep .dsr-entries-table .tabulator-responsive-collapse td:first-child {
+    width: 34%;
+    color: #64748b;
+    font-weight: 600;
+}
+
+@media (max-width: 639px) {
+    :host ::ng-deep .dsr-entries-table .tabulator-footer {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.5rem;
+    }
+
+    :host ::ng-deep .dsr-entries-table .tabulator-footer .tabulator-page-size {
+        max-width: 5rem;
+    }
+
+    :host ::ng-deep .dsr-entries-table .tabulator-footer .tabulator-paginator {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.2rem;
+    }
+}

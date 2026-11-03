@@ -17,3 +17,19 @@
 ::ng-deep .date-range-overlay-backdrop {
     background: transparent;
 }
+
+// The date-range dropdown is rendered in the CDK overlay container, so these
+// selectors intentionally target the document theme instead of the component host.
+::ng-deep body:not(.dark-mode) .date-range-panel input[type='date'] {
+    // color-scheme: light;
+}
+
+::ng-deep body.dark-mode .date-range-panel input[type='date'] {
+    // color-scheme: dark;
+}
+
+::ng-deep body.dark-mode .date-range-panel input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(1.35);
+    opacity: 0.9;
+    cursor: pointer;
+}

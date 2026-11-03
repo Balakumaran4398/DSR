@@ -1,4 +1,11 @@
 import { Injectable } from '@angular/core';
+import {
+  AttendanceReportTone,
+  attendanceStatusTone,
+  attendanceTimeTone,
+  attendanceWorkHoursTone,
+  isMissingAttendanceValue
+} from '../utils/attendance-report.util';
 import { getReleaseDayStatus } from '../utils/release-day-status.util';
 
 export interface TableReportPdfSection {
@@ -9,6 +16,13 @@ export interface TableReportPdfSection {
   reportTitle?: string;
   sheetName?: string;
   summary?: Array<[string, any]>;
+  metadataLayout?: 'standard' | 'compact';
+  tableFontSize?: number;
+  statusStyle?: 'cell' | 'text';
+  statusColorMode?: 'presence';
+  statusColorTones?: Array<'week-off' | 'holiday' | 'leave' | 'regular'>;
+  richTextCells?: Array<{ rowIndex: number; columnIndex: number; lines: Array<{ label: string; value: string }> }>;
+  columnStyles?: Record<number, { cellWidth?: number; halign?: 'left' | 'center' | 'right' }>;
   headers: string[];
   rows: any[][];
 }
@@ -56,6 +70,132 @@ export class PdfService {
 
   constructor() { }
 
+  generateMonthlyAttendancePDF(report: any): void {
+    const { jsPDF } = (window as any).jspdf || {};
+    if (!jsPDF) {
+      throw new Error('PDF export library is not available.');
+    }
+
+    const doc = new jsPDF('l', 'mm', 'a3');
+    const employee = report?.employee || {};
+    const records = report?.records || [];
+    const summary = report?.summary || {};
+    const includeEmployeeColumn = !!report?.includeEmployeeColumn;
+    const name = employee.employee_name || employee.name || 'Employee';
+    const employeeId = employee.id || employee.employee_id || employee.employeeId || employee.empid || '--';
+    const employeeCode = employee.employee_code || employee.employeeCode || employee.empcode || '--';
+    const department = employee.department_name || employee.departmentName || employee.department || '--';
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const primary: [number, number, number] = [37, 99, 235];
+    const dark: [number, number, number] = [30, 41, 59];
+    const muted: [number, number, number] = [100, 116, 139];
+
+    doc.setFillColor(37, 99, 235);
+    doc.rect(0, 0, pageWidth, 35, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.text(report?.reportTitle || 'Attendance Report', 14, 15);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(report?.scopeName || (employee?.isAllEmployees ? 'All Employees' : `${name}  |  ID ${employeeId}  |  ${department}`), 14, 23);
+    doc.text(`PERIOD  ${report?.period || '--'}`, pageWidth - 14, 23, { align: 'right' });
+    doc.setFontSize(8);
+    doc.text(`Generated ${new Date().toLocaleString()}`, pageWidth - 14, 30, { align: 'right' });
+
+    const cardY = 42;
+    const cardGap = 4;
+    const cardWidth = (pageWidth - 28 - cardGap * 4) / 5;
+    const summaryCards = [
+      ['RECORDS', records.length], ['PRESENT', summary.present ?? 0], ['LEAVE / HALF DAY', summary.leave ?? 0],
+      ['WEEK OFF / HOLIDAY', summary.weekOff ?? 0], ['ABSENT', summary.absent ?? 0]
+    ];
+    summaryCards.forEach(([label, value], index) => {
+      const x = 14 + index * (cardWidth + cardGap);
+      doc.setFillColor(245, 248, 253);
+      doc.setDrawColor(220, 228, 240);
+      doc.roundedRect(x, cardY, cardWidth, 15, 2, 2, 'FD');
+      doc.setTextColor(...muted);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.text(String(label), x + 3, cardY + 5);
+      doc.setTextColor(...dark);
+      doc.setFontSize(11);
+      doc.text(String(value), x + 3, cardY + 11.5);
+    });
+
+    doc.setTextColor(...muted);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(`EMPLOYEE CODE: ${employeeCode}     TOTAL EXTRA HOURS: ${summary.extraHours || '0h 0m'}`, 14, 64);
+
+    const columns = [
+      { header: 'Date', dataKey: 'date' }, { header: 'Day', dataKey: 'day' },
+      ...(includeEmployeeColumn ? [{ header: 'Employee', dataKey: 'employee_name' }] : []),
+      { header: 'Thumb time', dataKey: 'thumbTime' },
+      { header: 'Shift', dataKey: 'shift' }, { header: 'In', dataKey: 'inTime' }, { header: 'Out', dataKey: 'outTime' },
+      { header: 'Work Hrs', dataKey: 'workHours' }, { header: 'Extra Hrs', dataKey: 'extraHours' },
+      { header: 'Thumb Status', dataKey: 'thumbStatus' }, { header: 'Status', dataKey: 'status' }
+    ];
+    const attendanceColors: Partial<Record<AttendanceReportTone, [number, number, number]>> = {
+      good: [22, 101, 52],
+      present: [22, 101, 52],
+      'proper-thumb': [22, 101, 52],
+      bad: [185, 28, 28],
+      absent: [185, 28, 28],
+      target: [29, 78, 216],
+      'improper-thumb': [29, 78, 216],
+      extra: [190, 24, 93],
+      warning: [146, 64, 14],
+      holiday: [185, 28, 28],
+      'week-off': [185, 28, 28],
+      leave: [29, 78, 216]
+    };
+    const exportRecords = records.map((record: any) => record?.isHoliday
+      ? { ...record, thumbTime: record?.leaveName || 'Holiday', shift: '', inTime: '', outTime: '', workHours: '', extraHours: '', thumbStatus: '' }
+      : record);
+    (doc as any).autoTable({
+      columns,
+      body: exportRecords,
+      startY: 69,
+      theme: 'grid',
+      margin: { left: 14, right: 14, top: 15, bottom: 13 },
+      styles: { font: 'helvetica', fontSize: 11, cellPadding: 2.1, textColor: dark, lineColor: [226, 232, 240], lineWidth: 0.15, overflow: 'linebreak' },
+      headStyles: { fillColor: primary, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 12 },
+      alternateRowStyles: { fillColor: [248, 250, 253] },
+      didParseCell: (cellData: any) => {
+        if (cellData.section !== 'body') return;
+        const record = cellData.row.raw || {};
+        let tone: AttendanceReportTone | null = null;
+        if (record?.isHoliday && cellData.column.dataKey === 'thumbTime') {
+          cellData.cell.colSpan = 7;
+          tone = 'holiday';
+        }
+        switch (cellData.column.dataKey) {
+          case 'inTime': tone = attendanceTimeTone('inTime', record.inTime); break;
+          case 'outTime': tone = attendanceTimeTone('outTime', record.outTime); break;
+          case 'workHours': tone = attendanceWorkHoursTone(record.workHours); break;
+          case 'extraHours': tone = isMissingAttendanceValue(record.extraHours) ? null : 'extra'; break;
+          case 'status':
+          case 'thumbStatus': tone = attendanceStatusTone(record[cellData.column.dataKey]); break;
+        }
+        const textColor = tone ? attendanceColors[tone] : null;
+        if (!textColor) return;
+        cellData.cell.styles.textColor = textColor;
+        cellData.cell.styles.fontStyle = 'bold';
+      },
+      didDrawPage: () => {
+        const pages = doc.internal.getNumberOfPages();
+        doc.setFontSize(7);
+        doc.setTextColor(...muted);
+        doc.text(`Attendance Report  •  ${report?.period || ''}  •  Page ${pages}`, 14, doc.internal.pageSize.getHeight() - 6);
+      }
+    });
+
+    const token = `${name}_${report?.period || ''}`.replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '');
+    doc.save(report?.filename || `Attendance_Report_${token}.pdf`);
+  }
+
   generateTableReportPdf(options: TableReportPdfOptions, sections: TableReportPdfSection[]): void {
     const { jsPDF } = (window as any).jspdf || {};
     if (!jsPDF) {
@@ -75,68 +215,84 @@ export class PdfService {
     const period = `${options.fromDate || '-'} to ${options.toDate || '-'}`;
     const scopeLabel = options.scopeLabel || 'Department';
     const scopeName = options.scopeName || options.departmentName || '-';
-    let startY = 15;
-
     sections.forEach((section, sectionIndex) => {
+      const compactMetadata = section.metadataLayout === 'compact';
       if (sectionIndex > 0) {
         doc.addPage('a3', 'landscape');
-        startY = 15;
       }
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(24);
-      doc.setTextColor(...primary);
-      doc.text('RIDSYS', 15, startY + 6);
-      doc.setFontSize(8);
-      doc.setTextColor(...muted);
-      doc.text('ENTERPRISE RESOURCE PERFORMANCE SYSTEM', 15, startY + 11);
-
-      doc.setFontSize(18);
-      doc.setTextColor(...dark);
-      doc.text((section.reportTitle || section.title || options.reportTitle || options.workbookTitle || 'TABLE REPORT').toUpperCase(), 15, startY + 25);
-      doc.setDrawColor(...primary);
-      doc.setLineWidth(0.8);
-      doc.line(15, startY + 29, 90, startY + 29);
 
       const sectionScopeLabel = section.scopeLabel || scopeLabel;
       const sectionScopeName = section.scopeName || section.departmentName || scopeName;
       const totalRecords = section.rows.length;
       const summary = (section.summary || []).map(([label, value]) => `${label}: ${value}`).join('  |  ') || '-';
-      const metaRows = [
-        [`${sectionScopeLabel.toUpperCase()}: ${sectionScopeName}`, `REPORTING PERIOD: ${period}`, `TOTAL TASKS: ${totalRecords}`],
-        [`GENERATED BY: ${options.author || 'System User'}`, `VERSION: ${options.versionContext || 'All Versions'}`, `SEARCH: ${options.searchContext || 'None'}`],
-        [`EXPORTED AT: ${exportedAt}`, `STATUS TOTALS: ${summary}`, '']
-      ];
+      const startY = 15;
+      const showReportHeader = !compactMetadata || sectionIndex === 0;
+      let tableStartY = startY + 4;
 
-      (doc as any).autoTable({
-        startY: startY + 35,
-        body: metaRows,
-        theme: 'plain',
-        margin: { left: 15, right: 15 },
-        styles: { fontSize: 8, textColor: dark, cellPadding: 1.5, overflow: 'linebreak' },
-        columnStyles: { 0: { cellWidth: 130 }, 1: { cellWidth: 130 }, 2: { cellWidth: 125 } }
-      });
+      if (showReportHeader) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(24);
+        doc.setTextColor(...primary);
+        doc.text('RIDSYS', 15, startY + 6);
+        doc.setFontSize(8);
+        doc.setTextColor(...muted);
+        doc.text('ENTERPRISE RESOURCE PERFORMANCE SYSTEM', 15, startY + 11);
+
+        doc.setFontSize(18);
+        doc.setTextColor(...dark);
+        doc.text((section.reportTitle || section.title || options.reportTitle || options.workbookTitle || 'TABLE REPORT').toUpperCase(), 15, startY + 25);
+        doc.setDrawColor(...primary);
+        doc.setLineWidth(0.8);
+        doc.line(15, startY + 29, 90, startY + 29);
+
+        const metaRows = compactMetadata
+          ? [
+            [`${sectionScopeLabel.toUpperCase()}: ${sectionScopeName}`, `TOTAL RECORDS: ${totalRecords}`, ''],
+            [`GENERATED BY: ${options.author || 'System User'}`, `EXPORTED AT: ${exportedAt}`, '']
+          ]
+          : [
+            [`${sectionScopeLabel.toUpperCase()}: ${sectionScopeName}`, `REPORTING PERIOD: ${period}`, `TOTAL TASKS: ${totalRecords}`],
+            [`GENERATED BY: ${options.author || 'System User'}`, `VERSION: ${options.versionContext || 'All Versions'}`, `SEARCH: ${options.searchContext || 'None'}`],
+            [`EXPORTED AT: ${exportedAt}`, `STATUS TOTALS: ${summary}`, '']
+          ];
+
+        (doc as any).autoTable({
+          startY: startY + 35,
+          body: metaRows,
+          theme: 'plain',
+          margin: { left: 15, right: 15 },
+          styles: { fontSize: compactMetadata ? 10 : 8, textColor: dark, cellPadding: compactMetadata ? 2 : 1.5, overflow: 'linebreak' },
+          columnStyles: { 0: { cellWidth: 130 }, 1: { cellWidth: 130 }, 2: { cellWidth: 125 } }
+        });
+        tableStartY = ((doc as any).lastAutoTable?.finalY || startY + 55) + 4;
+      }
 
       const statusColumn = section.headers.findIndex(header => `${header}`.trim().toLowerCase() === 'status');
+      const richTextCells = new Map((section.richTextCells || []).map(cell => [`${cell.rowIndex}:${cell.columnIndex}`, cell]));
+      const richTextLayouts = new Map<string, Array<{ label: string; value: string; measureText: string }>>();
+      const tableFontSize = section.tableFontSize || (compactMetadata ? 9 : 6.5);
+      const tableHeaderFontSize = section.tableFontSize ? tableFontSize + 1 : compactMetadata ? 10 : 7;
       (doc as any).autoTable({
-        startY: ((doc as any).lastAutoTable?.finalY || startY + 55) + 4,
+        startY: tableStartY,
         head: [section.headers],
         body: section.rows,
+        columnStyles: section.columnStyles,
         theme: 'grid',
         margin: { left: 15, right: 15, bottom: 16 },
         showHead: 'everyPage',
+        rowPageBreak: 'avoid',
         headStyles: {
           fillColor: dark,
           textColor: [255, 255, 255],
           fontStyle: 'bold',
           halign: 'center',
           valign: 'middle',
-          fontSize: 7,
-          cellPadding: 2
+          fontSize: tableHeaderFontSize,
+          cellPadding: section.tableFontSize || compactMetadata ? 3 : 2
         },
         styles: {
-          fontSize: 6.5,
-          cellPadding: 1.8,
+          fontSize: tableFontSize,
+          cellPadding: section.tableFontSize || compactMetadata ? 3 : 1.8,
           overflow: 'linebreak',
           valign: 'middle',
           textColor: [51, 65, 85],
@@ -145,12 +301,54 @@ export class PdfService {
         },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         didParseCell: (data: any) => {
-          if (data.section !== 'body' || data.column.index !== statusColumn) return;
-          const color = this.getTableReportStatusColor(data.cell.raw);
-          data.cell.styles.fillColor = color;
-          data.cell.styles.textColor = [255, 255, 255];
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.halign = 'center';
+          if (data.section === 'body') {
+            const richCell = richTextCells.get(`${data.row.index}:${data.column.index}`);
+            if (richCell) {
+              const cellKey = `${data.row.index}:${data.column.index}`;
+              const padding = typeof data.cell.styles.cellPadding === 'number' ? data.cell.styles.cellPadding : 2.5;
+              const configuredWidth = Number(section.columnStyles?.[data.column.index]?.cellWidth);
+              const cellWidth = configuredWidth || Number(data.cell.styles.cellWidth) || 130;
+              const layout = this.getTableReportRichTextLayout(doc, richCell.lines, cellWidth, tableFontSize, padding);
+              richTextLayouts.set(cellKey, layout);
+              data.cell.text = layout.map(line => line.measureText);
+              const lineHeight = tableFontSize * 0.3528 * 1.2;
+              data.cell.styles.minCellHeight = Math.max(
+                Number(data.cell.styles.minCellHeight) || 0,
+                layout.length * lineHeight + padding * 2
+              );
+              const fillColor = data.cell.styles.fillColor;
+              data.cell.styles.textColor = Array.isArray(fillColor) ? fillColor : [255, 255, 255];
+            }
+            if (data.column.index === statusColumn && section.statusColorMode === 'presence') {
+              const rawStatus = `${data.cell.raw ?? ''}`.trim();
+              if (rawStatus && rawStatus !== '—' && rawStatus !== '-') {
+                data.cell.styles.textColor = this.getPresenceStatusColor(
+                  rawStatus, section.statusColorTones?.[data.row.index]
+                );
+                data.cell.styles.fontStyle = 'bold';
+                data.cell.styles.halign = 'center';
+              }
+            }
+            if (data.column.index === statusColumn && section.statusColorMode !== 'presence') {
+              const color = this.getTableReportStatusColor(data.cell.raw);
+              if (section.statusStyle === 'text') {
+                data.cell.styles.textColor = color;
+              } else {
+                data.cell.styles.fillColor = color;
+                data.cell.styles.textColor = [255, 255, 255];
+              }
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.halign = 'center';
+            }
+          }
+        },
+        didDrawCell: (data: any) => {
+          if (data.section !== 'body') return;
+          const richCell = richTextCells.get(`${data.row.index}:${data.column.index}`);
+          if (!richCell) return;
+          const cellKey = `${data.row.index}:${data.column.index}`;
+          const layout = richTextLayouts.get(cellKey) || [];
+          this.drawTableReportRichTextCell(doc, data, layout, tableFontSize);
         }
       });
     });
@@ -170,11 +368,84 @@ export class PdfService {
 
   private getTableReportStatusColor(status: any): number[] {
     const key = `${status ?? ''}`.trim().toLowerCase().replace(/[\s_-]+/g, '');
-    if (['completed', 'complete', 'done', 'closed', 'resolved'].includes(key)) return [22, 163, 74];
-    if (['pending', 'onhold', 'blocked'].includes(key)) return [245, 158, 11];
-    if (['cancelled', 'canceled', 'failed', 'overdue'].includes(key)) return [220, 38, 38];
-    if (['inprogress', 'active', 'testing', 'tobetested'].includes(key)) return [37, 99, 235];
+    if (['active', 'ontrack', 'approved', 'completed', 'complete', 'invoiced', 'open', 'pass', 'passed', 'production', 'released'].includes(key)) return [22, 163, 74];
+    if (['inprogress', 'inreview', 'intesting', 'testing', 'planning', 'assigned', 'working', 'service'].includes(key)) return [37, 99, 235];
+    if (['onhold', 'pending', 'blocked', 'tobetested', 'upcoming', 'upcomingrelease', 'reopen', 'reopened'].includes(key)) return [245, 158, 11];
+    if (['cancelled', 'canceled', 'failed', 'fail', 'rejected', 'closed', 'delayed', 'overdue', 'inactive'].includes(key)) return [220, 38, 38];
     return [100, 116, 139];
+  }
+
+  private getPresenceStatusColor(
+    status: any,
+    tone?: 'week-off' | 'holiday' | 'leave' | 'regular'
+  ): number[] {
+    if (tone === 'week-off' || tone === 'leave') return [220, 38, 38];
+    if (tone === 'holiday') return [37, 99, 235];
+    if (tone === 'regular') return [22, 163, 74];
+    const key = `${status ?? ''}`.trim().toLowerCase();
+    if (key === 'present') return [22, 163, 74];
+    if (key === 'absent') return [220, 38, 38];
+    return [37, 99, 235];
+  }
+
+  private getTableReportRichTextLayout(
+    doc: any,
+    lines: Array<{ label: string; value: string }>,
+    cellWidth: number,
+    fontSize: number,
+    padding: number
+  ): Array<{ label: string; value: string; measureText: string }> {
+    const availableWidth = Math.max(1, cellWidth - padding * 2);
+    const layout: Array<{ label: string; value: string; measureText: string }> = [];
+    doc.setFontSize(fontSize);
+    lines.forEach(line => {
+      const label = `${line.label}: `;
+      doc.setFont('helvetica', 'bold');
+      const labelWidth = doc.getTextWidth(label);
+      doc.setFont('helvetica', 'normal');
+      let firstValueLine = true;
+      `${line.value ?? ''}`.split(/\r?\n/).forEach(paragraph => {
+        const valueWidth = firstValueLine ? Math.max(1, availableWidth - Math.min(labelWidth, availableWidth)) : availableWidth;
+        const wrapped = doc.splitTextToSize(paragraph, valueWidth);
+        (wrapped.length ? wrapped : ['']).forEach((value: string) => {
+          const currentLabel = firstValueLine ? label : '';
+          layout.push({ label: currentLabel, value, measureText: `${currentLabel}${value}` || ' ' });
+          firstValueLine = false;
+        });
+      });
+    });
+    return layout;
+  }
+
+  private drawTableReportRichTextCell(
+    doc: any,
+    data: any,
+    layout: Array<{ label: string; value: string; measureText: string }>,
+    defaultFontSize: number
+  ): void {
+    const fontSize = Number(data.cell.styles.fontSize) || defaultFontSize;
+    const padding = typeof data.cell.styles.cellPadding === 'number' ? data.cell.styles.cellPadding : 2.5;
+    const x = data.cell.x + padding;
+    const lineHeight = fontSize * 0.3528 * 1.2;
+    let y = data.cell.y + padding + (fontSize * 0.3528);
+
+    doc.setFontSize(fontSize);
+    doc.setTextColor(51, 65, 85);
+    layout.forEach(line => {
+      let valueX = x;
+      if (line.label) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(line.label, x, y);
+        valueX += doc.getTextWidth(line.label);
+      }
+      if (line.value) {
+        doc.setFont('helvetica', 'normal');
+        doc.text(line.value, valueX, y);
+      }
+      y += lineHeight;
+    });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(defaultFontSize);
   }
 
   private finalizePdf(doc: any, filename: string, mode: 'download' | 'preview' = 'download'): void {
@@ -272,17 +543,39 @@ export class PdfService {
 
     try {
       const { jsPDF } = (window as any).jspdf;
-      const doc = new jsPDF('l', 'mm', 'a4');
+      const doc = new jsPDF('l', 'mm', 'a3');
       const PRIMARY_BLUE = [37, 99, 235]; // bg-blue-600
       const TEXT_DARK = [30, 41, 59]; // slate-900
 
-      const data = (Array.isArray(rawData) ? rawData : rawData ? [rawData] : []).map((item: any) => ({
-        ...item,
-        version: item?.version || '-',
-        start_date: item?.start_date || '-',
-        end_date: item?.end_date || '-',
-        statusText: item?.statusText || 'Present'
-      }));
+      const data = (Array.isArray(rawData) ? rawData : rawData ? [rawData] : []).map((item: any) => {
+        const rawStatus = `${item?.statusText ?? item?.status ?? ''}`.trim().toLowerCase().replace(/[\s_-]+/g, '');
+        const isSunday = item?.isSunday === true || `${item?.day || ''}`.trim().toLowerCase() === 'sunday' || rawStatus === 'sunday';
+        const isWeekOff = isSunday || item?.isWeekOff === true || ['weekoff', 'weeklyoff'].includes(rawStatus);
+        const isHoliday = !isWeekOff && (item?.isHoliday === true || rawStatus === 'holiday');
+        const isEventRow = isHoliday || isWeekOff;
+        const isFuture = item?.isFuture === true;
+        return {
+          ...item,
+          version: item?.version || '-',
+          start_date: item?.start_date || '-',
+          end_date: item?.end_date || '-',
+          day: isSunday ? '' : item?.day || '-',
+          statusText: isWeekOff ? 'Week Off' : isHoliday ? 'Holiday' : isFuture ? '-' : item?.statusText || 'Present',
+          isWeekOff,
+          isHoliday,
+          isSunday,
+          isFuture,
+          ...(isEventRow
+            ? {
+              project_title: isSunday ? 'Sunday' : item?.holiday_name || item?.holidayName || (isHoliday ? 'Holiday' : 'Week Off'),
+              version: '', start_date: '', end_date: '', task: '', sub_task: '',
+              worked_hours: '', completion_percentage: '', comments: ''
+            }
+            : isFuture
+              ? { project_title: '', version: '', start_date: '', end_date: '', task: '', sub_task: '', worked_hours: '', completion_percentage: '', comments: '' }
+            : {})
+        };
+      });
       const isAllEmployeeExport = employee?.id === 0;
       const employeeName = employee?.id === 0
         ? 'All Employee'
@@ -348,6 +641,7 @@ export class PdfService {
       // 4. MAIN DATA TABLE
       const columns = [
         { header: 'DATE', dataKey: 'date' },
+        { header: 'DAY', dataKey: 'day' },
         ...(isAllEmployeeExport ? [{ header: 'EMPLOYEE NAME', dataKey: 'employee_name' }] : []),
         { header: 'PROJECT TITLE', dataKey: 'project_title' },
         // { header: 'SUB TASK', dataKey: 'sub_task' },
@@ -355,15 +649,21 @@ export class PdfService {
         { header: 'START DATE', dataKey: 'start_date' },
         { header: 'END DATE', dataKey: 'end_date' },
         { header: 'TASK', dataKey: 'task' },
+        { header: 'SUB TASK', dataKey: 'sub_task' },
         { header: 'WORKED HRS', dataKey: 'worked_hours' },
         { header: 'PERCENTAGE', dataKey: 'completion_percentage' },
-        { header: 'DETAILED REMARKS / TECHNICAL LOGS', dataKey: 'comments' }
+        { header: 'DETAILED REMARKS / TECHNICAL LOGS', dataKey: 'comments' },
+        { header: 'STATUS', dataKey: 'statusText' }
       ];
 
       (doc as any).autoTable({
         columns: columns,
         body: data,
         startY: 85,
+        showHead: 'firstPage',
+        pageBreak: 'auto',
+        rowPageBreak: 'avoid',
+        margin: { top: 18, right: 12, bottom: 16, left: 12 },
         theme: 'grid',
         headStyles: {
           fillColor: PRIMARY_BLUE,
@@ -372,14 +672,14 @@ export class PdfService {
           halign: 'center',
           valign: 'middle',
           fontSize: 10,
-          cellPadding: { top: 4, bottom: 4, left: 2, right: 2 },
-          minCellWidth: 'wrap' // Header text won't wrap
+          cellPadding: { top: 3, bottom: 3, left: 1.5, right: 1.5 },
+          overflow: 'linebreak'
         },
         styles: {
           // fontSize: isAllEmployeeExport ? 10 : 11,
           // cellPadding: 6,
-          fontSize: isAllEmployeeExport ? 8 : 9,
-          cellPadding: { top: 4, bottom: 4, left: 2, right: 2 },
+          fontSize: isAllEmployeeExport ? 7 : 8,
+          cellPadding: { top: 3, bottom: 3, left: 1.5, right: 1.5 },
           overflow: 'linebreak',
           textColor: [51, 65, 85],
           lineColor: [226, 232, 240],
@@ -403,29 +703,66 @@ export class PdfService {
         // },
         columnStyles: {
           date: { cellWidth: 22, halign: 'center', fontStyle: 'bold' },
+          day: { cellWidth: 24, halign: 'center' },
           employee_name: { cellWidth: 32, fontStyle: 'bold' },
           project_title: { cellWidth: 30 },
           version: { cellWidth: 22, halign: 'center' },
           start_date: { cellWidth: 24, halign: 'center' },
           end_date: { cellWidth: 24, halign: 'center' },
           task: { cellWidth: isAllEmployeeExport ? 34 : 45 },
+          sub_task: { cellWidth: isAllEmployeeExport ? 32 : 38 },
           worked_hours: { cellWidth: 20, halign: 'center' },
-          completion_percentage: { cellWidth: 24, halign: 'center', fontStyle: 'bold' },
-          comments: { cellWidth: 'auto' }
+          completion_percentage: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },
+          comments: { cellWidth: 'auto' },
+          statusText: { cellWidth: 22, halign: 'center', fontStyle: 'bold' }
         },
         alternateRowStyles: { fillColor: [249, 250, 251] },
         didParseCell: (cellData: any) => {
           if (cellData.section === 'body') {
-            const status = cellData.row.raw.statusText;
-            if (status === 'Holiday') cellData.cell.styles.textColor = PRIMARY_BLUE;
-            if (status === 'Absent') cellData.cell.styles.textColor = [220, 38, 38];
+            const record = cellData.row.raw || {};
+            if (record.isFuture) {
+              cellData.cell.styles.fillColor = [255, 255, 255];
+              cellData.cell.styles.textColor = [51, 65, 85];
+            }
+            const status = `${record.statusText || ''}`.toLowerCase().replace(/[\s_-]+/g, '');
+            const isWeekOff = record.isWeekOff === true || status === 'weekoff' || status === 'weeklyoff' || status === 'sunday';
+            const isHoliday = !isWeekOff && (record.isHoliday === true || status === 'holiday');
+            const isEventRow = isHoliday || isWeekOff;
+            if (record.isFuture) {
+              return;
+            }
+            if (isEventRow && cellData.column.dataKey === 'project_title') {
+              const statusColumnIndex = columns.findIndex((column: any) => column.dataKey === 'statusText');
+              const currentColumnIndex = columns.findIndex((column: any) => column.dataKey === 'project_title');
+              cellData.cell.colSpan = statusColumnIndex - currentColumnIndex;
+              cellData.cell.styles.halign = 'center';
+              cellData.cell.styles.fontStyle = 'bold';
+              cellData.cell.styles.fillColor = isWeekOff ? [254, 243, 199] : [252, 231, 243];
+              cellData.cell.styles.textColor = isWeekOff ? [146, 64, 14] : [157, 23, 77];
+            } else if (isEventRow && cellData.column.dataKey === 'statusText') {
+              cellData.cell.styles.fontStyle = 'bold';
+              cellData.cell.styles.textColor = isWeekOff ? [146, 64, 14] : [157, 23, 77];
+            } else if (cellData.column.dataKey === 'statusText' && status === 'present') {
+              cellData.cell.styles.textColor = [22, 101, 52];
+              cellData.cell.styles.fontStyle = 'bold';
+            } else if (status === 'leave') {
+              cellData.cell.styles.textColor = [154, 52, 18];
+              if (cellData.column.dataKey !== 'statusText') {
+                cellData.cell.styles.fillColor = [255, 237, 213];
+              } else {
+                cellData.cell.styles.fontStyle = 'bold';
+              }
+            } else if (cellData.column.dataKey === 'statusText' && status === 'absent') {
+              cellData.cell.styles.textColor = [185, 28, 28];
+              cellData.cell.styles.fontStyle = 'bold';
+            }
           }
         },
         didDrawPage: (pageData: any) => {
           const pages = doc.internal.getNumberOfPages();
           doc.setFontSize(10);
           doc.setTextColor(148, 163, 184);
-          doc.text(`DSR Report Page ${pages} • Generated by DSR Perform Pro • Confidential`, 15, 202);
+          doc.text(`DSR Report Page ${pages} • Generated by DSR Perform Pro • Confidential`, 15, doc.internal.pageSize.getHeight() - 8);
         }
       });
 
@@ -433,13 +770,17 @@ export class PdfService {
       const finalY = (doc as any).lastAutoTable.finalY || 85;
       const workingDays = data.filter(d => d.statusText === 'Present').length;
       const holidays = data.filter(d => d.statusText === 'Holiday').length;
+      const sundays = data.filter(d => ['Sunday', 'Week Off'].includes(d.statusText)).length;
+      const leaves = data.filter(d => d.statusText === 'Leave').length;
       const missingDsr = data.filter(d => d.statusText === 'Absent').length;
 
       (doc as any).autoTable({
         head: [['ATTENDANCE SUMMARY', 'COUNT']],
         body: [
           ['WORKING DAYS (PRESENT)', workingDays],
-          ['HOLIDAYS (WEEKLY OFF)', holidays],
+          ['SUNDAYS (WEEKLY OFF)', sundays],
+          ['HOLIDAYS', holidays],
+          ['LEAVE DAYS', leaves],
           ['MISSING DSR (ABSENT)', missingDsr],
           ['TOTAL CYCLE DAYS', data.length]
         ],
@@ -683,7 +1024,8 @@ export class PdfService {
       const tableStartY = this.drawReleaseOverviewHeader(doc, {
         generatedBy, filteredProject, releaseType, department, filteredEmployee,
         fromDate, toDate, managerName, totalReleases: data.length,
-        internalReleaseCount, externalReleaseCount
+        internalReleaseCount, externalReleaseCount,
+        reportTitle: filters?.reportTitle
       });
       const tableData = data.map((item: any) => ({
         project_name: item.project_name || item.project_title || '-',
@@ -753,7 +1095,7 @@ export class PdfService {
         }
       });
 
-      this.finalizePdf(doc, `RELEASE_REPORT${departmentFilePart}_${fromDate}_to_${toDate}.pdf`, mode);
+      this.finalizePdf(doc, filters?.filename || `RELEASE_REPORT${departmentFilePart}_${fromDate}_to_${toDate}.pdf`, mode);
 
     } catch (error) {
       console.error('Release PDF Generation failed', error);
@@ -801,6 +1143,7 @@ export class PdfService {
     totalReleases: number;
     internalReleaseCount: number;
     externalReleaseCount: number;
+    reportTitle?: string;
   }): number {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -865,7 +1208,7 @@ export class PdfService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
     doc.setTextColor(30, 41, 59);
-    doc.text('RELEASE OVERVIEW REPORT', margin, 40);
+    doc.text(details.reportTitle || 'Project Release Report', margin, 40);
     doc.setFontSize(8);
     doc.setTextColor(100, 116, 139);
     doc.text('RELEASE ACTIVITY  /  CONFIDENTIAL', pageWidth - margin, 20, { align: 'right' });
@@ -904,8 +1247,8 @@ export class PdfService {
   private getReleaseOverviewTableStyles(doc: any): any {
     const pageWidth = doc.internal.pageSize.getWidth();
     const tableWidth = pageWidth - 24;
-    const baseWidths = [30, 40, 16, 28, 28, 21, 21, 22, 24, 20, 20, 21, 18, 20, 37, 30];
-    const widthScale = tableWidth / 396;
+    const baseWidths = [30, 40, 16, 28, 28, 21, 21, 22, 24, 20, 20, 21, 18, 20, 37, 42];
+    const widthScale = tableWidth / baseWidths.reduce((total, width) => total + width, 0);
     const columnStyles = baseWidths.reduce((styles: Record<number, any>, width, index) => {
       styles[index] = { cellWidth: width * widthScale };
       if ([2, 5, 6, 7, 9, 10, 11, 12].includes(index)) {
@@ -921,7 +1264,7 @@ export class PdfService {
       rowPageBreak: 'avoid',
       styles: {
         font: 'helvetica',
-        fontSize: 7.1,
+        fontSize: 11,
         cellPadding: { top: 2, bottom: 2, left: 1.5, right: 1.5 },
         overflow: 'linebreak',
         valign: 'middle',
@@ -934,7 +1277,7 @@ export class PdfService {
         fillColor: [30, 64, 130],
         textColor: [255, 255, 255],
         fontStyle: 'bold',
-        fontSize: 7.5,
+        fontSize: 12,
         halign: 'center',
         valign: 'middle',
         cellPadding: { top: 3, bottom: 3, left: 1.2, right: 1.2 },
@@ -1808,16 +2151,24 @@ export class PdfService {
 
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const data = this.buildOverallTicketReportRows(rawData, fromdate, todate);
-      const totalTickets = data.filter((row: any) => !row._isPlaceholderRow && !row._isLeaveRow).length;
+      const monthlySummary = !!filters?.monthlySummary;
+      const detailedData = monthlySummary ? [] : this.buildOverallTicketReportRows(rawData, fromdate, todate);
+      const totalTickets = monthlySummary
+        ? (Array.isArray(rawData) ? rawData.length : 0)
+        : detailedData.filter((row: any) => !row._isPlaceholderRow && !row._isLeaveRow).length;
+      const data = monthlySummary
+        ? [{ month: this.cleanPdfText(filters?.monthLabel || '-'), total_tickets: totalTickets }]
+        : detailedData;
       const generatedBy = filters?.generatedBy || 'SYSTEM USER';
       const rangeText = this.getInputDateRangeText(fromdate, todate);
+      const reportTitle = this.cleanPdfText(filters?.reportTitle || 'Overall Ticket Report').toUpperCase();
+      const filename = filters?.filename || `OVERALL_TICKETS_REPORT_${this.getSafePdfFilePart(rangeText)}.pdf`;
       const generatedOn = this.getTicketGeneratedDateTime();
 
       doc.setTextColor(...TEXT_DARK);
       doc.setFont(undefined, 'bold');
       doc.setFontSize(15);
-      doc.text('OVERALL TICKET REPORT', pageWidth / 2, 18, { align: 'center' });
+      doc.text(reportTitle, pageWidth / 2, 18, { align: 'center' });
 
       (doc as any).autoTable({
         head: [['Date Range']],
@@ -1859,22 +2210,27 @@ export class PdfService {
       doc.setLineWidth(0.3);
       doc.line(28, 58, pageWidth - 28, 58);
 
-      const columns = [
-        { header: 'S.No', dataKey: 'sno' },
-        { header: 'Date', dataKey: 'date' },
-        { header: 'Day', dataKey: 'day' },
-        { header: 'Code', dataKey: 'code' },
-        { header: 'Ticket', dataKey: 'ticket_name' },
-        { header: 'Client', dataKey: 'client' },
-        { header: 'Product', dataKey: 'product' },
-        { header: 'Department', dataKey: 'department' },
-        { header: 'Assigned From', dataKey: 'assigned_from' },
-        { header: 'Assigned To', dataKey: 'assigned_to' },
-        { header: 'Remarks', dataKey: 'remarks' },
-        { header: 'Worked Hrs', dataKey: 'worked_hours' },
-        { header: 'Entry Date', dataKey: 'entry_date' },
-        { header: 'STATUS', dataKey: 'status' },
-      ];
+      const columns = monthlySummary
+        ? [
+          { header: 'Month', dataKey: 'month' },
+          { header: 'Total Tickets', dataKey: 'total_tickets' }
+        ]
+        : [
+          { header: 'S.No', dataKey: 'sno' },
+          { header: 'Date', dataKey: 'date' },
+          { header: 'Day', dataKey: 'day' },
+          { header: 'Code', dataKey: 'code' },
+          { header: 'Ticket', dataKey: 'ticket_name' },
+          { header: 'Client', dataKey: 'client' },
+          { header: 'Product', dataKey: 'product' },
+          { header: 'Department', dataKey: 'department' },
+          { header: 'Assigned From', dataKey: 'assigned_from' },
+          { header: 'Assigned To', dataKey: 'assigned_to' },
+          { header: 'Remarks', dataKey: 'remarks' },
+          { header: 'Worked Hrs', dataKey: 'worked_hours' },
+          { header: 'Entry Date', dataKey: 'entry_date' },
+          { header: 'STATUS', dataKey: 'status' }
+        ];
 
       (doc as any).autoTable({
         columns,
@@ -1906,22 +2262,27 @@ export class PdfService {
           valign: 'top',
           minCellHeight: 10
         },
-        columnStyles: {
-          0: { cellWidth: 10, halign: 'left' },
-          1: { cellWidth: 22 },
-          2: { cellWidth: 13, halign: 'center', fontStyle: 'bold' },
-          3: { cellWidth: 23, fontStyle: 'bold' },
-          4: { cellWidth: 28 },
-          5: { cellWidth: 29 },
-          6: { cellWidth: 27 },
-          7: { cellWidth: 24 },
-          8: { cellWidth: 25 },
-          9: { cellWidth: 25 },
-          10: { cellWidth: 108 },
-          11: { cellWidth: 16, halign: 'center' },
-          12: { cellWidth: 34 },
-          13: { cellWidth: 24, halign: 'center', fontStyle: 'bold' }
-        },
+        columnStyles: monthlySummary
+          ? {
+            0: { cellWidth: 190, halign: 'center', fontStyle: 'bold' },
+            1: { cellWidth: 190, halign: 'center', fontStyle: 'bold' }
+          }
+          : {
+            0: { cellWidth: 10, halign: 'left' },
+            1: { cellWidth: 22 },
+            2: { cellWidth: 13, halign: 'center', fontStyle: 'bold' },
+            3: { cellWidth: 23, fontStyle: 'bold' },
+            4: { cellWidth: 28 },
+            5: { cellWidth: 29 },
+            6: { cellWidth: 27 },
+            7: { cellWidth: 24 },
+            8: { cellWidth: 25 },
+            9: { cellWidth: 25 },
+            10: { cellWidth: 108 },
+            11: { cellWidth: 16, halign: 'center' },
+            12: { cellWidth: 34 },
+            13: { cellWidth: 24, halign: 'center', fontStyle: 'bold' }
+          },
         didParseCell: (cellData: any) => {
           if (cellData.section === 'body' && cellData.row.raw?._isSundayRow) {
             cellData.cell.styles.fillColor = SUNDAY_FILL;
@@ -1979,7 +2340,7 @@ export class PdfService {
         }
       });
 
-      this.finalizePdf(doc, `OVERALL_TICKETS_REPORT_${rangeText}.pdf`, mode);
+      this.finalizePdf(doc, filename, mode);
     } catch (error) {
       console.error("PDF Generation failed", error);
     }

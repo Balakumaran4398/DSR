@@ -41,3 +41,13 @@
     outline: 0px solid transparent;
     outline-offset: 2px;
 }
+.notification-issue-highlight {
+  border-color: var(--text-active) !important;
+  background: color-mix(in srgb, var(--text-active) 8%, white) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-active) 22%, transparent) !important;
+  animation: notification-issue-pulse 1s ease-in-out 2;
+}
+
+@keyframes notification-issue-pulse {
+  50% { transform: translateX(3px); }
+}

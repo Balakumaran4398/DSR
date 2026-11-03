@@ -4,7 +4,7 @@ import { AuthService } from 'src/app/_core/services/auth.service';
 import { ExcelService, OverallPerformanceExcelSection } from 'src/app/_core/services/excel.service';
 import { StorageService } from 'src/app/_core/services/storage.service';
 import { ToasterService } from 'src/app/_core/services/toaster.service';
-import { APP_TABLE_DEFAULT_PAGE_SIZE, APP_TABLE_PAGE_SIZE_OPTIONS, APP_TABLE_VISIBLE_ROW_COUNT, buildTablePageNumbers } from 'src/app/_core/utils/tabulator-pagination.util';
+import { APP_TABLE_DEFAULT_PAGE_SIZE, APP_TABLE_PAGE_SIZE_OPTIONS, APP_TABLE_VISIBLE_ROW_COUNT, buildTablePageNumbers, getNextTablePageGroupPage, getPreviousTablePageGroupPage } from 'src/app/_core/utils/tabulator-pagination.util';
 import { getReleaseDayStatus, isReleaseInDateRange, ReleaseDayTone } from 'src/app/_core/utils/release-day-status.util';
 
 const RELEASE_OVERVIEW_TIMELINE_START = '1900-01-01';
@@ -313,9 +313,11 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     const isAdmin = !!this.storageService.roles?.isAdmin;
     const isManager = !!this.storageService.roles?.isManager && !isAdmin;
 
-    if (!this.restoreViewState()) {
-      this.setDefaultDateRange();
-    }
+    // Restore department preferences, but always start this page entry with
+    // the current week so a range selected during an earlier visit cannot
+    // leave the report showing stale dates.
+    this.restoreViewState();
+    this.setDefaultDateRange();
 
     // An admin page load always starts with the complete organization scope.
     // The marker is expanded to the current department IDs after metadata loads.
@@ -541,6 +543,14 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     }));
   }
 
+  goToNextPageGroup(section: ReportSection): void {
+    this.goToPage(section, getNextTablePageGroupPage(section.pageIndex + 1, section.totalPages) - 1);
+  }
+
+  goToPreviousPageGroup(section: ReportSection): void {
+    this.goToPage(section, getPreviousTablePageGroupPage(section.pageIndex + 1, section.totalPages) - 1);
+  }
+
   sortByColumn(section: ReportSection, columnIndex: number): void {
     this.replaceSection(section.id, currentSection => ({
       ...currentSection,
@@ -694,7 +704,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
         this.exportPdfSections(
           [section],
           this.buildSectionExportFilename(section, 'pdf'),
-          `${section.departmentName} ${section.reportTitle}`
+          `${this.getDisplayDepartmentName(section.departmentName)} ${section.reportTitle}`
         );
       } finally {
         this.setSectionExporting(section, 'pdf', false);
@@ -2642,7 +2652,9 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
         this.getProductName(row) || this.getProjectName(row),
         this.getDepartmentLabel(row),
         this.getValue(row, ['assign_from_name', 'assignFromName', 'assigned_from_name', 'assignedFromName', 'created_by_name', 'createdByName', 'raised_by_name']),
+        this.getAssignedFromDepartmentLabel(row),
         this.getValue(row, ['assign_to_name', 'assignToName', 'assigned_to_name', 'assignedToName', 'employee_name', 'employeeName', 'owner_name', 'ownerName']),
+        this.getAssignedToDepartmentLabel(row),
         category,
         this.formatWorkedHoursCell(workedHours),
         this.formatDisplayDate(this.getFirstValue(row, ['entry_date', 'entryDate', 'updated_date', 'updateddate', 'created_date'])),
@@ -2661,7 +2673,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
       'ticket',
       reportTitle,
       [8, 145, 178],
-      ['S.No', 'Date', 'Ticket Code', 'Ticket', 'Client', 'Product', 'Department', 'Assigned From', 'Assigned To', 'Category', 'Worked Hours', 'Entry Date', 'Status', 'Remarks'],
+      ['S.No', 'Date', 'Ticket Code', 'Ticket', 'Client', 'Product', 'Department', 'Assigned From', 'Assigned From Department', 'Assigned To', 'Assigned To Department', 'Category', 'Worked Hours', 'Entry Date', 'Status', 'Remarks'],
       reportRows,
       rowsForSummary => [
         this.summary('Total Tickets', rowsForSummary.length, 'neutral'),
@@ -2900,7 +2912,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   }
 
   private buildPageNumbers(totalPages: number, pageIndex: number): number[] {
-    return buildTablePageNumbers(totalPages);
+    return buildTablePageNumbers(totalPages, pageIndex + 1);
   }
 
   private sortRows(rows: ReportRow[], section: ReportSection): ReportRow[] {
@@ -2958,16 +2970,27 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
   }
 
   private buildExcelSections(sections: ReportSection[]): OverallPerformanceExcelSection[] {
-    return sections.map(section => ({
-      title: section.title,
-      departmentName: section.departmentName,
-      reportTitle: section.reportTitle,
-      reportKind: section.reportKind,
-      sheetName: section.sheetName,
-      summary: section.summary.map(item => [item.label, item.value]),
-      headers: section.columns,
-      rows: section.filteredRows.map(row => row.cells)
-    }));
+    return sections.map(section => {
+      const separatorIndex = section.title.indexOf(' - ');
+      const sourceDepartmentName = section.departmentName || (separatorIndex >= 0
+        ? section.title.slice(0, separatorIndex)
+        : '');
+      const departmentName = this.getDisplayDepartmentName(sourceDepartmentName);
+      const title = separatorIndex >= 0
+        ? `${departmentName}${section.title.slice(separatorIndex)}`
+        : section.title;
+
+      return {
+        title,
+        departmentName,
+        reportTitle: section.reportTitle,
+        reportKind: section.reportKind,
+        sheetName: this.getSectionSheetName(departmentName, section.reportKind),
+        summary: section.summary.map(item => [item.label, item.value]),
+        headers: section.columns,
+        rows: section.filteredRows.map(row => row.cells)
+      };
+    });
   }
 
   private buildOverallExportFilename(extension: 'xlsx' | 'pdf'): string {
@@ -3167,6 +3190,47 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     owningDepartmentKeys.forEach(key => values.push(...this.collectDepartmentValues(row[key])));
     return this.normalizeFilterKeys(values);
   }
+  private getAssignedFromDepartmentLabel(row: any): string {
+    return this.getDepartmentLabel({
+      department: this.getRawValue(row, [
+        'assign_from_department', 'assignFromDepartment', 'assign_from_dept', 'assignFromDept',
+        'assign_from_department_id', 'assignFromDepartmentId', 'assign_from_dept_id', 'assignFromDeptId',
+        'assigned_from_department', 'assignedFromDepartment', 'assigned_from_dept', 'assignedFromDept',
+        'assigned_from_department_id', 'assignedFromDepartmentId', 'assigned_from_dept_id', 'assignedFromDeptId',
+        'assignee_from_department', 'assigneeFromDepartment', 'assignee_from_dept', 'assigneeFromDept',
+        'assignee_from_department_id', 'assigneeFromDepartmentId', 'assignee_from_dept_id', 'assigneeFromDeptId'
+      ]),
+      assigned_from: this.getRawValue(row, [
+        'assign_from', 'assignFrom', 'assign_from_id', 'assignFromId', 'assign_from_name', 'assignFromName',
+        'assigned_from', 'assignedFrom', 'assigned_from_id', 'assignedFromId', 'assigned_from_name', 'assignedFromName',
+        'assignee_from', 'assigneeFrom', 'assignee_from_id', 'assigneeFromId', 'assignee_from_name', 'assigneeFromName'
+      ])
+    });
+  }
+
+  private getAssignedToDepartmentLabel(row: any): string {
+    return this.getDepartmentLabel({
+      department: this.getRawValue(row, [
+        'assign_to_department', 'assignToDepartment', 'assign_to_dept', 'assignToDept',
+        'assign_to_department_id', 'assignToDepartmentId', 'assign_to_dept_id', 'assignToDeptId',
+        'assigned_to_department', 'assignedToDepartment', 'assigned_to_dept', 'assignedToDept',
+        'assigned_to_department_id', 'assignedToDepartmentId', 'assigned_to_dept_id', 'assignedToDeptId',
+        'assignee_to_department', 'assigneeToDepartment', 'assignee_to_dept', 'assigneeToDept',
+        'assignee_to_department_id', 'assigneeToDepartmentId', 'assignee_to_dept_id', 'assigneeToDeptId',
+        'employee_department', 'employeeDepartment', 'employee_dept', 'employeeDept',
+        'employee_department_id', 'employeeDepartmentId', 'employee_dept_id', 'employeeDeptId'
+      ]),
+      assigned_to: this.getRawValue(row, [
+        'assign_to', 'assignTo', 'assign_to_id', 'assignToId', 'assign_to_name', 'assignToName',
+        'assigned_to', 'assignedTo', 'assigned_to_id', 'assignedToId', 'assigned_to_name', 'assignedToName',
+        'assignee_to', 'assigneeTo', 'assignee_to_id', 'assigneeToId', 'assignee_to_name', 'assigneeToName',
+        'tested_by', 'testedBy', 'tested_by_id', 'testedById', 'tested_by_name', 'testedByName',
+        'employee', 'employeeDetails', 'employee_id', 'employeeId', 'employee_name', 'employeeName',
+        'emp_id', 'empId', 'assignee', 'tester'
+      ])
+    });
+  }
+
 
   private getAssignedFromDepartmentKeys(row: any): string[] {
     if (!row || typeof row !== 'object') {
@@ -4222,7 +4286,9 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     sections: ReportSection[] = this.sections,
     reportTitle = 'Overall Department Performance Report'
   ): void {
-    const departmentNames = Array.from(new Set(sections.map(section => section.departmentName).filter(Boolean)));
+    const departmentNames = Array.from(new Set(
+      sections.map(section => this.getDepartmentName(section)).filter(Boolean)
+    ));
     const reportNames = Array.from(new Set(sections.map(section => section.reportTitle).filter(Boolean)));
     const totalRecords = sections.reduce((total, section) => total + section.filteredRows.length, 0);
     const departmentLabel = departmentNames.length === 1
@@ -4264,7 +4330,7 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(255, 255, 255);
-    doc.text(`${section.departmentName.toUpperCase()} DEPARTMENT`, 18, y + 1);
+    doc.text(this.getDepartmentEyebrow(this.getDepartmentName(section)).toUpperCase(), 18, y + 1);
     doc.setTextColor(0);
   }
 
@@ -4301,11 +4367,35 @@ export class OverallPerformanceReportComponent implements OnInit, OnDestroy {
 
   getDepartmentName(section: ReportSection): string {
     if (section.departmentName) {
-      return section.departmentName;
+      return this.getDisplayDepartmentName(section.departmentName);
     }
 
     const separatorIndex = section.title.indexOf(' - ');
-    return separatorIndex >= 0 ? section.title.slice(0, separatorIndex) : this.selectedDepartmentLabel;
+    const departmentName = separatorIndex >= 0 ? section.title.slice(0, separatorIndex) : this.selectedDepartmentLabel;
+    return this.getDisplayDepartmentName(departmentName);
+  }
+
+  getDisplayDepartmentName(departmentName: string): string {
+    return this.isSoftwareDevelopmentTeamDepartment(departmentName)
+      ? 'Software Development Team'
+      : departmentName;
+  }
+
+  getDepartmentEyebrow(departmentName: string): string {
+    return this.isSoftwareDevelopmentTeamName(departmentName)
+      ? this.getDisplayDepartmentName(departmentName)
+      : `${this.getDisplayDepartmentName(departmentName)} Department`;
+  }
+
+  private isSoftwareDevelopmentTeamDepartment(departmentName: string): boolean {
+    const normalizedName = `${departmentName || ''}`.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return normalizedName === 'softwaredevelopmentteamdepartment';
+  }
+
+  private isSoftwareDevelopmentTeamName(departmentName: string): boolean {
+    const normalizedName = `${departmentName || ''}`.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return normalizedName === 'softwaredevelopmentteamdepartment'
+      || normalizedName === 'softwaredevelopmentteam';
   }
 
   getReportTitle(section: ReportSection): string {

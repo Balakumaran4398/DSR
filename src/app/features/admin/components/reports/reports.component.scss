@@ -1,0 +1,998 @@
+:host {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  color: var(--text-main);
+  background: var(--bg-body);
+  font-family: var(--font-base, 'Roboto', sans-serif);
+  transition: background-color .2s ease, color .2s ease;
+}
+
+.reports-page {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  flex-direction: column;
+  padding: 24px clamp(16px, 2vw, 30px) 28px;
+  overflow-x: hidden;
+  color: var(--text-main);
+  background: var(--bg-body);
+  font-family: var(--font-base, 'Roboto', sans-serif);
+}
+
+.reports-page--detail {
+  height: 100%;
+  min-height: 0;
+}
+
+.reports-heading,
+.report-detail-heading {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.reports-heading {
+  justify-content: space-between;
+}
+
+.eyebrow {
+  color: var(--text-active);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+h1 {
+  margin: 4px 0 5px;
+  color: var(--text-main);
+  font-size: 21px;
+  font-weight: 750;
+  line-height: 1.3;
+}
+
+.reports-heading p,
+.report-detail-title p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.reports-heading-icon,
+.report-card-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--text-active) 22%, var(--border-card));
+  color: var(--text-active);
+  background: var(--bg-active);
+}
+
+.reports-heading-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  font-size: 23px;
+}
+
+.report-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.report-card {
+  display: flex;
+  min-width: 0;
+  min-height: 112px;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  color: var(--text-main);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s, box-shadow .18s, transform .18s, background-color .2s ease;
+}
+
+.report-card:hover,
+.report-card:focus-visible {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--text-active) 55%, var(--border-card));
+  box-shadow: var(--shadow-card);
+  outline: none;
+}
+
+.report-card:focus-visible,
+.back-button:focus-visible,
+.export-button:focus-visible {
+  outline: 2px solid var(--text-active);
+  outline-offset: 2px;
+}
+
+.report-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  font-size: 21px;
+}
+
+.report-card-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.report-card-copy strong {
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.report-card-copy small {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.report-card-arrow {
+  color: var(--text-muted);
+  font-size: 18px;
+}
+
+.back-button {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  color: var(--text-main);
+  background: var(--bg-card);
+  font-size: 19px;
+  cursor: pointer;
+}
+
+.back-button:hover {
+  background: var(--bg-hover);
+}
+
+.report-detail-title {
+  min-width: 0;
+  flex: 1;
+}
+
+.report-export-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.export-button {
+  display: inline-flex;
+  min-width: 92px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.export-button.excel {
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border-card));
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, var(--bg-card));
+}
+
+.export-button.pdf {
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border-card));
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 9%, var(--bg-card));
+}
+
+.export-button:hover:not(:disabled) {
+  filter: brightness(.96);
+}
+
+.export-button:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+.report-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 360px;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  color: var(--text-main);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+}
+
+.report-controls-row {
+  display: flex;
+  width: 100%;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px 12px;
+}
+
+.report-controls-left {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 10px;
+}
+.report-controls-left:empty { display: none; }
+
+.report-employee-status-filter {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--form-border);
+  border-radius: 9px;
+  background: var(--form-bg);
+}
+
+.report-employee-status-filter button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .18s, background-color .18s;
+}
+
+.report-employee-status-filter button:hover:not(.report-employee-status-filter__button--selected) {
+  background: color-mix(in srgb, var(--text-active) 8%, transparent);
+}
+
+.report-employee-status-filter__button--selected {
+  color: #fff !important;
+  background: var(--text-active) !important;
+}
+
+.report-search-field {
+  display: flex;
+  width: auto;
+  min-width: 220px;
+  max-width: 520px;
+  flex: 1 1 360px;
+  min-height: 56px;
+  align-items: center;
+  margin-left: auto;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--form-border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: var(--form-bg);
+  transition: border-color .18s, box-shadow .18s;
+}
+
+.report-search-field:focus-within {
+  border-color: var(--text-active);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text-active) 17%, transparent);
+}
+
+.report-search-field i {
+  flex: 0 0 auto;
+  font-size: 16px;
+}
+
+.report-search-field input {
+  width: 100%;
+  min-width: 0;
+  height: 54px;
+  border: 0;
+  outline: 0;
+  color: var(--text-main);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+}
+
+.report-search-field input::placeholder {
+  color: var(--form-placeholder);
+}
+
+.report-date-field {
+  width: clamp(280px, 30vw, 340px);
+  min-width: 0;
+  flex: 0 1 340px;
+  margin-left: 0;
+}
+
+.report-employee-filter,
+.report-project-filter {
+  width: clamp(220px, 24vw, 280px);
+  min-width: 0;
+  flex: 0 1 280px;
+}
+
+.report-employee-filter--attendance {
+  width: 320px;
+  flex: 0 0 320px;
+}
+
+.report-controls-left--attendance {
+  flex: 1 1 680px;
+}
+
+.report-attendance-period-controls {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 360px;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.report-attendance-period-item {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 0;
+  gap: 6px;
+}
+
+.report-attendance-period-item > span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.report-attendance-month {
+  width: 100%;
+  min-width: 0;
+}
+
+.report-attendance-year {
+  width: 100%;
+  min-width: 0;
+}
+
+.report-employee-search {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-card);
+  background: var(--bg-card);
+}
+
+.report-employee-search input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--form-border);
+  border-radius: 6px;
+  outline: none;
+  color: var(--text-main);
+  background: var(--form-bg);
+  font: inherit;
+  font-size: 12px;
+}
+
+.report-employee-search input:focus {
+  border-color: var(--text-active);
+}
+
+.report-controls-row ::ng-deep .report-employee-filter .mat-mdc-text-field-wrapper {
+  background: var(--form-bg);
+}
+
+.report-controls-row ::ng-deep .report-employee-filter .mdc-text-field--outlined .mdc-notched-outline__leading,
+.report-controls-row ::ng-deep .report-employee-filter .mdc-text-field--outlined .mdc-notched-outline__notch,
+.report-controls-row ::ng-deep .report-employee-filter .mdc-text-field--outlined .mdc-notched-outline__trailing {
+  border-color: var(--form-border);
+}
+
+.report-controls-row ::ng-deep .report-employee-filter .mat-mdc-select-value,
+.report-controls-row ::ng-deep .report-employee-filter .mat-mdc-select-arrow {
+  color: var(--text-main);
+}
+
+.report-controls-row ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+.report-controls-row ::ng-deep .mat-mdc-text-field-wrapper {
+  background: var(--form-bg);
+}
+
+.report-controls-row ::ng-deep .mdc-text-field--outlined .mdc-notched-outline__leading,
+.report-controls-row ::ng-deep .mdc-text-field--outlined .mdc-notched-outline__notch,
+.report-controls-row ::ng-deep .mdc-text-field--outlined .mdc-notched-outline__trailing {
+  border-color: var(--form-border);
+}
+
+.report-controls-row ::ng-deep .mat-mdc-input-element,
+.report-controls-row ::ng-deep .mat-mdc-floating-label,
+.report-controls-row ::ng-deep .mat-datepicker-toggle {
+  color: var(--text-main);
+}
+
+.report-controls-row ::ng-deep .report-attendance-month .mat-mdc-text-field-wrapper,
+.report-controls-row ::ng-deep .report-attendance-year .mat-mdc-text-field-wrapper {
+  background: var(--form-bg);
+}
+
+.report-controls-row ::ng-deep .report-attendance-month .mdc-text-field--outlined .mdc-notched-outline__leading,
+.report-controls-row ::ng-deep .report-attendance-month .mdc-text-field--outlined .mdc-notched-outline__notch,
+.report-controls-row ::ng-deep .report-attendance-month .mdc-text-field--outlined .mdc-notched-outline__trailing,
+.report-controls-row ::ng-deep .report-attendance-year .mdc-text-field--outlined .mdc-notched-outline__leading,
+.report-controls-row ::ng-deep .report-attendance-year .mdc-text-field--outlined .mdc-notched-outline__notch,
+.report-controls-row ::ng-deep .report-attendance-year .mdc-text-field--outlined .mdc-notched-outline__trailing {
+  border-color: var(--form-border);
+}
+
+.report-controls-row ::ng-deep .report-attendance-month .mat-mdc-select-value,
+.report-controls-row ::ng-deep .report-attendance-month .mat-mdc-select-arrow,
+.report-controls-row ::ng-deep .report-attendance-year .mat-mdc-select-value,
+.report-controls-row ::ng-deep .report-attendance-year .mat-mdc-select-arrow,
+.report-controls-row ::ng-deep .report-attendance-month .mat-mdc-floating-label,
+.report-controls-row ::ng-deep .report-attendance-year .mat-mdc-floating-label {
+  color: var(--text-main);
+}
+
+:host ::ng-deep .report-employee-select-panel,
+:host ::ng-deep .report-attendance-period-select-panel {
+  max-height: 340px;
+  padding: 0;
+  border: 1px solid var(--overlay-border);
+  background: var(--overlay-bg);
+  color: var(--text-main);
+}
+
+:host ::ng-deep .report-employee-select-panel {
+  min-width: 250px !important;
+  max-width: min(380px, calc(100vw - 24px)) !important;
+}
+
+:host ::ng-deep .report-attendance-period-select-panel {
+  max-width: calc(100vw - 24px) !important;
+}
+
+:host ::ng-deep .report-employee-select-panel .report-employee-search,
+:host ::ng-deep .report-attendance-period-select-panel .report-employee-search {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--overlay-border);
+  background: var(--overlay-bg);
+}
+
+:host ::ng-deep .report-employee-select-panel .report-employee-search input,
+:host ::ng-deep .report-attendance-period-select-panel .report-employee-search input {
+  min-height: 42px;
+  padding: 9px 10px;
+  border-color: var(--form-border);
+  border-radius: 7px;
+}
+
+:host ::ng-deep .report-employee-select-panel .report-employee-search input:focus,
+:host ::ng-deep .report-attendance-period-select-panel .report-employee-search input:focus {
+  border-color: var(--text-active);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text-active) 16%, transparent);
+}
+
+:host ::ng-deep .report-employee-select-panel .mat-mdc-option,
+:host ::ng-deep .report-attendance-period-select-panel .mat-mdc-option {
+  min-height: 48px;
+  color: var(--text-main);
+}
+
+:host ::ng-deep .report-employee-select-panel .mat-mdc-option:hover:not(.mdc-list-item--disabled),
+:host ::ng-deep .report-employee-select-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled),
+:host ::ng-deep .report-attendance-period-select-panel .mat-mdc-option:hover:not(.mdc-list-item--disabled),
+:host ::ng-deep .report-attendance-period-select-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+  background: var(--dropdown-hover-bg);
+}
+
+:host ::ng-deep .report-employee-select-panel .mat-mdc-option .mdc-list-item__primary-text,
+:host ::ng-deep .report-attendance-period-select-panel .mat-mdc-option .mdc-list-item__primary-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.report-table-wrap {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 220px;
+  flex: 1;
+  overflow: hidden;
+  border-bottom: 1px solid var(--table-border);
+  background: var(--bg-card);
+}
+
+.report-tabulator {
+  width: 100%;
+  min-width: 0;
+}
+
+.report-table-wrap ::ng-deep .report-tabulator--centered .tabulator-cell,
+.report-table-wrap ::ng-deep .report-tabulator--centered .tabulator-col-title {
+  text-align: center !important;
+}
+
+.report-table-wrap ::ng-deep .report-tabulator--centered .tabulator-col-title-holder {
+  justify-content: center !important;
+}
+
+.report-table-wrap ::ng-deep .tabulator {
+  min-width: 100%;
+}
+
+.report-table-wrap ::ng-deep .tabulator-cell,
+.report-table-wrap ::ng-deep .tabulator-col-title {
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.report-table-wrap ::ng-deep .tabulator-cell {
+  overflow: visible;
+}
+
+.report-table-wrap ::ng-deep .tabulator-tableholder {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.report-table-wrap ::ng-deep .release-date-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  font-family: 'Roboto', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1rem;
+}
+
+.report-table-wrap ::ng-deep .release-date-pill--danger {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--danger) 32%, var(--border-card));
+}
+
+.report-table-wrap ::ng-deep .release-date-pill--warning {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 14%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--warning) 32%, var(--border-card));
+}
+
+.report-table-wrap ::ng-deep .release-date-pill--info {
+  color: var(--info);
+  background: color-mix(in srgb, var(--info) 14%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--info) 32%, var(--border-card));
+}
+
+.report-table-wrap ::ng-deep .release-date-pill--success {
+  color: #15803d;
+  background: color-mix(in srgb, #16a34a 14%, var(--bg-card));
+  border-color: color-mix(in srgb, #16a34a 32%, var(--border-card));
+}
+
+.report-table-wrap ::ng-deep .release-status-pill {
+  --release-status-color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--release-status-color) 32%, var(--border-card));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--release-status-color) 13%, var(--bg-card));
+  color: var(--release-status-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.report-table-wrap ::ng-deep .release-status--success {
+  --release-status-color: #059669;
+}
+
+.report-table-wrap ::ng-deep .release-status--progress {
+  --release-status-color: #2563eb;
+}
+
+.report-table-wrap ::ng-deep .release-status--warning {
+  --release-status-color: #d97706;
+}
+
+.report-table-wrap ::ng-deep .release-status--danger {
+  --release-status-color: #dc2626;
+}
+
+.report-table-wrap ::ng-deep .release-status--muted {
+  --release-status-color: var(--text-muted);
+}
+
+.report-table-wrap ::ng-deep .task-status-pill {
+  --task-status-color: var(--text-muted);
+  display: block;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0;
+  color: var(--task-status-color);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.2;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  background: transparent;
+  border: 0;
+}
+
+.report-table-wrap ::ng-deep .task-status-pill--success { --task-status-color: #059669; }
+.report-table-wrap ::ng-deep .task-status-pill--progress { --task-status-color: #2563eb; }
+.report-table-wrap ::ng-deep .task-status-pill--warning { --task-status-color: #d97706; }
+.report-table-wrap ::ng-deep .task-status-pill--danger { --task-status-color: #dc2626; }
+.report-table-wrap ::ng-deep .task-status-pill--muted { --task-status-color: var(--text-muted); }
+
+.report-table-wrap ::ng-deep .report-ticket-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.report-table-wrap ::ng-deep .report-ticket-details__line strong {
+  font-weight: 700;
+}
+
+.report-table-wrap ::ng-deep .report-ticket-details__line span {
+  white-space: pre-wrap;
+}
+
+.report-table-wrap ::ng-deep .report-dsr-status {
+  font-weight: 700;
+}
+
+.report-table-wrap ::ng-deep .report-dsr-status--regular { color: #059669; }
+.report-table-wrap ::ng-deep .report-dsr-status--leave { color: #dc2626; }
+.report-table-wrap ::ng-deep .report-dsr-status--holiday { color: #2563eb; }
+.report-table-wrap ::ng-deep .report-dsr-status--week-off { color: #dc2626; }
+
+.report-table-wrap ::ng-deep .employee-status-text {
+  font-weight: 650;
+}
+
+.report-table-wrap ::ng-deep .employee-status-text--active {
+  color: #059669;
+}
+
+.report-table-wrap ::ng-deep .employee-status-text--inactive {
+  color: #dc2626;
+}
+
+.report-table-wrap ::ng-deep .attendance-status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.report-table-wrap ::ng-deep .attendance-status-chip--present,
+.report-table-wrap ::ng-deep .attendance-status-chip--proper-thumb {
+  border-color: color-mix(in srgb, var(--success) 28%, var(--border-card));
+  background: color-mix(in srgb, var(--success) 13%, var(--bg-card));
+  color: var(--success);
+}
+
+.report-table-wrap ::ng-deep .attendance-status-chip--improper-thumb,
+.report-table-wrap ::ng-deep .attendance-status-chip--leave {
+  border-color: color-mix(in srgb, var(--info) 30%, var(--border-card));
+  background: color-mix(in srgb, var(--info) 13%, var(--bg-card));
+  color: var(--info);
+}
+
+.report-table-wrap ::ng-deep .attendance-status-chip--absent {
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border-card));
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-card));
+  color: var(--danger);
+}
+
+.report-table-wrap ::ng-deep .attendance-status-chip--warning {
+  border-color: color-mix(in srgb, var(--warning) 32%, var(--border-card));
+  background: color-mix(in srgb, var(--warning) 14%, var(--bg-card));
+  color: var(--warning);
+}
+
+.report-table-wrap ::ng-deep .attendance-status-chip--holiday,
+.report-table-wrap ::ng-deep .attendance-status-chip--week-off {
+  border-color: color-mix(in srgb, #dc2626 32%, var(--border-card));
+  background: color-mix(in srgb, #dc2626 12%, var(--bg-card));
+  color: #dc2626;
+}
+
+.report-table-wrap ::ng-deep .attendance-value-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.report-table-wrap ::ng-deep .attendance-value-badge--good {
+  border-color: color-mix(in srgb, var(--success) 28%, var(--border-card));
+  background: color-mix(in srgb, var(--success) 12%, var(--bg-card));
+  color: var(--success);
+}
+
+.report-table-wrap ::ng-deep .attendance-value-badge--bad {
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border-card));
+  background: color-mix(in srgb, var(--danger) 11%, var(--bg-card));
+  color: var(--danger);
+}
+
+.report-table-wrap ::ng-deep .attendance-value-badge--target {
+  border-color: color-mix(in srgb, var(--info) 30%, var(--border-card));
+  background: color-mix(in srgb, var(--info) 12%, var(--bg-card));
+  color: var(--info);
+}
+
+.report-table-wrap ::ng-deep .attendance-value-badge--extra {
+  border-color: color-mix(in srgb, #ec4899 32%, var(--border-card));
+  background: color-mix(in srgb, #ec4899 13%, var(--bg-card));
+  color: color-mix(in srgb, #ec4899 78%, var(--text-main));
+}
+
+.report-table-wrap ::ng-deep .attendance-holiday-row {
+  position: relative;
+}
+
+.report-table-wrap ::ng-deep .attendance-holiday-cell {
+  visibility: hidden;
+}
+
+.report-table-wrap ::ng-deep .attendance-holiday-name-overlay {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  overflow: hidden;
+  padding: 8px 14px;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.report-table-wrap ::ng-deep .tabulator-placeholder {
+  color: var(--text-muted);
+}
+
+.report-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  font-size: 13px;
+}
+
+.report-state,
+.empty-state {
+  display: flex;
+  min-height: 190px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.report-state {
+  min-height: 220px;
+  flex-direction: row;
+}
+
+.report-state i,
+.empty-state>i {
+  color: var(--text-active);
+  font-size: 24px;
+}
+
+.empty-state strong {
+  color: var(--text-main);
+  font-size: 14px;
+}
+
+.empty-state span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.report-error {
+  padding: 32px 16px;
+  color: var(--danger);
+  text-align: center;
+  font-size: 13px;
+}
+
+.spinning {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 900px) {
+  .report-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1200px) {
+  .report-controls-row {
+    flex-wrap: wrap;
+  }
+
+  .report-controls-left {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .report-attendance-period-controls {
+    width: 100%;
+  }
+
+  .report-search-field {
+    width: 100%;
+    max-width: none;
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .reports-page {
+    padding: 20px 14px 22px;
+  }
+
+  .report-detail-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .report-detail-title {
+    min-width: calc(100% - 56px);
+  }
+
+  .report-export-actions {
+    width: 100%;
+    padding-left: 52px;
+  }
+
+  .export-button {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .report-controls-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .report-controls-left {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .report-attendance-period-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .report-search-field,
+  .report-date-field,
+  .report-employee-filter,
+  .report-project-filter,
+  .report-attendance-month,
+  .report-attendance-year {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    flex: 1 1 auto;
+    margin-left: 0;
+  }
+
+  .report-employee-status-filter {
+    width: 100%;
+  }
+
+  .report-employee-status-filter button {
+    flex: 1 1 50%;
+  }
+}
+
+@media (max-width: 600px) {
+  .reports-page {
+    padding: 18px 12px 20px;
+  }
+
+  .report-cards {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .report-card {
+    min-height: 90px;
+    padding: 14px;
+  }
+
+  .report-controls-row {
+    gap: 8px;
+    padding: 10px;
+  }
+}

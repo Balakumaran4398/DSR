@@ -1,53 +1,84 @@
-<div class="dsr-request-dialog">
-  <button type="button" class="dsr-request-dialog__close" (click)="close()" aria-label="Close dialog">
-    <i class="ri-close-line"></i>
+<section class="work-entry-dialog" [class.work-entry-dialog--reject]="data.mode === 'reject'">
+  <button type="button" class="work-entry-dialog__close" (click)="close()" aria-label="Close dialog">
+    <i class="ri-close-line" aria-hidden="true"></i>
   </button>
 
-  <div class="dsr-request-dialog__heading">
-    <span class="dsr-request-dialog__icon" [class.dsr-request-dialog__icon--danger]="data.mode === 'reject'">
+  <header class="work-entry-dialog__header">
+    <span class="work-entry-dialog__icon" aria-hidden="true">
       <i [class]="icon"></i>
     </span>
-    <div>
-      <h2>{{ title }}</h2>
-      <p>{{ description }}</p>
+    <div class="work-entry-dialog__heading-copy">
+      <span class="work-entry-dialog__eyebrow">MISSED ENTRY REQUEST</span>
+      <h2 id="work-entry-dialog-title">{{ title }}</h2>
+      <p id="work-entry-dialog-description">{{ description }}</p>
+    </div>
+  </header>
+
+  <div class="work-entry-dialog__summary" role="group" aria-label="Request details">
+    <div class="work-entry-dialog__detail">
+      <span class="work-entry-dialog__detail-icon" aria-hidden="true"><i class="ri-user-3-line"></i></span>
+      <div class="work-entry-dialog__detail-copy">
+        <span>Employee</span>
+        <strong>{{ data.employeeName || '-' }}</strong>
+      </div>
+    </div>
+    <div class="work-entry-dialog__detail">
+      <span class="work-entry-dialog__detail-icon" aria-hidden="true"><i class="ri-calendar-event-line"></i></span>
+      <div class="work-entry-dialog__detail-copy">
+        <span>Missing date</span>
+        <strong>{{ data.date | date:'mediumDate' }}</strong>
+      </div>
     </div>
   </div>
 
-  <div class="dsr-request-dialog__summary">
-    <div>
-      <span>Employee</span>
-      <strong>{{ data.employeeName || '-' }}</strong>
+  <div *ngIf="data.mode === 'view'" class="work-entry-dialog__reason-list">
+    <div class="work-entry-dialog__existing-reason">
+      <span class="work-entry-dialog__section-label">Request reason</span>
+      <p>{{ data.requestReason || 'No request reason was provided.' }}</p>
     </div>
-    <div>
-      <span>Missing date</span>
-      <strong>{{ data.date | date:'mediumDate' }}</strong>
+    <div *ngIf="data.rejectionReason" class="work-entry-dialog__existing-reason work-entry-dialog__rejection-reason">
+      <span class="work-entry-dialog__section-label">Rejection reason</span>
+      <p>{{ data.rejectionReason }}</p>
     </div>
+    <footer class="work-entry-dialog__actions">
+      <button type="button" mat-flat-button color="primary" class="work-entry-dialog__submit" (click)="close()">Close</button>
+    </footer>
   </div>
 
-  <form [formGroup]="form" (ngSubmit)="submit()">
-    <div *ngIf="data.existingReason && data.mode === 'approve'" class="dsr-request-dialog__existing-reason">
-      <span>Request reason</span>
+  <form *ngIf="data.mode !== 'view'" [formGroup]="form" (ngSubmit)="submit()" aria-labelledby="work-entry-dialog-title"
+    aria-describedby="work-entry-dialog-description">
+    <div *ngIf="data.existingReason && data.mode === 'approve'" class="work-entry-dialog__existing-reason">
+      <span class="work-entry-dialog__section-label">Request reason</span>
       <p>{{ data.existingReason }}</p>
     </div>
 
-    <div *ngIf="requiresReason" class="dsr-request-dialog__field">
-      <label for="dsr-request-reason">{{ data.mode === 'reject' ? 'Rejection reason' : 'Reason' }}</label>
-      <textarea id="dsr-request-reason" formControlName="reason" rows="4" maxlength="500"
-        [placeholder]="data.mode === 'reject' ? 'Enter the reason for rejection...' : 'Enter the reason for this request...'">
+    <div *ngIf="requiresReason" class="work-entry-dialog__field">
+      <div class="work-entry-dialog__field-heading">
+        <label for="work-entry-reason">{{ data.mode === 'reject' ? 'Rejection reason' : 'Reason' }}</label>
+        <span>Required</span>
+      </div>
+      <textarea id="work-entry-reason" formControlName="reason" rows="4" maxlength="500"
+        [placeholder]="data.mode === 'reject' ? 'Enter the reason for rejection...' : 'Enter the reason for this request...'"
+        [attr.aria-invalid]="form.get('reason')?.invalid && form.get('reason')?.touched"
+        [attr.aria-describedby]="form.get('reason')?.invalid && form.get('reason')?.touched ? 'work-entry-reason-error work-entry-reason-count' : 'work-entry-reason-count'">
       </textarea>
-      <div class="dsr-request-dialog__field-meta">
-        <span class="dsr-request-dialog__error" *ngIf="form.get('reason')?.invalid && form.get('reason')?.touched">
+      <div class="work-entry-dialog__field-meta">
+        <span id="work-entry-reason-error" class="work-entry-dialog__error"
+          *ngIf="form.get('reason')?.invalid && form.get('reason')?.touched" role="alert">
           A reason is required.
         </span>
-        <span>{{ (form.get('reason')?.value || '').length }}/500</span>
+        <span id="work-entry-reason-count">{{ (form.get('reason')?.value || '').length }}/500</span>
       </div>
     </div>
 
-    <div class="dsr-request-dialog__actions">
-      <button type="button" mat-stroked-button class="dsr-request-dialog__cancel" (click)="close()">Cancel</button>
-      <button type="submit" mat-flat-button color="primary" [class.dsr-request-dialog__reject]="data.mode === 'reject'">
+    <footer class="work-entry-dialog__actions">
+      <button type="button" mat-stroked-button class="work-entry-dialog__cancel" (click)="close()">Cancel</button>
+      <button type="submit" mat-flat-button color="primary" class="work-entry-dialog__submit"
+        [class.work-entry-dialog__submit--reject]="data.mode === 'reject'">
+        <i [class]="data.mode === 'approve' ? 'ri-check-line' : data.mode === 'reject' ? 'ri-close-line' : 'ri-send-plane-line'"
+          aria-hidden="true"></i>
         {{ data.mode === 'approve' ? 'Approve' : data.mode === 'reject' ? 'Reject' : 'Send request' }}
       </button>
-    </div>
+    </footer>
   </form>
-</div>
+</section>
